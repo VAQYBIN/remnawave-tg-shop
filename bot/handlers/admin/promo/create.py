@@ -241,9 +241,9 @@ async def process_promo_discount_percentage_handler(message: types.Message,
         # Step 3: Ask for max activations
         data = await state.get_data()
         prompt_text = _(
-            "admin_promo_step3_max_activations",
+            "admin_promo_step3_max_activations_discount",
             code=data.get("promo_code"),
-            bonus_days=f"{discount_percentage}%"  # Display as percentage in place of bonus_days
+            discount_percentage=discount_percentage
         )
 
         await message.answer(
@@ -284,15 +284,25 @@ async def process_promo_max_activations_handler(message: types.Message,
             return
         
         await state.update_data(max_activations=max_activations)
-        
+
         # Step 4: Ask for validity
         data = await state.get_data()
-        prompt_text = _(
-            "admin_promo_step4_validity",
-            code=data.get("promo_code"),
-            bonus_days=data.get("bonus_days"),
-            max_activations=max_activations
-        )
+        promo_type = data.get("promo_type", "bonus_days")
+
+        if promo_type == "discount":
+            prompt_text = _(
+                "admin_promo_step4_validity_discount",
+                code=data.get("promo_code"),
+                discount_percentage=data.get("discount_percentage"),
+                max_activations=max_activations
+            )
+        else:
+            prompt_text = _(
+                "admin_promo_step4_validity",
+                code=data.get("promo_code"),
+                bonus_days=data.get("bonus_days"),
+                max_activations=max_activations
+            )
         
         # Create keyboard for validity options
         builder = InlineKeyboardBuilder()
@@ -356,12 +366,15 @@ async def process_promo_set_validity(callback: types.CallbackQuery,
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     data = await state.get_data()
-    prompt_text = _(
-        "admin_promo_enter_validity_days",
-        code=data.get("promo_code"),
-        bonus_days=data.get("bonus_days"),
-        max_activations=data.get("max_activations")
-    )
+    promo_type = data.get("promo_type", "bonus_days")
+
+    # Display the correct text based on promo type
+    if promo_type == "discount":
+        value_info = f"{data.get('discount_percentage')}%"
+    else:
+        value_info = f"{data.get('bonus_days')} дней"
+
+    prompt_text = f"⏰ Введите количество дней действия промокода (1-365):\n\nКод: <b>{data.get('promo_code')}</b>\n{'Скидка' if promo_type == 'discount' else 'Бонус'}: <b>{value_info}</b>\nМакс. активаций: <b>{data.get('max_activations')}</b>"
     
     try:
         await callback.message.edit_text(
@@ -461,21 +474,25 @@ async def create_promo_code_final(callback_or_message,
         logging.info(f"Promo code '{data['promo_code']}' ({promo_type}) created with ID {created_promo.promo_code_id}")
 
         # Success message
-        valid_until_str = _("admin_promo_unlimited") if not data.get("validity_days") else f"{data['validity_days']} days"
+        valid_until_str = _("admin_promo_unlimited") if not data.get("validity_days") else f"{data['validity_days']} дней"
 
         # Format success message based on type
         if promo_type == "discount":
-            value_display = f"{data['discount_percentage']}%"
+            success_text = _(
+                "admin_promo_created_success_discount",
+                code=data["promo_code"],
+                discount_percentage=data['discount_percentage'],
+                max_activations=data["max_activations"],
+                valid_until_str=valid_until_str
+            )
         else:
-            value_display = f"{data['bonus_days']} days"
-
-        success_text = _(
-            "admin_promo_created_success",
-            code=data["promo_code"],
-            bonus_days=value_display,  # Reusing bonus_days placeholder for display
-            max_activations=data["max_activations"],
-            valid_until_str=valid_until_str
-        )
+            success_text = _(
+                "admin_promo_created_success",
+                code=data["promo_code"],
+                bonus_days=data['bonus_days'],
+                max_activations=data["max_activations"],
+                valid_until_str=valid_until_str
+            )
         
         if hasattr(callback_or_message, 'message'):  # CallbackQuery
             try:
