@@ -18,7 +18,6 @@ from bot.services.notification_service import NotificationService
 from db.dal import payment_dal, user_dal
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
-from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
 
 
 class CryptoPayService:
@@ -73,9 +72,14 @@ class CryptoPayService:
             return None
 
         # Apply active discount if exists
-        final_amount, discount_amount, promo_code_id = await apply_discount_to_payment(
-            session, user_id, amount, promo_code_service
-        )
+        if promo_code_service:
+            # Import here to avoid circular import
+            from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
+            final_amount, discount_amount, promo_code_id = await apply_discount_to_payment(
+                session, user_id, amount, promo_code_service
+            )
+        else:
+            final_amount, discount_amount, promo_code_id = amount, None, None
 
         # Create pending payment in DB and commit to persist
         try:

@@ -15,7 +15,6 @@ from .notification_service import NotificationService
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
-from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
 
 
 class StarsService:
@@ -37,6 +36,9 @@ class StarsService:
         promo_code_id = None
 
         if promo_code_service:
+            # Import here to avoid circular import
+            from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
+
             # Apply discount and round up using ceiling
             final_price_float, discount_float, promo_code_id = await apply_discount_to_payment(
                 session, user_id, float(stars_price), promo_code_service
