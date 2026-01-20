@@ -189,6 +189,7 @@ class PlategaService:
                         int(payment_months) if sale_mode != "traffic" else 0,
                         float(payment.amount),
                         payment.payment_id,
+                        promo_code_id_from_payment=payment.promo_code_id,
                         provider="platega",
                         sale_mode=sale_mode,
                         traffic_gb=payment_months if sale_mode == "traffic" else None,

@@ -18,6 +18,7 @@ from bot.services.notification_service import NotificationService
 from db.dal import payment_dal, user_dal
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
+from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
 
 
 class CryptoPayService:
@@ -65,10 +66,16 @@ class CryptoPayService:
         amount: float,
         description: str,
         sale_mode: str = "subscription",
+        promo_code_service=None,
     ) -> Optional[str]:
         if not self.configured or not self.client:
             logging.error("CryptoPayService not configured")
             return None
+
+        # Apply active discount if exists
+        final_amount, discount_amount, promo_code_id = await apply_discount_to_payment(
+            session, user_id, amount, promo_code_service
+        )
 
         # Create pending payment in DB and commit to persist
         try:
@@ -76,12 +83,15 @@ class CryptoPayService:
                 session,
                 {
                     "user_id": user_id,
-                    "amount": float(amount),
+                    "amount": final_amount,
+                    "original_amount": amount if discount_amount else None,
+                    "discount_applied": discount_amount,
                     "currency": self.settings.CRYPTOPAY_ASSET,
                     "status": "pending_cryptopay",
                     "description": description,
                     "subscription_duration_months": int(months),
                     "provider": "cryptopay",
+                    "promo_code_id": promo_code_id,
                 },
             )
             await session.commit()
@@ -101,7 +111,7 @@ class CryptoPayService:
         })
         try:
             invoice = await self.client.create_invoice(
-                amount=amount,
+                amount=final_amount,
                 currency_type=self.settings.CRYPTOPAY_CURRENCY_TYPE,
                 fiat=self.settings.CRYPTOPAY_ASSET if self.settings.CRYPTOPAY_CURRENCY_TYPE == "fiat" else None,
                 asset=self.settings.CRYPTOPAY_ASSET if self.settings.CRYPTOPAY_CURRENCY_TYPE == "crypto" else None,
@@ -153,6 +163,12 @@ class CryptoPayService:
 
         async with async_session_factory() as session:
             try:
+                # Fetch payment record to get promo_code_id
+                payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+                if not payment_record:
+                    logging.error(f"CryptoPay: Payment record {payment_db_id} not found")
+                    return
+
                 await payment_dal.update_provider_payment_and_status(
                     session,
                     payment_db_id,
@@ -165,6 +181,7 @@ class CryptoPayService:
                     int(months) if sale_mode != "traffic" else 0,
                     float(invoice.amount),
                     payment_db_id,
+                    promo_code_id_from_payment=payment_record.promo_code_id,
                     provider="cryptopay",
                     sale_mode=sale_mode,
                     traffic_gb=traffic_gb if sale_mode == "traffic" else None,

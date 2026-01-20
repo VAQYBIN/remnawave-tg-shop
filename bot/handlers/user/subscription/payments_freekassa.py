@@ -10,6 +10,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.freekassa_service import FreeKassaService
 from config.settings import Settings
 from db.dal import payment_dal
+from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
 
 router = Router(name="user_subscription_payments_freekassa_router")
 
@@ -21,6 +22,7 @@ async def pay_fk_callback_handler(
     i18n_data: dict,
     freekassa_service: FreeKassaService,
     session: AsyncSession,
+    promo_code_service=None,
 ):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -68,14 +70,22 @@ async def pay_fk_callback_handler(
     )
     currency_code = getattr(freekassa_service, "default_currency", None) or settings.DEFAULT_CURRENCY_SYMBOL or "RUB"
 
+    # Apply active discount if exists
+    final_price_rub, discount_amount, promo_code_id = await apply_discount_to_payment(
+        session, user_id, price_rub, promo_code_service
+    )
+
     payment_record_payload = {
         "user_id": user_id,
-        "amount": price_rub,
+        "amount": final_price_rub,
+        "original_amount": price_rub if discount_amount else None,
+        "discount_applied": discount_amount,
         "currency": currency_code,
         "status": "pending_freekassa",
         "description": payment_description,
         "subscription_duration_months": int(months),
         "provider": "freekassa",
+        "promo_code_id": promo_code_id,
     }
 
     try:
@@ -101,7 +111,7 @@ async def pay_fk_callback_handler(
         payment_db_id=payment_record.payment_id,
         user_id=payment_record.user_id,
         months=months,
-        amount=price_rub,
+        amount=final_price_rub,
         currency=freekassa_service.default_currency,
         payment_method_id=freekassa_service.payment_method_id,
         ip_address=freekassa_service.server_ip,

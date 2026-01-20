@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Optional
 
 from aiogram import Bot, types
@@ -14,6 +15,7 @@ from .notification_service import NotificationService
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
 from bot.utils.text_sanitizer import sanitize_display_name, username_for_display
 from bot.utils.config_link import prepare_config_links
+from bot.handlers.user.subscription.payment_discount_helper import apply_discount_to_payment
 
 
 class StarsService:
@@ -27,15 +29,37 @@ class StarsService:
         self.referral_service = referral_service
 
     async def create_invoice(self, session: AsyncSession, user_id: int, months: int,
-                             stars_price: int, description: str, sale_mode: str = "subscription") -> Optional[int]:
+                             stars_price: int, description: str, sale_mode: str = "subscription",
+                             promo_code_service=None) -> Optional[int]:
+        # Apply active discount if exists (Stars use ceiling rounding)
+        original_stars_price = stars_price
+        discount_amount_stars = None
+        promo_code_id = None
+
+        if promo_code_service:
+            # Apply discount and round up using ceiling
+            final_price_float, discount_float, promo_code_id = await apply_discount_to_payment(
+                session, user_id, float(stars_price), promo_code_service
+            )
+            if discount_float:
+                # Apply ceiling rounding for fractional Stars amounts
+                stars_price = math.ceil(final_price_float)
+                discount_amount_stars = original_stars_price - stars_price
+                logging.info(
+                    f"Stars discount applied: {original_stars_price} -> {final_price_float:.2f} -> {stars_price} (ceiling)"
+                )
+
         payment_record_data = {
             "user_id": user_id,
             "amount": float(stars_price),
+            "original_amount": float(original_stars_price) if discount_amount_stars else None,
+            "discount_applied": float(discount_amount_stars) if discount_amount_stars else None,
             "currency": "XTR",
             "status": "pending_stars",
             "description": description,
             "subscription_duration_months": int(months),
             "provider": "telegram_stars",
+            "promo_code_id": promo_code_id,
         }
         try:
             db_payment_record = await payment_dal.create_payment_record(
@@ -72,6 +96,10 @@ class StarsService:
                                          stars_amount: int,
                                          i18n_data: dict,
                                          sale_mode: str = "subscription") -> None:
+        # Fetch payment record to get promo_code_id
+        payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
+        promo_code_id_from_payment = payment_record.promo_code_id if payment_record else None
+
         try:
             await payment_dal.update_provider_payment_and_status(
                 session, payment_db_id,
@@ -91,6 +119,7 @@ class StarsService:
             int(months) if sale_mode != "traffic" else 0,
             float(stars_amount),
             payment_db_id,
+            promo_code_id_from_payment=promo_code_id_from_payment,
             provider="telegram_stars",
             sale_mode=sale_mode,
             traffic_gb=months if sale_mode == "traffic" else None,
