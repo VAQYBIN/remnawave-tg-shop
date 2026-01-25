@@ -69,3 +69,20 @@ async def clear_active_discount(
     if cleared:
         logging.info(f"Active discount cleared for user {user_id}")
     return cleared
+
+
+async def clear_active_discounts_by_promo_code(
+    session: AsyncSession,
+    promo_code_id: int
+) -> int:
+    """
+    Clear all active discounts associated with a specific promo code.
+    Returns the number of discounts cleared.
+    """
+    stmt = delete(ActiveDiscount).where(ActiveDiscount.promo_code_id == promo_code_id)
+    result = await session.execute(stmt)
+    await session.flush()
+    count = result.rowcount
+    if count > 0:
+        logging.info(f"Cleared {count} active discount(s) for promo_code_id={promo_code_id}")
+    return count

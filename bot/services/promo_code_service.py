@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Tuple, Dict
 from aiogram import Bot
@@ -165,6 +165,16 @@ class PromoCodeService:
         )
         if not promo:
             # Discount exists but promo not found - clear it
+            await active_discount_dal.clear_active_discount(session, user_id)
+            return None
+
+        # Check if promo code has expired
+        if promo.valid_until and promo.valid_until <= datetime.now(timezone.utc):
+            # Promo code expired - clear the discount
+            logging.info(
+                f"Promo code {promo.code} expired (valid_until: {promo.valid_until}). "
+                f"Clearing active discount for user {user_id}"
+            )
             await active_discount_dal.clear_active_discount(session, user_id)
             return None
 

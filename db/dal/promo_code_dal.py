@@ -132,16 +132,29 @@ async def update_promo_code(session: AsyncSession, promo_id: int,
 
 
 async def delete_promo_code(session: AsyncSession, promo_id: int) -> Optional[PromoCode]:
+    from db.dal import active_discount_dal
+
     promo = await get_promo_code_by_id(session, promo_id)
     if not promo:
         return None
-    # First, delete related activations due to foreign key constraint
+
+    # 1. Clear all active discounts referencing this promo code
+    await active_discount_dal.clear_active_discounts_by_promo_code(session, promo_id)
+
+    # 2. Set promo_code_id to NULL in payments table to avoid FK violation
+    stmt = update(Payment).where(Payment.promo_code_id == promo_id).values(promo_code_id=None)
+    await session.execute(stmt)
+
+    # 3. Delete related activations
     activations = await get_promo_activations_by_code_id(session, promo_id)
     for activation in activations:
         await session.delete(activation)
-    
+
+    # 4. Delete the promo code itself
     await session.delete(promo)
     await session.flush()
+
+    logging.info(f"Promo code '{promo.code}' (ID: {promo_id}) deleted successfully")
     return promo
 
 
