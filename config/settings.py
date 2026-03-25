@@ -646,6 +646,18 @@ class Settings(BaseSettings):
             return None
         return v
     
+    # Web Dashboard
+    WEB_JWT_SECRET: Optional[str] = Field(default=None, description="Secret key for JWT signing")
+    WEB_JWT_ACCESS_EXPIRE_MINUTES: int = Field(default=15)
+    WEB_JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)
+    REDIS_URL: str = Field(default="redis://localhost:6379/0")
+    RESEND_API_KEY: Optional[str] = Field(default=None)
+    RESEND_FROM_EMAIL: str = Field(default="noreply@raccoonito.org")
+    WEB_FRONTEND_URL: str = Field(default="https://app.raccoonito.org")
+    WEB_API_URL: str = Field(default="https://api.raccoonito.org")
+    NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
+    WEB_CORS_ORIGINS: str = Field(default="https://app.raccoonito.org")
+
     @field_validator(
         'REQUIRED_CHANNEL_ID',
         'FREEKASSA_PAYMENT_METHOD_ID',
@@ -655,6 +667,7 @@ class Settings(BaseSettings):
         'LOG_CHAT_ID',
         'LOG_THREAD_ID',
         'YOOKASSA_TAX_SYSTEM_CODE',
+        'NEWS_CHANNEL_ID',
         mode='before'
     )
     @classmethod

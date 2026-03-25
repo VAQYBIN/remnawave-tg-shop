@@ -1,8 +1,11 @@
+import uuid as _uuid
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger
-from sqlalchemy.orm import relationship, DeclarativeBase
+from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column, backref
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
+from typing import Optional
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -301,3 +304,48 @@ class AdAttribution(Base):
 
     user = relationship("User")
     campaign = relationship("AdCampaign", back_populates="attributions")
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[_uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid.uuid4)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    telegram_user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
+    )
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    language_code: Mapped[str] = mapped_column(String(10), default="ru")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    telegram_user = relationship("User", backref=backref("account", uselist=False), lazy="selectin")
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[Optional[_uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChannelPost(Base):
+    __tablename__ = "channel_posts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telegram_message_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    entities_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    media_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    media_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    media_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

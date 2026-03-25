@@ -32,9 +32,53 @@ services:
       timeout: 5s
       retries: 20
 
+  remnawave-tg-shop-redis:
+    image: redis:7-alpine
+    container_name: remnawave-tg-shop-redis
+    hostname: remnawave-tg-shop-redis
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  remnawave-tg-shop-web-api:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: remnawave-tg-shop-web-api
+    hostname: remnawave-tg-shop-web-api
+    env_file:
+      - .env
+    ports:
+      - "8090:8090"
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-db:
+        condition: service_healthy
+      remnawave-tg-shop-redis:
+        condition: service_healthy
+
+  remnawave-tg-shop-web-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: remnawave-tg-shop-web-frontend
+    hostname: remnawave-tg-shop-web-frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+
 networks:
   remnawave-network:
-    external: true
+    external: false
 
 volumes:
   remnawave-tg-shop-db-data:

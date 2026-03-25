@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: 197 74% 52%;
+    --primary-foreground: 0 0% 100%;
+    --background: 40 11% 95%;
+    --foreground: 0 0% 17%;
+    --card: 0 0% 100%;
+    --secondary: 27 14% 48%;
+    --muted: 40 8% 90%;
+    --muted-foreground: 0 0% 40%;
+    --border: 30 8% 85%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    margin: 0;
+  }
+}
