@@ -1,7 +1,7 @@
 services:
   remnawave-tg-shop:
     image: kavore/remnawave-tg-shop:latest
-#    build: .
+    build: .
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     env_file:
@@ -68,6 +68,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${WEB_API_URL:-http://localhost:8090}/api
     container_name: remnawave-tg-shop-web-frontend
     hostname: remnawave-tg-shop-web-frontend
     ports:

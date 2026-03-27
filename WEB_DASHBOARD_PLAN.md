@@ -113,7 +113,7 @@ remnawave-tg-shop/
 │   │   ├── __init__.py
 │   │   ├── router.py             # POST /auth/*
 │   │   ├── jwt_service.py        # создание/валидация JWT, refresh rotation
-│   │   ├── telegram_auth.py      # верификация Telegram Login Widget HMAC
+│   │   ├── telegram_auth.py      # верификация Telegram OIDC id_token (RS256 + JWKS)
 │   │   ├── email_service.py      # отправка кодов через Resend
 │   │   └── password.py           # bcrypt hash/verify
 │   ├── routers/
@@ -298,7 +298,8 @@ alembic revision --autogenerate -m "add web accounts, email verification codes, 
 
 | Метод | Путь | Описание | Auth |
 |-------|------|----------|------|
-| POST | `/auth/telegram` | Вход через Telegram Login Widget | — |
+| GET  | `/auth/telegram/nonce` | Получить одноразовый nonce для OIDC-запроса | — |
+| POST | `/auth/telegram` | Вход через Telegram OIDC (id_token JWT) | — |
 | POST | `/auth/register/send-code` | Отправка кода на email | — |
 | POST | `/auth/register/verify` | Верификация кода + установка пароля | — |
 | POST | `/auth/login` | Вход по email + пароль | — |
@@ -315,7 +316,7 @@ alembic revision --autogenerate -m "add web accounts, email verification codes, 
 | PATCH | `/profile/language` | Смена языка | Access |
 | POST | `/profile/email/send-code` | Код для смены email | Access |
 | POST | `/profile/email/verify` | Подтверждение смены email | Access |
-| POST | `/profile/link-telegram` | Привязка Telegram (widget data) | Access |
+| POST | `/profile/link-telegram` | Привязка Telegram (OIDC id_token) | Access |
 
 ### Подписка (`/api/subscription/`)
 
@@ -373,18 +374,41 @@ alembic revision --autogenerate -m "add web accounts, email verification codes, 
 
 ## Потоки аутентификации
 
-### 1. Telegram Login Widget
+### 1. Telegram OpenID Connect (OIDC)
+
+**Протокол**: Authorization Code + PKCE, стандарт OpenID Connect
+**Документация**: https://core.telegram.org/bots/telegram-login
+**OIDC Discovery**: https://oauth.telegram.org/.well-known/openid-configuration
 
 ```
-Браузер → TG Widget → auth data (id, first_name, username, hash, auth_date)
-       → POST /api/auth/telegram
-       → Бэкенд: verify HMAC-SHA256 с BOT_TOKEN
-       → Ищет Account по telegram_user_id
-         → Если нет Account, но есть User → создать Account + привязать
-         → Если нет ни Account ни User → создать User + Account
-       → Выдать JWT пару (access + refresh)
-       → Refresh в HttpOnly cookie, access в теле ответа
+Браузер:
+  1. GET /api/auth/telegram/nonce
+     ← { nonce: "abc123" }  (сохранить в Redis с TTL 5 мин)
+
+  2. Telegram.Login.auth({ client_id, nonce, request_access: ['write'] }, callback)
+     → Telegram popup → пользователь подтверждает
+     ← callback({ id_token: "eyJ..." })   (JWT, подписан RS256)
+
+  3. POST /api/auth/telegram { id_token, nonce }
+
+Бэкенд:
+  → Fetch JWKS: GET https://oauth.telegram.org/.well-known/jwks.json (кэш 1 ч)
+  → Верификация id_token:
+      - Подпись RS256 через публичный ключ из JWKS (kid matching)
+      - iss == "https://oauth.telegram.org"
+      - aud == TELEGRAM_CLIENT_ID
+      - exp > now
+      - nonce из токена == nonce из Redis → удалить из Redis
+  → Извлечь telegram_user_id из payload.id (int) или payload.sub
+  → Найти/создать Account по telegram_user_id
+  → Выдать JWT пару (access + refresh)
+  → Refresh в HttpOnly cookie, access в теле ответа
 ```
+
+**Токен Telegram**: JWT с RS256, claims: `iss`, `aud`, `sub` (string), `id` (int),
+`name`, `preferred_username`, `picture`, `exp`, `iat`, `nonce`
+
+**Нет UserInfo endpoint** — все данные в id_token.
 
 ### 2. Email-регистрация
 
@@ -435,10 +459,11 @@ POST /auth/login { email, password }
 ### 6. Привязка Telegram на сайте
 
 ```
-POST /api/profile/link-telegram { id, first_name, username, hash, auth_date }
-→ Verify HMAC
-→ Найти существующий User по telegram_id
-  → Если есть User с Account → merge (объединить подписки/платежи)
+POST /api/profile/link-telegram { id_token }
+→ Верифицировать id_token (JWKS, iss, aud, exp) — без nonce (уже авторизован)
+→ Извлечь telegram_user_id из payload.id
+→ Найти существующий User по telegram_user_id
+  → Если есть User с другим Account → merge (объединить данные)
   → Если есть User без Account → привязать к текущему Account
   → Если нет User → создать User, привязать к Account
 ```
@@ -526,6 +551,18 @@ WEB_API_URL: str = "https://api.raccoonito.org"
 NEWS_CHANNEL_ID: Optional[int] = None      # Telegram channel для новостей
 
 WEB_CORS_ORIGINS: str = "https://app.raccoonito.org"  # через запятую
+
+# === Telegram OIDC ===
+# Получить в @BotFather → Bot Settings → Web Login
+TELEGRAM_CLIENT_ID: Optional[int] = None   # Числовой ID бота (= bot_id, не токен)
+TELEGRAM_CLIENT_SECRET: Optional[str] = None  # Секрет из BotFather (для token exchange если нужен)
+# TELEGRAM_JWKS_URI (не нужен в .env — фиксированный: https://oauth.telegram.org/.well-known/jwks.json)
+```
+
+**Фронтенд build args** (Docker + `.env`):
+```
+VITE_BOT_CLIENT_ID=123456789     # Числовой ID бота для telegram-login.js
+VITE_API_URL=https://api.raccoonito.org/api
 ```
 
 ---
@@ -657,30 +694,34 @@ volumes:
 ### Фаза 2: Аутентификация
 **Цель**: полный auth flow — все 3 метода входа
 
-1. JWT сервис (`web/auth/jwt_service.py`) — access + refresh, Redis для revocation
-2. Telegram Login Widget верификация (`web/auth/telegram_auth.py`)
-3. Email сервис через Resend (`web/auth/email_service.py`)
-4. Bcrypt хеширование (`web/auth/password.py`)
-5. Все auth эндпоинты (`web/auth/router.py`)
-6. `get_current_account` dependency для защищённых маршрутов
-7. Rate limiting на auth эндпоинтах
-8. Фронтенд: Vite + React + React Router + Shadcn/ui setup
-9. Фронтенд: LoginPage, RegisterPage, ForgotPasswordPage
-10. Фронтенд: AuthProvider, ProtectedRoute, API client с auto-refresh
+1. JWT сервис (`web/auth/jwt_service.py`) — access + refresh, Redis для revocation ✅
+2. Telegram OIDC верификация (`web/auth/telegram_auth.py`):
+   - `GET /auth/telegram/nonce` — генерация nonce, хранение в Redis
+   - Верификация `id_token` через JWKS (RS256, kid matching, кэш ключей 1 ч)
+   - Проверка: `iss`, `aud == TELEGRAM_CLIENT_ID`, `exp`, `nonce`
+   - Требует пакет `cryptography` (PyJWT RS256 backend)
+3. Email сервис через Resend (`web/auth/email_service.py`) ✅
+4. Bcrypt хеширование (`web/auth/password.py`) ✅
+5. Все auth эндпоинты (`web/auth/router.py`) ✅
+6. `get_current_account` dependency для защищённых маршрутов ✅
+7. Rate limiting на auth эндпоинтах ✅
+8. Фронтенд: Vite + React + React Router + UI компоненты setup ✅
+9. Фронтенд: LoginPage (с `Telegram.Login.auth()` из `telegram-login.js`), RegisterPage, ForgotPasswordPage ✅
+10. Фронтенд: AuthProvider, ProtectedRoute, API client с auto-refresh ✅
 
 **context7**: `pyjwt`, `resend`, `vite`, `react-router`, `shadcn-ui`, `tailwindcss`
 
 **Контрольная проверка Фазы 2:**
-- [ ] Регистрация через email: код приходит на почту, аккаунт создаётся в БД
-- [ ] Вход по email + пароль: access token возвращается, refresh в cookie
-- [ ] Вход через Telegram Widget: аккаунт создаётся/находится, JWT выдаётся
-- [ ] Refresh token: `POST /auth/refresh` выдаёт новый access token
-- [ ] Logout: refresh token инвалидируется в Redis
-- [ ] Сброс пароля: код на email → новый пароль работает
-- [ ] Защищённый эндпоинт отклоняет запросы без/с невалидным JWT
-- [ ] Фронтенд: страницы Login, Register, ForgotPassword отображаются корректно
-- [ ] Фронтенд: после логина — редирект на /dashboard
-- [ ] Фронтенд: без токена — редирект на /login
+- [ ] Регистрация через email: код приходит на почту, аккаунт создаётся в БД ✅
+- [ ] Вход по email + пароль: access token возвращается, refresh в cookie ✅
+- [ ] Вход через Telegram OIDC: popup → id_token верифицируется → JWT выдаётся
+- [ ] Refresh token: `POST /auth/refresh` выдаёт новый access token ✅
+- [ ] Logout: refresh token инвалидируется в Redis ✅
+- [ ] Сброс пароля: код на email → новый пароль работает ✅
+- [ ] Защищённый эндпоинт отклоняет запросы без/с невалидным JWT ✅
+- [ ] Фронтенд: страницы Login, Register, ForgotPassword отображаются корректно ✅
+- [ ] Фронтенд: после логина — редирект на /dashboard ✅
+- [ ] Фронтенд: без токена — редирект на /login ✅
 
 ---
 

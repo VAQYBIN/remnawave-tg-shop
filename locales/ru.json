@@ -31,7 +31,7 @@
   "choose_payment_method": "Выберите способ оплаты:",
   "choose_payment_method_traffic": "Выберите способ оплаты пакета трафика:",
   "pay_button": "💳 Оплатить",
-  "pay_with_yookassa_button": "💳 ЮKassa",
+  "pay_with_yookassa_button": "💳 Картой/СБП",
   "yookassa_autopay_flow_prompt": "Автопродление включено. Выберите, как оплатить подписку:",
   "yookassa_autopay_pay_saved_card_button": "💳 Оплата привязанной картой",
   "yookassa_autopay_pay_new_card_button": "➕ Оплата новой картой",

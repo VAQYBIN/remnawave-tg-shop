@@ -647,6 +647,10 @@ class Settings(BaseSettings):
         return v
     
     # Web Dashboard
+    TELEGRAM_OIDC_CLIENT_SECRET: Optional[str] = Field(
+        default=None,
+        description="Telegram OIDC Client Secret from BotFather OAuth Settings (separate from BOT_TOKEN)",
+    )
     WEB_JWT_SECRET: Optional[str] = Field(default=None, description="Secret key for JWT signing")
     WEB_JWT_ACCESS_EXPIRE_MINUTES: int = Field(default=15)
     WEB_JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)
@@ -657,6 +661,15 @@ class Settings(BaseSettings):
     WEB_API_URL: str = Field(default="https://api.raccoonito.org")
     NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
     WEB_CORS_ORIGINS: str = Field(default="https://app.raccoonito.org")
+
+    @computed_field
+    @property
+    def telegram_client_id(self) -> Optional[int]:
+        """Numeric bot ID extracted from BOT_TOKEN (the part before ':')."""
+        try:
+            return int(self.BOT_TOKEN.split(":")[0])
+        except (ValueError, IndexError, AttributeError):
+            return None
 
     @field_validator(
         'REQUIRED_CHANNEL_ID',

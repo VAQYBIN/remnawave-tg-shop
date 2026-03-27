@@ -31,7 +31,7 @@
   "choose_payment_method": "Choose payment method:",
   "choose_payment_method_traffic": "Choose how to pay for the traffic package:",
   "pay_button": "💳 Pay",
-  "pay_with_yookassa_button": "💳 YooKassa",
+  "pay_with_yookassa_button": "💳 Card/SBP",
   "yookassa_autopay_flow_prompt": "Auto-renew is enabled. Choose how you'd like to pay:",
   "yookassa_autopay_pay_saved_card_button": "💳 Pay with saved card",
   "yookassa_autopay_pay_new_card_button": "➕ Pay with new card",

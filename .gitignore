@@ -25,3 +25,4 @@ db/models_old.py
 AGENTS.md
 CLAUDE.md
 .claude/
+/nginx

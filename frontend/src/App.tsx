@@ -1,9 +1,65 @@
-function App() {
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from '@/auth/AuthProvider'
+import { ProtectedRoute } from '@/auth/ProtectedRoute'
+import { LoginPage } from '@/pages/LoginPage'
+import { RegisterPage } from '@/pages/RegisterPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { SubscriptionPage } from '@/pages/SubscriptionPage'
+import { PaymentHistoryPage } from '@/pages/PaymentHistoryPage'
+import { PaymentCallbackPage } from '@/pages/PaymentCallbackPage'
+import { TelegramCallbackPage } from '@/pages/TelegramCallbackPage'
+
+export default function App() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <p>Raccoonito — coming soon</p>
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/auth/telegram/callback" element={<TelegramCallbackPage />} />
+
+          {/* Protected */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscription"
+            element={
+              <ProtectedRoute>
+                <SubscriptionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payments"
+            element={
+              <ProtectedRoute>
+                <PaymentHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment/callback"
+            element={
+              <ProtectedRoute>
+                <PaymentCallbackPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
-
-export default App
