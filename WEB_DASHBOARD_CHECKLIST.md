@@ -244,29 +244,35 @@
 ## ФАЗА 5: Фичи
 
 ### 5.1 Backend — Referral, Devices, Profile
-- [ ] Создать `web/schemas/referral.py`, `web/schemas/device.py`
-- [ ] Создать `web/routers/referral.py`:
-  - [ ] `GET /api/referral` — код, ссылка, статистика
-- [ ] Создать `web/routers/devices.py`:
-  - [ ] `GET /api/devices` — список устройств (через panel API)
-  - [ ] `DELETE /api/devices/{hwid}` — отключение устройства
-- [ ] В `web/routers/profile.py` добавить:
-  - [ ] `PATCH /api/profile/language` — смена языка
-  - [ ] `POST /api/profile/email/send-code` — код для смены email
-  - [ ] `POST /api/profile/email/verify` — подтверждение смены email
-  - [ ] `POST /api/profile/link-telegram` — привязка Telegram через widget
+- [x] Создать `web/schemas/referral.py`, `web/schemas/device.py`
+- [x] Создать `web/routers/referral.py`:
+  - [x] `GET /api/referral` — код, ссылка, статистика
+- [x] Создать `web/routers/devices.py`:
+  - [x] `GET /api/devices` — список устройств (через panel API)
+  - [x] `DELETE /api/devices/{hwid}` — отключение устройства
+- [x] В `web/routers/profile.py` добавить:
+  - [x] `PATCH /api/profile/language` — смена языка
+  - [x] `POST /api/profile/email/send-code` — код для смены email
+  - [x] `POST /api/profile/email/verify` — подтверждение смены email
+  - [x] `POST /api/profile/link-telegram` — привязка Telegram через OIDC PKCE
+- [x] Добавить `BOT_USERNAME` в `config/settings.py`
+- [x] Зарегистрировать новые роутеры в `web/main.py`
 
 ### 5.2 Bot — Email linking
-- [ ] Создать `bot/handlers/user/link_email.py` — FSM: ввод email → код → подтверждение
-- [ ] Создать `bot/states/link_email_states.py` — FSM states
-- [ ] Зарегистрировать хендлер в роутере
+- [x] Создать `bot/handlers/user/link_email.py` — FSM: ввод email → код → подтверждение
+- [x] Добавить `LinkEmailStates` в `bot/states/user_states.py`
+- [x] Зарегистрировать хендлер в `bot/handlers/user/__init__.py`
+- [x] Добавить i18n-ключи для link_email в `locales/ru.json` и `locales/en.json`
 - [ ] **ПРОВЕРКА**: в боте /link_email → привязка email → вход на сайт по email
 
 ### 5.3 Frontend — Feature pages
-- [ ] Создать `src/pages/ReferralPage.tsx` — реферальный код, ссылка, статистика
-- [ ] Создать `src/components/referral/ReferralStats.tsx` и `ReferralLink.tsx`
-- [ ] Создать `src/pages/DevicesPage.tsx` — список и отключение
-- [ ] Создать `src/pages/ProfilePage.tsx` — email, язык, привязка Telegram
+- [x] Создать `src/api/referral.ts`, `src/api/devices.ts`; обновить `src/api/profile.ts`
+- [x] Создать `src/pages/ReferralPage.tsx` — реферальный код, ссылка, статистика
+- [x] Создать `src/components/referral/ReferralStats.tsx` и `ReferralLink.tsx`
+- [x] Создать `src/pages/DevicesPage.tsx` — список и отключение
+- [x] Создать `src/pages/ProfilePage.tsx` — email, язык, привязка Telegram
+- [x] Добавить маршруты `/referral`, `/devices`, `/profile` в `App.tsx`
+- [x] Обновить `Sidebar.tsx` и `MobileNav.tsx` — добавить новые пункты навигации
 - [ ] **ПРОВЕРКА**: все страницы отображаются и функционируют
 
 ### КОНТРОЛЬНАЯ ПРОВЕРКА ФАЗЫ 5

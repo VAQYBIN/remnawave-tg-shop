@@ -1,21 +1,29 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
   CreditCard,
   Receipt,
+  Users,
+  Monitor,
+  User,
   LogOut,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Обзор' },
-  { to: '/subscription', icon: CreditCard, label: 'Подписка' },
-  { to: '/payments', icon: Receipt, label: 'Платежи' },
-]
-
 export function Sidebar() {
   const { logout } = useAuth()
+  const { t } = useTranslation()
+
+  const NAV_ITEMS = [
+    { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard') },
+    { to: '/subscription', icon: CreditCard, label: t('nav_subscription') },
+    { to: '/payments', icon: Receipt, label: t('nav_payments') },
+    { to: '/referral', icon: Users, label: t('nav_referral') },
+    { to: '/devices', icon: Monitor, label: t('nav_devices') },
+    { to: '/profile', icon: User, label: t('nav_profile') },
+  ]
 
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] p-4">
@@ -50,7 +58,7 @@ export function Sidebar() {
         className="justify-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
       >
         <LogOut size={18} />
-        Выйти
+        {t('nav_logout')}
       </Button>
     </aside>
   )

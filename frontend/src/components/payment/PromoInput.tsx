@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,7 @@ interface PromoInputProps {
 }
 
 export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: PromoInputProps) {
+  const { t } = useTranslation()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,10 +28,7 @@ export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: Pro
       onPromoApplied(result)
       setCode('')
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Промокод недействителен'
+      const msg = err instanceof Error ? err.message : t('promo_invalid')
       setError(msg)
     } finally {
       setLoading(false)
@@ -67,7 +66,7 @@ export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: Pro
     <div className="space-y-1">
       <div className="flex gap-2">
         <Input
-          placeholder="Промокод"
+          placeholder={t('promo_placeholder')}
           value={code}
           onChange={(e) => {
             setCode(e.target.value)
@@ -85,7 +84,7 @@ export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: Pro
           disabled={loading || !code.trim()}
           className="shrink-0"
         >
-          {loading ? '...' : 'Применить'}
+          {loading ? '...' : t('promo_apply')}
         </Button>
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}

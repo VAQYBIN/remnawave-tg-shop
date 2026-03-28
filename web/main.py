@@ -55,6 +55,12 @@ def create_app() -> FastAPI:
     from web.routers.promo import router as promo_router
     app.include_router(promo_router, prefix="/api")
 
+    from web.routers.referral import router as referral_router
+    app.include_router(referral_router, prefix="/api")
+
+    from web.routers.devices import router as devices_router
+    app.include_router(devices_router, prefix="/api")
+
     return app
 
 

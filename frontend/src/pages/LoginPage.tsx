@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { t } = useTranslation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
 
   const [email, setEmail] = useState('')
@@ -21,9 +23,9 @@ export function LoginPage() {
 
   useEffect(() => {
     const errorParam = searchParams.get('error')
-    if (errorParam === 'telegram_denied') setError('Вход через Telegram отменён')
-    else if (errorParam) setError('Ошибка входа через Telegram. Попробуйте снова.')
-  }, [searchParams])
+    if (errorParam === 'telegram_denied') setError(t('login_error_denied'))
+    else if (errorParam) setError(t('login_error_telegram'))
+  }, [searchParams, t])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -37,7 +39,7 @@ export function LoginPage() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Произошла ошибка. Попробуйте позже.')
+        setError(t('error_generic'))
       }
     } finally {
       setIsLoading(false)
@@ -47,28 +49,25 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Личный кабинет</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Вход</CardTitle>
-            <CardDescription>Войдите в свой аккаунт</CardDescription>
+            <CardTitle>{t('login_title')}</CardTitle>
+            <CardDescription>{t('login_subtitle')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {/* Telegram Login */}
             <TelegramLoginButton setError={setError} />
 
             <div className="flex items-center gap-2">
               <div className="flex-1 h-px bg-[hsl(var(--border))]" />
-              <span className="text-xs text-[hsl(var(--muted-foreground))]">или</span>
+              <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('or')}</span>
               <div className="flex-1 h-px bg-[hsl(var(--border))]" />
             </div>
 
-            {/* Email form */}
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               {error && (
                 <div className="rounded-[var(--radius)] bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
@@ -76,7 +75,7 @@ export function LoginPage() {
                 </div>
               )}
               <Input
-                label="Email"
+                label={t('login_email')}
                 id="email"
                 type="email"
                 placeholder="you@example.com"
@@ -86,7 +85,7 @@ export function LoginPage() {
                 autoComplete="email"
               />
               <Input
-                label="Пароль"
+                label={t('login_password')}
                 id="password"
                 type="password"
                 placeholder="••••••••"
@@ -100,18 +99,18 @@ export function LoginPage() {
                   to="/forgot-password"
                   className="text-xs text-[hsl(var(--primary))] hover:underline"
                 >
-                  Забыли пароль?
+                  {t('login_forgot')}
                 </Link>
               </div>
               <Button type="submit" isLoading={isLoading} className="w-full">
-                Войти
+                {t('login_submit')}
               </Button>
             </form>
 
             <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
-              Нет аккаунта?{' '}
+              {t('login_no_account')}{' '}
               <Link to="/register" className="text-[hsl(var(--primary))] hover:underline font-medium">
-                Зарегистрироваться
+                {t('login_register')}
               </Link>
             </p>
           </CardContent>
@@ -121,7 +120,7 @@ export function LoginPage() {
   )
 }
 
-// ─── Telegram OIDC Login (Authorization Code + PKCE) ───────────────────────
+// ─── Telegram OIDC Login ────────────────────────────────────────────────────
 
 const TELEGRAM_OAUTH_URL = 'https://oauth.telegram.org'
 const TG_PKCE_KEY = 'tg_pkce_verifier'
@@ -150,13 +149,15 @@ function generateState(): string {
 }
 
 function TelegramLoginButton({ setError }: { setError: (msg: string) => void }) {
+  const { t } = useTranslation()
+
   async function handleClick() {
     let clientId: number
     try {
       const resp = await getTelegramClientId()
       clientId = resp.client_id
     } catch {
-      setError('Не удалось получить конфигурацию Telegram')
+      setError(t('login_error_tg_config'))
       return
     }
 
@@ -192,7 +193,7 @@ function TelegramLoginButton({ setError }: { setError: (msg: string) => void }) 
           fill="#229ED9"
         />
       </svg>
-      Войти через Telegram
+      {t('login_telegram')}
     </button>
   )
 }

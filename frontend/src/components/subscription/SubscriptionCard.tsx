@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { type Subscription } from '@/api/subscription'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,28 +13,26 @@ function formatBytes(bytes: number): string {
   return `${bytes} Б`
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
 function daysLeft(endDate: string): number {
   const diff = new Date(endDate).getTime() - Date.now()
   return Math.max(0, Math.ceil(diff / 86_400_000))
 }
 
 export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
+  const { t, i18n } = useTranslation()
   const days = daysLeft(sub.end_date)
   const isExpiring = days <= 3
+
+  const formattedDate = new Date(sub.end_date).toLocaleDateString(
+    i18n.language === 'ru' ? 'ru-RU' : 'en-US',
+    { day: 'numeric', month: 'long', year: 'numeric' },
+  )
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Текущая подписка</CardTitle>
+          <CardTitle className="text-lg">{t('subcard_title')}</CardTitle>
           <Badge
             className={
               sub.is_active
@@ -41,29 +40,29 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
                 : 'bg-red-100 text-red-700'
             }
           >
-            {sub.is_active ? 'Активна' : 'Неактивна'}
+            {sub.is_active ? t('subcard_active') : t('subcard_inactive')}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex justify-between text-sm">
-          <span className="text-[hsl(var(--muted-foreground))]">Действует до</span>
+          <span className="text-[hsl(var(--muted-foreground))]">{t('subcard_valid_until')}</span>
           <span className={`font-medium ${isExpiring ? 'text-red-600' : ''}`}>
-            {formatDate(sub.end_date)}
+            {formattedDate}
           </span>
         </div>
 
         <div className="flex justify-between text-sm">
-          <span className="text-[hsl(var(--muted-foreground))]">Осталось дней</span>
+          <span className="text-[hsl(var(--muted-foreground))]">{t('subcard_days_left')}</span>
           <span className={`font-semibold ${isExpiring ? 'text-red-600' : 'text-[hsl(var(--primary))]'}`}>
-            {days} д.
+            {days} {t('subcard_days_suffix')}
           </span>
         </div>
 
         {sub.traffic_used_bytes != null && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm">
-              <span className="text-[hsl(var(--muted-foreground))]">Трафик</span>
+              <span className="text-[hsl(var(--muted-foreground))]">{t('subcard_traffic')}</span>
               <span className="font-medium">
                 {formatBytes(sub.traffic_used_bytes)}
                 {sub.traffic_limit_bytes ? ` / ${formatBytes(sub.traffic_limit_bytes)}` : ' / ∞'}
@@ -86,7 +85,7 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
 
         {sub.auto_renew_enabled && (
           <p className="text-xs text-[hsl(var(--muted-foreground))]">
-            Автопродление включено
+            {t('subcard_auto_renew')}
           </p>
         )}
       </CardContent>

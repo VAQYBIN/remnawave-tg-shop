@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import i18n from '@/i18n'
 import { setAccessToken } from '@/api/client'
 import { refreshToken, logout as apiLogout, type TokenResponse } from '@/api/auth'
 
@@ -38,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isEmailVerified: resp.is_email_verified,
       languageCode: resp.language_code,
     })
+    if (resp.language_code && resp.language_code !== i18n.language) {
+      i18n.changeLanguage(resp.language_code)
+    }
   }, [])
 
   const logout = useCallback(async () => {

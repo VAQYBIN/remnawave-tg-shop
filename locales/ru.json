@@ -519,5 +519,13 @@
   "no_bonus_placeholder": "нет",
   "payment_successful_with_promo_full": "✅ Оплата прошла успешно!\nВаша подписка на {months} мес. продлена на {bonus_days} бонусных дней по промокоду и активна до {end_date}.\n\nКлюч подключения:\n<code>{config_link}</code>\n\nЧтобы подключиться, перейдите по ссылке и следуйте инструкции 👇",
   "system_or_unknown_user": "Система/неизвестный пользователь",
-  "free_kassa_order_full": "Заказ №{order_id} от {date}\n\n"
+  "free_kassa_order_full": "Заказ №{order_id} от {date}\n\n",
+  "link_email_prompt": "📧 Введите ваш email, чтобы привязать его к аккаунту на сайте raccoonito.org:",
+  "link_email_already_linked": "✅ Email <b>{email}</b> уже привязан к вашему аккаунту.\n\nВы можете войти на сайт через email или Telegram.",
+  "link_email_invalid_email": "❌ Введён некорректный email. Попробуйте ещё раз:",
+  "link_email_already_taken": "❌ Этот email уже используется другим аккаунтом. Попробуйте другой:",
+  "link_email_send_failed": "❌ Не удалось отправить письмо. Попробуйте позже.",
+  "link_email_code_sent": "📬 Код подтверждения отправлен на <b>{email}</b>.\n\nВведите 6-значный код из письма:",
+  "link_email_invalid_code": "❌ Неверный или устаревший код. Попробуйте ещё раз или начните заново командой /link_email.",
+  "link_email_success": "✅ Email <b>{email}</b> успешно привязан к вашему аккаунту!\n\nТеперь вы можете войти на <a href=\"{frontend_url}\">{frontend_url}</a> через этот email.\n\n<i>Если вы ещё не устанавливали пароль — воспользуйтесь кнопкой «Забыли пароль?» на странице входа.</i>"
 }

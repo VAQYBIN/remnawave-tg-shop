@@ -3,7 +3,7 @@ Panel API client — pure HTTP client for Remnawave Panel.
 Extracted from bot/services/panel_api_service.py.
 No Aiogram/Bot dependencies.
 """
-import aiohttp
+import httpx
 import logging
 import json
 import re
@@ -25,7 +25,7 @@ class PanelApiService:
         self.settings = settings
         self.base_url = settings.PANEL_API_URL
         self.api_key = settings.PANEL_API_KEY
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: Optional[httpx.AsyncClient] = None
         self.default_client_ip = "127.0.0.1"
 
     async def __aenter__(self):
@@ -36,15 +36,14 @@ class PanelApiService:
         """Context manager exit - automatically close session"""
         await self.close_session()
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=30)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+    async def _get_session(self) -> httpx.AsyncClient:
+        if self._session is None or self._session.is_closed:
+            self._session = httpx.AsyncClient(timeout=httpx.Timeout(30.0))
         return self._session
 
     async def close_session(self):
-        if self._session and not self._session.closed:
-            await self._session.close()
+        if self._session and not self._session.is_closed:
+            await self._session.aclose()
             self._session = None
             logging.debug("Panel API service HTTP session closed.")
 
@@ -101,7 +100,7 @@ class PanelApiService:
                 "message": "Panel API URL not configured."
             }
 
-        aiohttp_session = await self._get_session()
+        client = await self._get_session()
         headers = await self._prepare_headers()
 
         url_for_request = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
@@ -126,91 +125,93 @@ class PanelApiService:
             except Exception:
                 log_prefix += " | Payload: <unavailable>"
         try:
-            async with aiohttp_session.request(method.upper(),
-                                               url_for_request,
-                                               headers=headers,
-                                               **kwargs) as response:
-                response_status = response.status
-                response_text = await response.text()
+            response = await client.request(
+                method.upper(),
+                url_for_request,
+                headers=headers,
+                **kwargs,
+            )
+            response_status = response.status_code
+            response_text = response.text
 
-                log_suffix = f"| Status: {response_status}"
+            log_suffix = f"| Status: {response_status}"
 
-                should_log_full_body = bool(log_full_response and self.settings.LOG_LEVEL == "DEBUG")
-                if should_log_full_body or not (200 <= response_status < 300):
-                    try:
-                        parsed_json_for_log = json.loads(response_text)
-                        pretty_response_text = json.dumps(parsed_json_for_log,
-                                                          indent=2,
-                                                          ensure_ascii=False)
-                        logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"
-                        )
-                    except json.JSONDecodeError:
-                        logging.info(
-                            f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"
-                        )
-                else:
-                    logging.debug(
-                        f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"
+            should_log_full_body = bool(log_full_response and self.settings.LOG_LEVEL == "DEBUG")
+            if should_log_full_body or not (200 <= response_status < 300):
+                try:
+                    parsed_json_for_log = json.loads(response_text)
+                    pretty_response_text = json.dumps(parsed_json_for_log,
+                                                      indent=2,
+                                                      ensure_ascii=False)
+                    logging.info(
+                        f"{log_prefix} {log_suffix} | Full Response Body:\n{pretty_response_text}"
                     )
+                except json.JSONDecodeError:
+                    logging.info(
+                        f"{log_prefix} {log_suffix} | Full Response Text (not JSON):\n{response_text[:2000]}{'...' if len(response_text) > 2000 else ''}"
+                    )
+            else:
+                logging.debug(
+                    f"{log_prefix} {log_suffix} | OK. Response Body Preview: {response_text[:200]}{'...' if len(response_text) > 200 else ''}"
+                )
 
-                if 200 <= response_status < 300:
-                    try:
-                        if 'application/json' in response.headers.get(
-                                'Content-Type', '').lower():
-                            data = json.loads(response_text)
-                            return data
-                        else:
-                            return {
-                                "status": "success",
-                                "code": response_status,
-                                "data_text": response_text
-                            }
-                    except json.JSONDecodeError as e_json_ok:
-                        logging.error(
-                            f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."
-                        )
+            if 200 <= response_status < 300:
+                try:
+                    if 'application/json' in response.headers.get(
+                            'content-type', '').lower():
+                        data = json.loads(response_text)
+                        return data
+                    else:
                         return {
-                            "status": "success_parse_error",
+                            "status": "success",
                             "code": response_status,
-                            "data_text": response_text,
-                            "parse_error": str(e_json_ok)
+                            "data_text": response_text
                         }
-                else:
-                    error_details = {
-                        "message":
-                        f"Request failed with status {response_status}",
-                        "raw_response_text": response_text
-                    }
-                    try:
-                        if 'application/json' in response.headers.get(
-                                'Content-Type', '').lower():
-                            error_json_data = json.loads(response_text)
-                            error_details.update(error_json_data)
-                    except json.JSONDecodeError:
-                        pass
+                except json.JSONDecodeError as e_json_ok:
+                    logging.error(
+                        f"{log_prefix} {log_suffix} | OK but JSON Parse Error. Error: {e_json_ok}. Body was logged above."
+                    )
                     return {
-                        "error": True,
-                        "status_code": response_status,
-                        "details": error_details
+                        "status": "success_parse_error",
+                        "code": response_status,
+                        "data_text": response_text,
+                        "parse_error": str(e_json_ok)
                     }
+            else:
+                error_details = {
+                    "message":
+                    f"Request failed with status {response_status}",
+                    "raw_response_text": response_text
+                }
+                try:
+                    if 'application/json' in response.headers.get(
+                            'content-type', '').lower():
+                        error_json_data = json.loads(response_text)
+                        error_details.update(error_json_data)
+                except json.JSONDecodeError:
+                    pass
+                return {
+                    "error": True,
+                    "status_code": response_status,
+                    "details": error_details
+                }
 
-        except aiohttp.ClientConnectorError as e:
+        except httpx.ConnectError as e:
             logging.error(
-                f"Panel API ClientConnectorError to {url_for_request}: {e}")
+                f"Panel API ConnectError to {url_for_request}: {e}")
             return {
                 "error": True,
                 "status_code": -1,
                 "message": f"Connection error: {str(e)}"
             }
-        except aiohttp.ClientError as e:
-            logging.error(f"Panel API ClientError to {url_for_request}: {e}")
+        except httpx.HTTPError as e:
+            logging.error(f"Panel API HTTPError to {url_for_request}: {e}")
             return {
                 "error": True,
                 "status_code": -2,
                 "message": f"Client error: {str(e)}"
             }
-        except asyncio.TimeoutError:
+        except httpx.TimeoutException:
             logging.error(f"Panel API request to {url_for_request} timed out.")
             return {
                 "error": True,
@@ -544,7 +545,11 @@ class PanelApiService:
         endpoint = f"/hwid/devices/{user_uuid}"
         response_data = await self._request("GET", endpoint, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
+            inner = response_data.get("response")
+            if isinstance(inner, dict):
+                return inner.get("devices", [])
+            if isinstance(inner, list):
+                return inner
         logging.error(
             f"Failed to get user devices for user {user_uuid}. Response: {response_data}"
         )

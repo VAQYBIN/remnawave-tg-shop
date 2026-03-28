@@ -9,6 +9,9 @@ import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { PaymentHistoryPage } from '@/pages/PaymentHistoryPage'
 import { PaymentCallbackPage } from '@/pages/PaymentCallbackPage'
 import { TelegramCallbackPage } from '@/pages/TelegramCallbackPage'
+import { ReferralPage } from '@/pages/ReferralPage'
+import { DevicesPage } from '@/pages/DevicesPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 
 export default function App() {
   return (
@@ -51,6 +54,31 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <PaymentCallbackPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/referral"
+            element={
+              <ProtectedRoute>
+                <ReferralPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/devices"
+            element={
+              <ProtectedRoute>
+                <DevicesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

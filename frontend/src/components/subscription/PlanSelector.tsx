@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Plan } from '@/api/subscription'
@@ -10,7 +11,17 @@ interface PlanSelectorProps {
   onSelect: (months: number) => void
 }
 
+function monthsLabel(months: number, ru: boolean): string {
+  if (!ru) return months === 1 ? 'month' : 'months'
+  if (months === 1) return 'месяц'
+  if (months < 5) return 'месяца'
+  return 'месяцев'
+}
+
 export function PlanSelector({ plans, selectedMonths, discountPercentage, onSelect }: PlanSelectorProps) {
+  const { i18n } = useTranslation()
+  const isRu = i18n.language === 'ru'
+
   const basePricePerMonth = (() => {
     const first = plans.find((p) => p.kind === 'time')
     return first?.kind === 'time' ? first.price_rub : null
@@ -31,9 +42,6 @@ export function PlanSelector({ plans, selectedMonths, discountPercentage, onSele
           ? Math.round(plan.price_rub * (1 - discountPercentage / 100))
           : plan.price_rub
 
-        const monthLabel =
-          plan.months === 1 ? 'месяц' : plan.months < 5 ? 'месяца' : 'месяцев'
-
         return (
           <Card
             key={plan.months}
@@ -47,7 +55,9 @@ export function PlanSelector({ plans, selectedMonths, discountPercentage, onSele
           >
             <CardContent className="p-4">
               <p className="text-2xl font-bold text-[hsl(var(--primary))]">{plan.months}</p>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">{monthLabel}</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                {monthsLabel(plan.months, isRu)}
+              </p>
               <p className="text-sm font-semibold mt-2">
                 {discountPercentage ? (
                   <>

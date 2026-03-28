@@ -10,3 +10,4 @@ sqlalchemy[asyncio]==2.0.45
 asyncpg==0.31.0
 alembic==1.18.3
 aiocryptopay==0.4.8
+resend>=2.0.0

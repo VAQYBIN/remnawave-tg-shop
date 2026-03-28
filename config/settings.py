@@ -661,6 +661,10 @@ class Settings(BaseSettings):
     WEB_API_URL: str = Field(default="https://api.raccoonito.org")
     NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
     WEB_CORS_ORIGINS: str = Field(default="https://app.raccoonito.org")
+    BOT_USERNAME: Optional[str] = Field(
+        default=None,
+        description="Telegram bot username (without @). Used for referral link generation in Web Dashboard.",
+    )
 
     @computed_field
     @property

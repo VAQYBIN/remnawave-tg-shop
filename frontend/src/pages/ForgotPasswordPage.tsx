@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ type Step = 'email' | 'reset' | 'done'
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
@@ -30,7 +32,7 @@ export function ForgotPasswordPage() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Произошла ошибка. Попробуйте позже.')
+        setError(t('error_generic'))
       }
     } finally {
       setIsLoading(false)
@@ -42,11 +44,11 @@ export function ForgotPasswordPage() {
     setError('')
 
     if (newPassword !== confirmPassword) {
-      setError('Пароли не совпадают')
+      setError(t('forgot_error_passwords'))
       return
     }
     if (newPassword.length < 8) {
-      setError('Пароль должен содержать минимум 8 символов')
+      setError(t('forgot_error_short'))
       return
     }
 
@@ -58,7 +60,7 @@ export function ForgotPasswordPage() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Произошла ошибка. Попробуйте позже.')
+        setError(t('error_generic'))
       }
     } finally {
       setIsLoading(false)
@@ -70,16 +72,16 @@ export function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Личный кабинет</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Восстановление пароля</CardTitle>
+            <CardTitle>{t('forgot_title')}</CardTitle>
             <CardDescription>
-              {step === 'email' && 'Введите email, привязанный к аккаунту'}
-              {step === 'reset' && 'Проверьте почту и введите код'}
-              {step === 'done' && 'Пароль успешно изменён'}
+              {step === 'email' && t('forgot_email_step')}
+              {step === 'reset' && t('forgot_code_step')}
+              {step === 'done' && t('forgot_done_step')}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -102,7 +104,7 @@ export function ForgotPasswordPage() {
                   autoComplete="email"
                 />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  Получить код сброса
+                  {t('forgot_get_code')}
                 </Button>
               </form>
             )}
@@ -110,10 +112,10 @@ export function ForgotPasswordPage() {
             {step === 'reset' && (
               <form onSubmit={handleReset} className="flex flex-col gap-3">
                 <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 flex flex-col gap-1">
-                  <span>Если аккаунт с адресом <strong>{email}</strong> существует — письмо с кодом уже в пути.</span>
+                  <span>{t('forgot_email_hint', { email })}</span>
                 </div>
                 <Input
-                  label="Код из письма"
+                  label={t('forgot_code_label')}
                   id="code"
                   type="text"
                   placeholder="123456"
@@ -124,27 +126,27 @@ export function ForgotPasswordPage() {
                   inputMode="numeric"
                 />
                 <Input
-                  label="Новый пароль"
+                  label={t('forgot_new_password')}
                   id="new-password"
                   type="password"
-                  placeholder="Минимум 8 символов"
+                  placeholder={t('forgot_password_hint')}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   autoComplete="new-password"
                 />
                 <Input
-                  label="Подтвердите пароль"
+                  label={t('forgot_confirm_password')}
                   id="confirm-password"
                   type="password"
-                  placeholder="Повторите пароль"
+                  placeholder={t('forgot_repeat_password')}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
                 />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  Сохранить новый пароль
+                  {t('forgot_save')}
                 </Button>
                 <Button
                   type="button"
@@ -156,7 +158,7 @@ export function ForgotPasswordPage() {
                     setError('')
                   }}
                 >
-                  Изменить email
+                  {t('forgot_change_email')}
                 </Button>
               </form>
             )}
@@ -164,19 +166,19 @@ export function ForgotPasswordPage() {
             {step === 'done' && (
               <div className="flex flex-col gap-3">
                 <div className="rounded-[var(--radius)] bg-green-50 border border-green-200 px-3 py-3 text-sm text-green-700 text-center">
-                  Пароль изменён. Теперь вы можете войти.
+                  {t('forgot_password_changed')}
                 </div>
                 <Button className="w-full" onClick={() => navigate('/login')}>
-                  Войти
+                  {t('forgot_login')}
                 </Button>
               </div>
             )}
 
             {step !== 'done' && (
               <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
-                Вспомнили пароль?{' '}
+                {t('forgot_remember')}{' '}
                 <Link to="/login" className="text-[hsl(var(--primary))] hover:underline font-medium">
-                  Войти
+                  {t('forgot_login')}
                 </Link>
               </p>
             )}

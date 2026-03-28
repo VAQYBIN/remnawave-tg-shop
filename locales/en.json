@@ -518,5 +518,13 @@
   "no_bonus_placeholder": "none",
   "payment_successful_with_promo_full": "✅ Payment successful!\nYour {months}-month subscription has been extended by {bonus_days} bonus days via promo code and is active until {end_date}.\n\nConnection key:\n<code>{config_link}</code>\n\nTo connect, open the link and follow the instructions 👇",
   "system_or_unknown_user": "System/unknown user",
-  "free_kassa_order_full": "Order #{order_id} from {date}\n\n"
+  "free_kassa_order_full": "Order #{order_id} from {date}\n\n",
+  "link_email_prompt": "📧 Enter your email to link it to your account on raccoonito.org:",
+  "link_email_already_linked": "✅ Email <b>{email}</b> is already linked to your account.\n\nYou can sign in on the website via email or Telegram.",
+  "link_email_invalid_email": "❌ Invalid email address. Please try again:",
+  "link_email_already_taken": "❌ This email is already used by another account. Try a different one:",
+  "link_email_send_failed": "❌ Failed to send the email. Please try again later.",
+  "link_email_code_sent": "📬 A verification code has been sent to <b>{email}</b>.\n\nEnter the 6-digit code from the email:",
+  "link_email_invalid_code": "❌ Invalid or expired code. Try again or restart with /link_email.",
+  "link_email_success": "✅ Email <b>{email}</b> successfully linked to your account!\n\nYou can now sign in at <a href=\"{frontend_url}\">{frontend_url}</a> via this email.\n\n<i>If you haven't set a password yet — use the «Forgot password?» button on the login page.</i>"
 }

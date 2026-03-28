@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
 import { PlanSelector } from '@/components/subscription/PlanSelector'
@@ -13,7 +14,6 @@ import { createPayment, type PromoApplyResponse } from '@/api/payment'
 import { Copy, Check, RefreshCw, ArrowRight } from 'lucide-react'
 import { apiRequest } from '@/api/client'
 
-// Available providers returned from the backend config endpoint
 function useAvailableProviders() {
   return useQuery({
     queryKey: ['config'],
@@ -24,6 +24,7 @@ function useAvailableProviders() {
 export function SubscriptionPage() {
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [copied, setCopied] = useState(false)
   const [selectedMonths, setSelectedMonths] = useState<number | null>(null)
@@ -57,7 +58,7 @@ export function SubscriptionPage() {
 
   const paymentMutation = useMutation({
     mutationFn: () => {
-      if (!selectedMonths || !selectedProvider) throw new Error('Выберите тариф и способ оплаты')
+      if (!selectedMonths || !selectedProvider) throw new Error(t('sub_error_select'))
       return createPayment({
         provider: selectedProvider,
         months: selectedMonths,
@@ -68,7 +69,7 @@ export function SubscriptionPage() {
       window.location.href = data.redirect_url
     },
     onError: (err: Error) => {
-      setPaymentError(err.message || 'Ошибка создания платежа')
+      setPaymentError(err.message || t('sub_error_select'))
     },
   })
 
@@ -99,9 +100,8 @@ export function SubscriptionPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Подписка</h1>
+        <h1 className="text-2xl font-bold">{t('sub_title')}</h1>
 
-        {/* Current subscription */}
         {subLoading ? (
           <Card>
             <CardContent className="p-6">
@@ -112,11 +112,10 @@ export function SubscriptionPage() {
           <>
             <SubscriptionCard subscription={subscription} />
 
-            {/* VPN Connection link */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">VPN-ссылка</CardTitle>
-                <CardDescription>Используйте для подключения в клиенте</CardDescription>
+                <CardTitle className="text-base">{t('sub_vpn_link')}</CardTitle>
+                <CardDescription>{t('sub_vpn_link_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {connLoading ? (
@@ -133,19 +132,18 @@ export function SubscriptionPage() {
                 ) : (
                   <Button variant="outline" size="sm" onClick={() => refetchConn()}>
                     <RefreshCw size={14} className="mr-2" />
-                    Получить ссылку
+                    {t('sub_get_link')}
                   </Button>
                 )}
               </CardContent>
             </Card>
 
-            {/* Auto-renew toggle */}
             <Card>
               <CardContent className="p-6 flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-sm">Автопродление</p>
+                  <p className="font-medium text-sm">{t('sub_auto_renew')}</p>
                   <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                    Подписка продлится автоматически
+                    {t('sub_auto_renew_desc')}
                   </p>
                 </div>
                 <Button
@@ -154,17 +152,16 @@ export function SubscriptionPage() {
                   onClick={() => autoRenewMutation.mutate(!subscription.auto_renew_enabled)}
                   disabled={autoRenewMutation.isPending}
                 >
-                  {subscription.auto_renew_enabled ? 'Вкл' : 'Выкл'}
+                  {subscription.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
                 </Button>
               </CardContent>
             </Card>
           </>
         ) : null}
 
-        {/* Purchase section */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">
-            {subscription ? 'Продлить подписку' : 'Купить подписку'}
+            {subscription ? t('sub_renew') : t('sub_buy')}
           </h2>
 
           {plansLoading ? (
@@ -182,19 +179,17 @@ export function SubscriptionPage() {
             />
           ) : plans?.mode === 'traffic' ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">
-              Покупка пакетов трафика доступна только через Telegram-бот
+              {t('sub_traffic_bot')}
             </p>
           ) : (
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Тарифы не настроены</p>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('sub_no_plans')}</p>
           )}
 
-          {/* Payment panel — visible after plan selection */}
           {selectedMonths && (
             <Card className="border-[hsl(var(--primary)/30%)]">
               <CardContent className="p-5 space-y-4">
-                {/* Promo code */}
                 <div>
-                  <p className="text-sm font-medium mb-2">Промокод</p>
+                  <p className="text-sm font-medium mb-2">{t('sub_promo')}</p>
                   <PromoInput
                     appliedPromo={appliedPromo}
                     onPromoApplied={setAppliedPromo}
@@ -202,9 +197,8 @@ export function SubscriptionPage() {
                   />
                 </div>
 
-                {/* Payment method */}
                 <div>
-                  <p className="text-sm font-medium mb-2">Способ оплаты</p>
+                  <p className="text-sm font-medium mb-2">{t('sub_payment_method')}</p>
                   <PaymentMethodGrid
                     availableProviders={availableProviders}
                     selectedProvider={selectedProvider}
@@ -216,12 +210,11 @@ export function SubscriptionPage() {
                   />
                 </div>
 
-                {/* Summary + Buy button */}
                 {selectedProvider && selectedPrice !== null && (
                   <div className="pt-2 border-t border-[hsl(var(--border))]">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                        Итого к оплате
+                        {t('sub_total')}
                       </span>
                       <span className="text-lg font-bold text-[hsl(var(--primary))]">
                         {selectedPrice} ₽
@@ -236,10 +229,10 @@ export function SubscriptionPage() {
                       disabled={paymentMutation.isPending}
                     >
                       {paymentMutation.isPending ? (
-                        'Создаём платёж...'
+                        t('sub_paying')
                       ) : (
                         <>
-                          Оплатить
+                          {t('sub_pay')}
                           <ArrowRight size={16} className="ml-2" />
                         </>
                       )}

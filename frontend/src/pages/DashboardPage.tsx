@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +12,7 @@ import { CreditCard, Receipt, ArrowRight } from 'lucide-react'
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -23,7 +25,7 @@ export function DashboardPage() {
   })
 
   const { data: payments } = useQuery({
-    queryKey: ['payments', 1],
+    queryKey: ['payments', 1, 3],
     queryFn: () => getPayments(1, 3),
   })
 
@@ -37,13 +39,12 @@ export function DashboardPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Добро пожаловать, {displayName}!</h1>
+          <h1 className="text-2xl font-bold">{t('dashboard_greeting', { name: displayName })}</h1>
           <p className="text-[hsl(var(--muted-foreground))] text-sm mt-1">
-            Личный кабинет Raccoonito VPN
+            {t('dashboard_subtitle')}
           </p>
         </div>
 
-        {/* Subscription block */}
         {subLoading ? (
           <Card>
             <CardContent className="p-6">
@@ -55,18 +56,17 @@ export function DashboardPage() {
         ) : (
           <Card>
             <CardContent className="p-6 text-center space-y-3">
-              <p className="text-[hsl(var(--muted-foreground))]">У вас нет активной подписки</p>
+              <p className="text-[hsl(var(--muted-foreground))]">{t('dashboard_no_subscription')}</p>
               <Link
                 to="/subscription"
                 className="inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-semibold transition-colors h-10 px-4 py-2 text-sm bg-[hsl(var(--primary))] text-white hover:bg-[hsl(197,74%,44%)]"
               >
-                Купить подписку
+                {t('dashboard_buy')}
               </Link>
             </CardContent>
           </Card>
         )}
 
-        {/* Quick actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="hover:shadow-md transition-shadow">
             <Link to="/subscription">
@@ -77,9 +77,9 @@ export function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-base">Управление подпиской</CardTitle>
+                <CardTitle className="text-base">{t('dashboard_manage')}</CardTitle>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  Тарифы, VPN-ссылка, автопродление
+                  {t('dashboard_manage_desc')}
                 </p>
               </CardContent>
             </Link>
@@ -94,9 +94,11 @@ export function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-base">История платежей</CardTitle>
+                <CardTitle className="text-base">{t('dashboard_history')}</CardTitle>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  {payments?.total ? `${payments.total} платежей` : 'Нет платежей'}
+                  {payments?.total
+                    ? t('dashboard_payments_count', { count: payments.total })
+                    : t('dashboard_no_payments')}
                 </p>
               </CardContent>
             </Link>

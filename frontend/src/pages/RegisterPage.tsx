@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ type Step = 'email' | 'code'
 export function RegisterPage() {
   const { setAuth } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
@@ -32,7 +34,7 @@ export function RegisterPage() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Произошла ошибка. Попробуйте позже.')
+        setError(t('error_generic'))
       }
     } finally {
       setIsLoading(false)
@@ -44,11 +46,11 @@ export function RegisterPage() {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Пароли не совпадают')
+      setError(t('register_error_passwords'))
       return
     }
     if (password.length < 8) {
-      setError('Пароль должен содержать минимум 8 символов')
+      setError(t('register_error_short'))
       return
     }
 
@@ -61,7 +63,7 @@ export function RegisterPage() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError('Произошла ошибка. Попробуйте позже.')
+        setError(t('error_generic'))
       }
     } finally {
       setIsLoading(false)
@@ -73,16 +75,14 @@ export function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Личный кабинет</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Регистрация</CardTitle>
+            <CardTitle>{t('register_title')}</CardTitle>
             <CardDescription>
-              {step === 'email'
-                ? 'Введите email для регистрации'
-                : 'Проверьте почту и введите код'}
+              {step === 'email' ? t('register_email_step') : t('register_code_step')}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -105,17 +105,16 @@ export function RegisterPage() {
                   autoComplete="email"
                 />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  Получить код
+                  {t('register_get_code')}
                 </Button>
               </form>
             ) : (
               <form onSubmit={handleVerify} className="flex flex-col gap-3">
                 <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 flex flex-col gap-1">
-                  <span>Мы отправили письмо с кодом на почту <strong>{email}</strong>.</span>
-                  <span>Не видите? Проверьте папку «Спам».</span>
+                  <span>{t('register_email_sent', { email })}</span>
                 </div>
                 <Input
-                  label="Код из письма"
+                  label={t('register_code_label')}
                   id="code"
                   type="text"
                   placeholder="123456"
@@ -126,27 +125,27 @@ export function RegisterPage() {
                   inputMode="numeric"
                 />
                 <Input
-                  label="Пароль"
+                  label={t('register_password')}
                   id="password"
                   type="password"
-                  placeholder="Минимум 8 символов"
+                  placeholder={t('register_password_hint')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
                 />
                 <Input
-                  label="Подтвердите пароль"
+                  label={t('register_confirm_password')}
                   id="confirm-password"
                   type="password"
-                  placeholder="Повторите пароль"
+                  placeholder={t('register_repeat_password')}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
                 />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  Создать аккаунт
+                  {t('register_create')}
                 </Button>
                 <Button
                   type="button"
@@ -159,15 +158,15 @@ export function RegisterPage() {
                     setCode('')
                   }}
                 >
-                  Изменить email
+                  {t('register_change_email')}
                 </Button>
               </form>
             )}
 
             <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
-              Уже есть аккаунт?{' '}
+              {t('register_have_account')}{' '}
               <Link to="/login" className="text-[hsl(var(--primary))] hover:underline font-medium">
-                Войти
+                {t('register_login')}
               </Link>
             </p>
           </CardContent>

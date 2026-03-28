@@ -314,7 +314,7 @@ async def password_send_reset_code(
     await check_rate_limit(redis, f"rl:auth:reset:{ip}", max_requests=5, window_seconds=300)
 
     account = await get_account_by_email(db, body.email)
-    if account and account.password_hash:
+    if account and account.is_email_verified:
         code_record = await create_verification_code(
             db, email=body.email, purpose="reset_password", account_id=account.id
         )
