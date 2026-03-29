@@ -17,7 +17,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('channel_posts', sa.Column('reply_markup_json', sa.Text(), nullable=True))
+    insp = sa.inspect(op.get_bind())
+    cols = {c['name'] for c in insp.get_columns('channel_posts')}
+    if 'reply_markup_json' not in cols:
+        op.add_column('channel_posts', sa.Column('reply_markup_json', sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
