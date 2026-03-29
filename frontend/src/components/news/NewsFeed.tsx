@@ -8,9 +8,10 @@ interface Props {
   onLoadMore: () => void
   isLoadingMore: boolean
   hasMore: boolean
+  newPostIds?: Set<number>
 }
 
-export function NewsFeed({ posts, total, onLoadMore, isLoadingMore, hasMore }: Props) {
+export function NewsFeed({ posts, total, onLoadMore, isLoadingMore, hasMore, newPostIds }: Props) {
   const { t } = useTranslation()
 
   if (posts.length === 0) {
@@ -31,7 +32,7 @@ export function NewsFeed({ posts, total, onLoadMore, isLoadingMore, hasMore }: P
       </p>
 
       {posts.map((post) => (
-        <NewsPost key={post.id} post={post} />
+        <NewsPost key={post.id} post={post} isNew={newPostIds?.has(post.id)} />
       ))}
 
       {hasMore && (

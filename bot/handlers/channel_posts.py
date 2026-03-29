@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
 
-logger = logging.getLogger(__name__)
+logger = logging.root
 
 router = Router(name="channel_posts_router")
 
@@ -122,6 +122,6 @@ async def handle_channel_post(
     try:
         redis = _get_redis(settings)
         await redis.publish("news:new_post", str(post.id))
-        logger.debug("Published news:new_post %d to Redis", post.id)
+        logger.info("Published news:new_post id=%d to Redis", post.id)
     except Exception as exc:
         logger.warning("Failed to publish to Redis: %s", exc)

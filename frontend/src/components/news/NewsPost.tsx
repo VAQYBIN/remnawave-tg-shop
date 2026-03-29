@@ -200,12 +200,12 @@ function InlineButtons({ replyMarkupJson }: { replyMarkupJson: string | null }) 
 
 // ─── Post card ────────────────────────────────────────────────────────────────
 
-export function NewsPost({ post }: { post: ChannelPost }) {
+export function NewsPost({ post, isNew }: { post: ChannelPost; isNew?: boolean }) {
   const { t } = useTranslation()
   const hasMedia = Boolean(post.media_type && post.media_file_id)
 
   return (
-    <Card>
+    <Card className={isNew ? 'animate-slide-in-down' : ''}>
       <CardContent className="py-4 px-5">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))]">

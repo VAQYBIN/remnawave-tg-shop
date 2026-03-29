@@ -186,60 +186,63 @@ export function SubscriptionPage() {
           )}
 
           {selectedMonths && (
-            <Card className="border-[hsl(var(--primary)/30%)]">
-              <CardContent className="p-5 space-y-4">
-                <div>
-                  <p className="text-sm font-medium mb-2">{t('sub_promo')}</p>
-                  <PromoInput
-                    appliedPromo={appliedPromo}
-                    onPromoApplied={setAppliedPromo}
-                    onPromoRemoved={() => setAppliedPromo(null)}
-                  />
-                </div>
+            <Card className="border-[hsl(var(--border))] overflow-hidden">
+              {/* Promo */}
+              <div className="px-5 pt-5 pb-4">
+                <p className="text-sm font-semibold mb-3">{t('sub_promo')}</p>
+                <PromoInput
+                  appliedPromo={appliedPromo}
+                  onPromoApplied={setAppliedPromo}
+                  onPromoRemoved={() => setAppliedPromo(null)}
+                />
+              </div>
 
-                <div>
-                  <p className="text-sm font-medium mb-2">{t('sub_payment_method')}</p>
-                  <PaymentMethodGrid
-                    availableProviders={availableProviders}
-                    selectedProvider={selectedProvider}
-                    onSelect={(p) => {
-                      setSelectedProvider(p)
-                      setPaymentError(null)
-                    }}
-                    disabled={paymentMutation.isPending}
-                  />
-                </div>
+              <div className="border-t border-[hsl(var(--border))]" />
 
-                {selectedProvider && selectedPrice !== null && (
-                  <div className="pt-2 border-t border-[hsl(var(--border))]">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                        {t('sub_total')}
-                      </span>
-                      <span className="text-lg font-bold text-[hsl(var(--primary))]">
-                        {selectedPrice} ₽
-                      </span>
-                    </div>
-                    {paymentError && (
-                      <p className="text-xs text-red-500 mb-2">{paymentError}</p>
-                    )}
-                    <Button
-                      className="w-full"
-                      onClick={() => paymentMutation.mutate()}
-                      disabled={paymentMutation.isPending}
-                    >
-                      {paymentMutation.isPending ? (
-                        t('sub_paying')
-                      ) : (
-                        <>
-                          {t('sub_pay')}
-                          <ArrowRight size={16} className="ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
+              {/* Payment method */}
+              <div className="px-5 py-4">
+                <p className="text-sm font-semibold mb-3">{t('sub_payment_method')}</p>
+                <PaymentMethodGrid
+                  availableProviders={availableProviders}
+                  selectedProvider={selectedProvider}
+                  onSelect={(p) => {
+                    setSelectedProvider(p)
+                    setPaymentError(null)
+                  }}
+                  disabled={paymentMutation.isPending}
+                />
+              </div>
+
+              <div className="border-t border-[hsl(var(--border))]" />
+
+              {/* Total + Pay */}
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                    {t('sub_total')}
+                  </span>
+                  <span className="text-xl font-bold text-[hsl(var(--primary))]">
+                    {selectedPrice !== null ? `${selectedPrice} ₽` : '—'}
+                  </span>
+                </div>
+                {paymentError && (
+                  <p className="text-xs text-red-500">{paymentError}</p>
                 )}
-              </CardContent>
+                <Button
+                  className="w-full h-11 font-bold text-base"
+                  onClick={() => paymentMutation.mutate()}
+                  disabled={paymentMutation.isPending || !selectedProvider || selectedPrice === null}
+                >
+                  {paymentMutation.isPending ? (
+                    t('sub_paying')
+                  ) : (
+                    <>
+                      {t('sub_pay')}
+                      <ArrowRight size={16} className="ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </Card>
           )}
         </div>

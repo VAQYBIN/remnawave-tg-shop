@@ -39,7 +39,7 @@ export function PaymentMethodGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div className="flex flex-wrap gap-2">
       {visible.map((p) => (
         <button
           key={p.id}
@@ -47,7 +47,7 @@ export function PaymentMethodGrid({
           disabled={disabled}
           onClick={() => onSelect(p.id)}
           className={cn(
-            'flex items-center gap-2 rounded-lg border p-3 text-sm font-medium transition-all',
+            'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap',
             'hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/5%)]',
             selectedProvider === p.id
               ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/10%)] ring-1 ring-[hsl(var(--primary))]'

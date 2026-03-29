@@ -1,4 +1,11 @@
-export const API_BASE = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8090/api'
+declare global {
+  interface Window { __ENV__?: { API_URL?: string } }
+}
+
+export const API_BASE =
+  window.__ENV__?.API_URL ||
+  (import.meta.env.VITE_API_URL as string) ||
+  'http://localhost:8090/api'
 
 export class ApiError extends Error {
   constructor(

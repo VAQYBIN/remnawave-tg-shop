@@ -14,6 +14,7 @@ export function NewsPage() {
   const [page, setPage] = useState(1)
   const [allPosts, setAllPosts] = useState<ChannelPost[]>([])
   const [total, setTotal] = useState(0)
+  const [newPostIds, setNewPostIds] = useState<Set<number>>(new Set())
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['news', page],
@@ -54,6 +55,14 @@ export function NewsPage() {
             return [post, ...prev]
           })
           setTotal((n) => n + 1)
+          setNewPostIds((prev) => new Set([...prev, post.id]))
+          setTimeout(() => {
+            setNewPostIds((prev) => {
+              const next = new Set(prev)
+              next.delete(post.id)
+              return next
+            })
+          }, 600)
         } catch {
           // ignore parse errors
         }
@@ -117,6 +126,7 @@ export function NewsPage() {
             onLoadMore={() => setPage((p) => p + 1)}
             isLoadingMore={isLoading && page > 1}
             hasMore={hasMore}
+            newPostIds={newPostIds}
           />
         )}
       </div>
