@@ -82,13 +82,35 @@ class CryptoPayService:
             if active_discount:
                 # Price is already discounted, calculate original price backwards
                 discount_pct = active_discount.discount_percentage
-                original_amount = amount / (1 - discount_pct / 100)
-                discount_amount = original_amount - amount
                 promo_code_id = active_discount.promo_code_id
-                logging.info(
-                    f"Recording {discount_pct}% discount for CryptoPay payment: "
-                    f"original {original_amount:.2f} -> final {amount}"
-                )
+                denominator = 1 - discount_pct / 100
+                if denominator <= 0:
+                    price_source = (
+                        getattr(self.settings, "traffic_packages", {}) or {}
+                        if sale_mode == "traffic"
+                        else (self.settings.subscription_options or {})
+                    )
+                    fallback_original = price_source.get(months)
+                    if fallback_original is not None:
+                        original_amount = fallback_original
+                        discount_amount = original_amount - amount
+                        logging.info(
+                            f"Recording {discount_pct}% discount for CryptoPay payment: "
+                            f"original {original_amount:.2f} -> final {amount}"
+                        )
+                    else:
+                        logging.warning(
+                            "CryptoPay discount %s%% has invalid denominator and no fallback price for months=%s.",
+                            discount_pct,
+                            months,
+                        )
+                else:
+                    original_amount = amount / denominator
+                    discount_amount = original_amount - amount
+                    logging.info(
+                        f"Recording {discount_pct}% discount for CryptoPay payment: "
+                        f"original {original_amount:.2f} -> final {amount}"
+                    )
 
         # Create pending payment in DB and commit to persist
         try:
@@ -182,12 +204,70 @@ class CryptoPayService:
                     logging.error(f"CryptoPay: Payment record {payment_db_id} not found")
                     return
 
-                await payment_dal.update_provider_payment_and_status(
+                if payment_record.user_id != user_id:
+                    logging.error(
+                        "CryptoPay webhook: user mismatch for payment %s (db=%s, payload=%s)",
+                        payment_db_id,
+                        payment_record.user_id,
+                        user_id,
+                    )
+                    return
+
+                provider_currency = None
+                for candidate in (
+                    getattr(invoice, "fiat", None),
+                    getattr(invoice, "asset", None),
+                    getattr(invoice, "paid_asset", None),
+                    settings.CRYPTOPAY_ASSET,
+                ):
+                    if candidate:
+                        provider_currency = str(candidate).upper()
+                        break
+                expected_currency = str(payment_record.currency or "").upper()
+                if expected_currency and provider_currency and expected_currency != provider_currency:
+                    logging.error(
+                        "CryptoPay webhook: currency mismatch for payment %s (expected %s, got %s)",
+                        payment_db_id,
+                        expected_currency,
+                        provider_currency,
+                    )
+                    return
+
+                if payment_record.status == "succeeded":
+                    logging.info("CryptoPay webhook: payment %s already succeeded", payment_db_id)
+                    return
+
+                try:
+                    expected_amount = float(payment_record.amount)
+                    incoming_amount = float(invoice.amount)
+                    if round(incoming_amount, 2) != round(expected_amount, 2):
+                        logging.error(
+                            "CryptoPay webhook: amount mismatch for payment %s (expected %.2f, got %.2f)",
+                            payment_db_id,
+                            expected_amount,
+                            incoming_amount,
+                        )
+                        return
+                except Exception as amount_exc:
+                    logging.error(
+                        "CryptoPay webhook: failed to compare amount for payment %s: %s",
+                        payment_db_id,
+                        amount_exc,
+                    )
+                    return
+
+                marked = await payment_dal.mark_provider_payment_succeeded_once(
                     session,
                     payment_db_id,
                     str(invoice.invoice_id),
-                    "succeeded",
                 )
+                if not marked:
+                    logging.info(
+                        "CryptoPay webhook: payment %s already processed atomically",
+                        payment_db_id,
+                    )
+                    return
+
                 activation = await subscription_service.activate_subscription(
                     session,
                     user_id,
@@ -199,6 +279,11 @@ class CryptoPayService:
                     sale_mode=sale_mode,
                     traffic_gb=traffic_gb if sale_mode == "traffic" else None,
                 )
+                if not activation or not activation.get("end_date"):
+                    raise RuntimeError(
+                        f"CryptoPay webhook: activation failed for payment {payment_db_id}"
+                    )
+
                 referral_bonus = None
                 if sale_mode != "traffic":
                     referral_bonus = await referral_service.apply_referral_bonuses_for_payment(
@@ -282,7 +367,7 @@ class CryptoPayService:
                 await notification_service.notify_payment_received(
                     user_id=user_id,
                     amount=float(invoice.amount),
-                    currency=invoice.asset or settings.DEFAULT_CURRENCY_SYMBOL,
+                    currency=invoice.asset or "RUB",
                     months=int(months) if sale_mode != "traffic" else 0,
                     traffic_gb=traffic_gb if sale_mode == "traffic" else None,
                     payment_provider="crypto_pay",

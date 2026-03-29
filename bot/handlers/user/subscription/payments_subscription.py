@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Optional
 
 from aiogram import F, Router, types
@@ -9,6 +10,36 @@ from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 
 router = Router(name="user_subscription_payments_selection_router")
+
+
+async def resolve_fiat_offer_price_for_user(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: int,
+    months: float,
+    sale_mode: str,
+    promo_code_service=None,
+) -> Optional[float]:
+    """Resolve offer price server-side to prevent callback payload tampering."""
+    price_source = (
+        getattr(settings, "traffic_packages", {}) or {}
+        if sale_mode == "traffic"
+        else (settings.subscription_options or {})
+    )
+    base_price = price_source.get(months)
+    if base_price is None:
+        return None
+
+    resolved_price = float(base_price)
+    if promo_code_service:
+        active_discount_info = await promo_code_service.get_user_active_discount(session, user_id)
+        if active_discount_info:
+            discount_pct, _ = active_discount_info
+            resolved_price, _ = promo_code_service.calculate_discounted_price(
+                resolved_price,
+                discount_pct,
+            )
+    return resolved_price
 
 
 @router.callback_query(F.data.startswith("subscribe_period:"))
@@ -26,8 +57,8 @@ async def select_subscription_period_callback_handler(
     if not i18n or not callback.message:
         try:
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_subscription.py: %s", exc)
         return
 
     traffic_packages = getattr(settings, "traffic_packages", {}) or {}
@@ -39,8 +70,8 @@ async def select_subscription_period_callback_handler(
         logging.error(f"Invalid subscription period in callback_data: {callback.data}")
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_subscription.py: %s", exc)
         return
 
     price_source = traffic_packages if traffic_mode else settings.subscription_options
@@ -48,30 +79,49 @@ async def select_subscription_period_callback_handler(
 
     price_rub = price_source.get(months)
     stars_price = stars_price_source.get(months)
-    currency_symbol_val = settings.DEFAULT_CURRENCY_SYMBOL
+    currency_symbol_val = "RUB"
 
     # Check for active discount and apply if exists
     discount_text = ""
-    if promo_code_service and price_rub:
+    if promo_code_service and (price_rub is not None or stars_price is not None):
         active_discount_info = await promo_code_service.get_user_active_discount(
             session, callback.from_user.id
         )
 
         if active_discount_info:
             discount_pct, promo_code = active_discount_info
-            original_price_rub = price_rub
-            price_rub, discount_amt = promo_code_service.calculate_discounted_price(
-                price_rub, discount_pct
-            )
-            discount_text = get_text(
-                "active_discount_notice",
-                code=promo_code,
-                discount_pct=discount_pct,
-                original_price=original_price_rub,
-                discounted_price=price_rub,
-                discount_amount=discount_amt
-            )
-            # Note: Stars prices typically don't get discounts (can be added if needed)
+            if price_rub is not None:
+                original_price_rub = price_rub
+                price_rub, discount_amt = promo_code_service.calculate_discounted_price(
+                    price_rub, discount_pct
+                )
+                discount_text = get_text(
+                    "active_discount_notice",
+                    code=promo_code,
+                    discount_pct=discount_pct,
+                    original_price=original_price_rub,
+                    discounted_price=price_rub,
+                    discount_amount=discount_amt,
+                    currency_symbol=currency_symbol_val,
+                )
+            if stars_price is not None:
+                original_stars_price = stars_price
+                discounted_stars_price, _ = promo_code_service.calculate_discounted_price(
+                    float(stars_price), discount_pct
+                )
+                discounted_stars_price = math.ceil(discounted_stars_price)
+                stars_price = discounted_stars_price
+                if not discount_text:
+                    discount_amt = original_stars_price - discounted_stars_price
+                    discount_text = get_text(
+                        "active_discount_notice",
+                        code=promo_code,
+                        discount_pct=discount_pct,
+                        original_price=original_stars_price,
+                        discounted_price=discounted_stars_price,
+                        discount_amount=discount_amt,
+                        currency_symbol="⭐",
+                    )
 
     if price_rub is None:
         if traffic_mode and not price_source and stars_price is not None:
@@ -91,8 +141,8 @@ async def select_subscription_period_callback_handler(
                 )
                 try:
                     await callback.answer(get_text("error_try_again"), show_alert=True)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_subscription.py: %s", exc)
                 return
             price_rub = 0.0
             currency_symbol_val = "⭐"
@@ -102,8 +152,8 @@ async def select_subscription_period_callback_handler(
             )
             try:
                 await callback.answer(get_text("error_try_again"), show_alert=True)
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_subscription.py: %s", exc)
             return
 
     text_content = get_text("choose_payment_method_traffic") if traffic_mode else get_text("choose_payment_method")
@@ -130,5 +180,5 @@ async def select_subscription_period_callback_handler(
         await callback.message.answer(text_content, reply_markup=reply_markup)
     try:
         await callback.answer()
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_subscription.py: %s", exc)
