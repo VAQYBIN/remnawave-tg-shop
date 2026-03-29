@@ -83,7 +83,9 @@ services:
 
 networks:
   remnawave-network:
-    external: false
+    name: remnawave-network
+    driver: bridge
+    external: true
 
 volumes:
   remnawave-tg-shop-db-data:

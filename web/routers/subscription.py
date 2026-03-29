@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from config.settings import Settings, get_settings
 from db.models import Account
@@ -113,6 +116,7 @@ async def get_connection(
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(url, headers=headers)
     except Exception as exc:
+        logger.error("Panel request failed url=%s error=%s: %s", url, type(exc).__name__, exc)
         raise HTTPException(status_code=503, detail="Panel unreachable") from exc
 
     if resp.status_code != 200:
