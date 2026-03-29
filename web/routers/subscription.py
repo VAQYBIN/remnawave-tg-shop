@@ -109,8 +109,11 @@ async def get_connection(
         "Accept": "application/json",
         "Authorization": f"Bearer {settings.PANEL_API_KEY}",
     }
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url, headers=headers)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url, headers=headers)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Panel unreachable") from exc
 
     if resp.status_code != 200:
         raise HTTPException(status_code=503, detail="Failed to fetch user from panel")

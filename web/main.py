@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from config.settings import get_settings
 
@@ -39,6 +40,21 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    allowed_origins_set = set(origins)
+
+    @app.exception_handler(Exception)
+    async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        origin = request.headers.get("origin", "")
+        cors_headers = {}
+        if origin in allowed_origins_set:
+            cors_headers["Access-Control-Allow-Origin"] = origin
+            cors_headers["Access-Control-Allow-Credentials"] = "true"
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+            headers=cors_headers,
+        )
 
     from web.routers import health
     app.include_router(health.router, prefix="/api")
