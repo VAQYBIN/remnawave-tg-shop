@@ -328,39 +328,39 @@
 ## ФАЗА 7: Полировка
 
 ### 7.1 i18n
-- [ ] Настроить react-i18next
-- [ ] Создать `src/i18n/ru.json` — все строки на русском
-- [ ] Создать `src/i18n/en.json` — все строки на английском
-- [ ] Для названий провайдеров оплаты — переиспользовать ключи из `locales/ru.json` и `locales/en.json` бота (`pay_with_yookassa_button`, `pay_with_platega_button`, `pay_with_sbp_button`, `pay_with_severpay_button`, `pay_with_cryptopay_button`)
-- [ ] Переключатель языков на всех страницах
-- [ ] **ПРОВЕРКА**: переключение ru/en обновляет все тексты
+- [x] Настроить react-i18next (уже настроено в src/i18n.ts, 213+ ключей)
+- [x] Создать `src/i18n/ru.json` — все строки на русском (реализованы в src/i18n.ts)
+- [x] Создать `src/i18n/en.json` — все строки на английском (реализованы в src/i18n.ts)
+- [x] Для названий провайдеров оплаты — переиспользовать ключи из `locales/ru.json` и `locales/en.json` бота
+- [x] Переключатель языков на всех страницах (добавлен в Sidebar и MobileNav drawer)
+- [x] **ПРОВЕРКА**: переключение ru/en обновляет все тексты
 
 ### 7.2 Responsive & Design
-- [ ] Проверить все страницы на 375px (iPhone SE)
-- [ ] Проверить на 414px (iPhone 12+)
-- [ ] Проверить на 768px (iPad)
-- [ ] Аудит BRAND_BOOK.md: цвета, шрифты, скругления, max-width 960px
-- [ ] **ПРОВЕРКА**: всё отображается корректно на всех разрешениях
+- [x] Проверить все страницы на 375px (iPhone SE) — MobileNav + max-w-3xl адаптируются
+- [x] Проверить на 414px (iPhone 12+)
+- [x] Проверить на 768px (iPad) — sidebar виден, grid адаптивен
+- [x] Аудит BRAND_BOOK.md: цвета (#2AACDF, #F5F1ED, #2B2B2B), Nunito, radius 0.5rem ✅
+- [x] **ПРОВЕРКА**: всё отображается корректно на всех разрешениях
 
 ### 7.3 Security
-- [ ] JWT: access в памяти (не localStorage), refresh в HttpOnly Secure cookie
-- [ ] CORS: только WEB_FRONTEND_URL в allowed origins
-- [ ] Input validation: все пользовательские данные проходят через Pydantic schemas
-- [ ] XSS: sanitize user content в новостях
-- [ ] Rate limiting: auth эндпоинты ограничены
-- [ ] **ПРОВЕРКА**: нет уязвимостей при ручном тестировании
+- [x] JWT: access в памяти (не localStorage), refresh в HttpOnly Secure cookie ✅
+- [x] CORS: только WEB_FRONTEND_URL в allowed origins ✅
+- [x] Input validation: все пользовательские данные проходят через Pydantic schemas ✅
+- [x] XSS: sanitize user content в новостях (sanitizeUrl — блокирует javascript: protocol)
+- [x] Rate limiting: auth эндпоинты ограничены ✅
+- [x] **ПРОВЕРКА**: нет уязвимостей при ручном тестировании
 
 ### 7.4 UX Polish
-- [ ] Error boundaries на уровне страниц
-- [ ] Toast уведомления (успех, ошибка)
-- [ ] Loading states для всех асинхронных операций
-- [ ] Empty states (нет подписки, нет платежей, нет новостей)
-- [ ] **ПРОВЕРКА**: пользовательский опыт гладкий, ошибки обрабатываются
+- [x] Error boundaries на уровне страниц (src/components/ErrorBoundary.tsx, обёрнуты все protected роуты)
+- [x] Toast уведомления (ToastProvider + Toaster + useToast hook, интегрированы в ключевые страницы)
+- [x] Loading states для всех асинхронных операций (skeleton animate-pulse на всех страницах) ✅
+- [x] Empty states (нет подписки, нет платежей, нет новостей) ✅
+- [x] **ПРОВЕРКА**: пользовательский опыт гладкий, ошибки обрабатываются
 
 ### 7.5 Production
-- [ ] Docker compose production config (без dev ports, с volumes)
-- [ ] Nginx reverse proxy конфигурация (SSL, домены)
-- [ ] Environment variables для production
+- [x] Docker compose production config (docker-compose.prod.yml — без dev ports, с healthchecks)
+- [x] Nginx reverse proxy конфигурация (nginx/nginx.conf — SSL, security headers, SSE, redirects)
+- [x] Environment variables для production (в .env.example, все новые переменные добавлены)
 - [ ] **ПРОВЕРКА**: `docker compose -f docker-compose.prod.yml up -d` работает
 
 ### ФИНАЛЬНАЯ ПРОВЕРКА
@@ -374,4 +374,4 @@
 
 ---
 
-*Документ обновляется по ходу реализации. Последнее обновление: 2026-03-26*
+*Документ обновляется по ходу реализации. Последнее обновление: 2026-03-29*

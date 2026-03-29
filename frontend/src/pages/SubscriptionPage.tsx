@@ -13,6 +13,7 @@ import { getSubscription, getPlans, getConnection, setAutoRenew } from '@/api/su
 import { createPayment, type PromoApplyResponse } from '@/api/payment'
 import { Copy, Check, RefreshCw, ArrowRight } from 'lucide-react'
 import { apiRequest } from '@/api/client'
+import { useToast } from '@/hooks/useToast'
 
 function useAvailableProviders() {
   return useQuery({
@@ -26,6 +27,7 @@ export function SubscriptionPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
 
+  const toast = useToast()
   const [copied, setCopied] = useState(false)
   const [selectedMonths, setSelectedMonths] = useState<number | null>(null)
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
@@ -69,7 +71,9 @@ export function SubscriptionPage() {
       window.location.href = data.redirect_url
     },
     onError: (err: Error) => {
-      setPaymentError(err.message || t('sub_error_select'))
+      const msg = err.message || t('sub_error_select')
+      setPaymentError(msg)
+      toast.error(msg)
     },
   })
 
@@ -77,6 +81,7 @@ export function SubscriptionPage() {
     if (!connection?.link) return
     await navigator.clipboard.writeText(connection.link)
     setCopied(true)
+    toast.success(t('copied'))
     setTimeout(() => setCopied(false), 2000)
   }
 

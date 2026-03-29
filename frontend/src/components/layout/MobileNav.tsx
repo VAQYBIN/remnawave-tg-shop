@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { patchLanguage } from '@/api/profile'
 import {
   LayoutDashboard,
   CreditCard,
@@ -14,7 +15,30 @@ import {
   Monitor,
   LogOut,
   X,
+  Globe,
 } from 'lucide-react'
+
+function LangToggle() {
+  const { i18n } = useTranslation()
+  const current = i18n.language.startsWith('ru') ? 'ru' : 'en'
+
+  const toggle = async () => {
+    const next = current === 'ru' ? 'en' : 'ru'
+    i18n.changeLanguage(next)
+    try { await patchLanguage(next) } catch { /* best effort */ }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
+    >
+      <Globe size={20} className="text-[hsl(var(--muted-foreground))]" />
+      {current === 'ru' ? 'Русский 🇷🇺 → English' : 'English 🇬🇧 → Русский'}
+    </button>
+  )
+}
 
 export function MobileNav() {
   const { logout } = useAuth()
@@ -117,6 +141,10 @@ export function MobileNav() {
               {label}
             </button>
           ))}
+
+          <div className="h-px bg-[hsl(var(--border))] my-2" />
+
+          <LangToggle />
 
           <div className="h-px bg-[hsl(var(--border))] my-2" />
 

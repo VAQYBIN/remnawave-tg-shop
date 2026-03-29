@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { patchLanguage } from '@/api/profile'
 import {
   LayoutDashboard,
   CreditCard,
@@ -14,6 +15,28 @@ import {
   LogOut,
   Newspaper,
 } from 'lucide-react'
+
+function LangToggle() {
+  const { i18n } = useTranslation()
+  const current = i18n.language.startsWith('ru') ? 'ru' : 'en'
+
+  const toggle = async () => {
+    const next = current === 'ru' ? 'en' : 'ru'
+    i18n.changeLanguage(next)
+    try { await patchLanguage(next) } catch { /* best effort */ }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-colors"
+    >
+      <span className="text-base leading-none">{current === 'ru' ? '🇷🇺' : '🇬🇧'}</span>
+      {current === 'ru' ? 'Русский' : 'English'}
+    </button>
+  )
+}
 
 export function Sidebar() {
   const { logout } = useAuth()
@@ -56,15 +79,18 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setConfirmOpen(true)}
-        className="justify-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-      >
-        <LogOut size={18} />
-        {t('nav_logout')}
-      </Button>
+      <div className="space-y-1 mt-2 pt-2 border-t border-[hsl(var(--border))]">
+        <LangToggle />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+          className="w-full justify-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+        >
+          <LogOut size={18} />
+          {t('nav_logout')}
+        </Button>
+      </div>
 
       <ConfirmDialog
         open={confirmOpen}

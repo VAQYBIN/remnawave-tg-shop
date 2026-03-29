@@ -82,19 +82,24 @@ function renderTextWithEntities(
     }
 
     const entityText = text.slice(entity.offset, entity.offset + entity.length)
-    const href = entity.type === 'text_link' ? (entity.url ?? entityText) : entityText
+    const rawHref = entity.type === 'text_link' ? (entity.url ?? entityText) : entityText
+    const href = sanitizeUrl(rawHref)
 
-    nodes.push(
-      <a
-        key={`link-${entity.offset}`}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-[hsl(var(--primary))] underline underline-offset-2 break-all"
-      >
-        {entityText}
-      </a>,
-    )
+    if (!href) {
+      nodes.push(<span key={`plain-link-${entity.offset}`}>{entityText}</span>)
+    } else {
+      nodes.push(
+        <a
+          key={`link-${entity.offset}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[hsl(var(--primary))] underline underline-offset-2 break-all"
+        >
+          {entityText}
+        </a>,
+      )
+    }
 
     cursor = entity.offset + entity.length
   }
@@ -164,6 +169,15 @@ interface TgButton {
   url: string
 }
 
+/** Allow only http/https URLs to prevent javascript: XSS */
+function sanitizeUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return url
+  } catch { /* invalid URL */ }
+  return null
+}
+
 function InlineButtons({ replyMarkupJson }: { replyMarkupJson: string | null }) {
   if (!replyMarkupJson) return null
 
@@ -180,18 +194,22 @@ function InlineButtons({ replyMarkupJson }: { replyMarkupJson: string | null }) 
     <div className="mt-3 space-y-2">
       {rows.map((row, ri) => (
         <div key={ri} className="flex gap-2">
-          {row.map((btn, bi) => (
-            <a
-              key={bi}
-              href={btn.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[hsl(var(--primary))] px-3 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90 transition-opacity"
-            >
-              <ExternalLink size={13} className="shrink-0" />
-              {btn.text}
-            </a>
-          ))}
+          {row.map((btn, bi) => {
+            const safeUrl = sanitizeUrl(btn.url)
+            if (!safeUrl) return null
+            return (
+              <a
+                key={bi}
+                href={safeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[hsl(var(--primary))] px-3 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink size={13} className="shrink-0" />
+                {btn.text}
+              </a>
+            )
+          })}
         </div>
       ))}
     </div>

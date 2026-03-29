@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { getDevices, disconnectDevice, type Device } from '@/api/devices'
+import { useToast } from '@/hooks/useToast'
 import { Monitor, Smartphone, Tablet, Laptop, Trash2, Wifi } from 'lucide-react'
 
 function DeviceIcon({ platform }: { platform: string | null }) {
@@ -25,7 +27,8 @@ function deviceLabel(device: Device): string {
 export function DevicesPage() {
   const queryClient = useQueryClient()
   const { t } = useTranslation()
-  const [disconnecting, setDisconnecting] = useState<string | null>(null)
+  const toast = useToast()
+  const [pendingHwid, setPendingHwid] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['devices'],
@@ -36,17 +39,10 @@ export function DevicesPage() {
     mutationFn: (hwid: string) => disconnectDevice(hwid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setDisconnecting(null)
+      toast.success(t('devices_disconnected'))
     },
-    onError: () => setDisconnecting(null),
+    onError: () => toast.error(t('error_generic')),
   })
-
-  const handleDisconnect = (hwid: string) => {
-    if (window.confirm(t('devices_disconnect_confirm'))) {
-      setDisconnecting(hwid)
-      mutation.mutate(hwid)
-    }
-  }
 
   function formatDate(dateStr: string | null): string {
     if (!dateStr) return t('devices_just_now')
@@ -135,8 +131,8 @@ export function DevicesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDisconnect(device.hwid)}
-                      disabled={disconnecting === device.hwid}
+                      onClick={() => setPendingHwid(device.hwid)}
+                      disabled={mutation.isPending && mutation.variables === device.hwid}
                       className="text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"
                     >
                       <Trash2 size={16} />
@@ -148,6 +144,20 @@ export function DevicesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingHwid !== null}
+        title={t('devices_disconnect_confirm')}
+        description=""
+        confirmLabel={t('devices_disconnect_btn')}
+        cancelLabel={t('logout_confirm_cancel')}
+        destructive
+        onConfirm={() => {
+          if (pendingHwid) mutation.mutate(pendingHwid)
+          setPendingHwid(null)
+        }}
+        onCancel={() => setPendingHwid(null)}
+      />
     </AppShell>
   )
 }

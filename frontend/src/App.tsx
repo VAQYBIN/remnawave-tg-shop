@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { ProtectedRoute } from '@/auth/ProtectedRoute'
+import { ToastProvider } from '@/lib/toast-context'
+import { Toaster } from '@/components/ui/toaster'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
@@ -17,8 +20,10 @@ import { NewsPage } from '@/pages/NewsPage'
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+      <ToastProvider>
+        <Toaster />
+        <AuthProvider>
+          <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -30,7 +35,7 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <ErrorBoundary><DashboardPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -38,7 +43,7 @@ export default function App() {
             path="/subscription"
             element={
               <ProtectedRoute>
-                <SubscriptionPage />
+                <ErrorBoundary><SubscriptionPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -46,7 +51,7 @@ export default function App() {
             path="/payments"
             element={
               <ProtectedRoute>
-                <PaymentHistoryPage />
+                <ErrorBoundary><PaymentHistoryPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -54,7 +59,7 @@ export default function App() {
             path="/payment/callback"
             element={
               <ProtectedRoute>
-                <PaymentCallbackPage />
+                <ErrorBoundary><PaymentCallbackPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -63,7 +68,7 @@ export default function App() {
             path="/referral"
             element={
               <ProtectedRoute>
-                <ReferralPage />
+                <ErrorBoundary><ReferralPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -71,7 +76,7 @@ export default function App() {
             path="/devices"
             element={
               <ProtectedRoute>
-                <DevicesPage />
+                <ErrorBoundary><DevicesPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -79,7 +84,7 @@ export default function App() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <ProfilePage />
+                <ErrorBoundary><ProfilePage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -87,16 +92,17 @@ export default function App() {
             path="/news"
             element={
               <ProtectedRoute>
-                <NewsPage />
+                <ErrorBoundary><NewsPage /></ErrorBoundary>
               </ProtectedRoute>
             }
           />
 
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </AuthProvider>
+            {/* Default redirect */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   )
 }

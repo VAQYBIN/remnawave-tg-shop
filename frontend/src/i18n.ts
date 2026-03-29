@@ -20,6 +20,7 @@ const ru = {
   // Common
   personal_cabinet: 'Личный кабинет',
   error_generic: 'Произошла ошибка. Попробуйте позже.',
+  copied: 'Скопировано',
   or: 'или',
   loading: 'Загрузка...',
 
@@ -168,6 +169,8 @@ const ru = {
   devices_device_label: 'Устройство',
   devices_last_active: 'Активен: {{time}}',
   devices_disconnect_confirm: 'Отключить это устройство?',
+  devices_disconnect_btn: 'Отключить',
+  devices_disconnected: 'Устройство отключено',
   devices_just_now: 'Только что',
   devices_minutes_ago: '{{count}} мин. назад',
   devices_hours_ago: '{{count}} ч. назад',
@@ -227,6 +230,7 @@ const en: typeof ru = {
 
   personal_cabinet: 'Personal Account',
   error_generic: 'An error occurred. Please try again later.',
+  copied: 'Copied',
   or: 'or',
   loading: 'Loading...',
 
@@ -364,6 +368,8 @@ const en: typeof ru = {
   devices_device_label: 'Device',
   devices_last_active: 'Active: {{time}}',
   devices_disconnect_confirm: 'Disconnect this device?',
+  devices_disconnect_btn: 'Disconnect',
+  devices_disconnected: 'Device disconnected',
   devices_just_now: 'Just now',
   devices_minutes_ago: '{{count}} min. ago',
   devices_hours_ago: '{{count}} h. ago',

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getProfile, patchLanguage, sendEmailChangeCode, verifyEmailChange } from '@/api/profile'
+import { useToast } from '@/hooks/useToast'
 import { User, Mail, Globe, MessageCircle, Check, AlertCircle } from 'lucide-react'
 
 // ─── Language Section ─────────────────────────────────────────────────────────
@@ -64,12 +65,12 @@ function EmailSection() {
   const queryClient = useQueryClient()
   const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: getProfile })
   const { t } = useTranslation()
+  const toast = useToast()
 
   const [step, setStep] = useState<'idle' | 'code'>('idle')
   const [newEmail, setNewEmail] = useState('')
   const [code, setCode] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
 
   const sendCode = useMutation({
     mutationFn: () => sendEmailChangeCode(newEmail),
@@ -83,7 +84,7 @@ function EmailSection() {
   const verifyCode = useMutation({
     mutationFn: () => verifyEmailChange(newEmail, code),
     onSuccess: (data) => {
-      setSuccessMsg(t('profile_email_updated', { email: data.email }))
+      toast.success(t('profile_email_updated', { email: data.email }))
       setStep('idle')
       setNewEmail('')
       setCode('')
@@ -114,12 +115,6 @@ function EmailSection() {
               </span>
             )}
           </div>
-        )}
-
-        {successMsg && (
-          <p className="text-sm text-green-600 flex items-center gap-1">
-            <Check size={14} /> {successMsg}
-          </p>
         )}
 
         {step === 'idle' && (
