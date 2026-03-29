@@ -44,6 +44,9 @@ async def get_subscription(
             headers = {
                 "Accept": "application/json",
                 "Authorization": f"Bearer {settings.PANEL_API_KEY}",
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-For": "127.0.0.1",
+                "X-Real-IP": "127.0.0.1",
             }
             async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(url, headers=headers)
@@ -111,6 +114,9 @@ async def get_connection(
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {settings.PANEL_API_KEY}",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-For": "127.0.0.1",
+        "X-Real-IP": "127.0.0.1",
     }
     try:
         async with httpx.AsyncClient(timeout=10) as client:
