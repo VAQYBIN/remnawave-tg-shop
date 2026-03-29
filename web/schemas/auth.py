@@ -62,6 +62,16 @@ class SendResetCodeRequest(BaseModel):
         return v.strip().lower()
 
 
+class CheckCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     code: str

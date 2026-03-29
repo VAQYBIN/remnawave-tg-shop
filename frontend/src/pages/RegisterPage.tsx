@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/auth/useAuth'
-import { registerSendCode, registerVerify } from '@/api/auth'
+import { registerSendCode, registerCheckCode, registerVerify } from '@/api/auth'
 import { ApiError } from '@/api/client'
 
-type Step = 'email' | 'code'
+type Step = 'email' | 'code' | 'password'
 
 export function RegisterPage() {
   const { setAuth } = useAuth()
@@ -82,7 +83,9 @@ export function RegisterPage() {
           <CardHeader>
             <CardTitle>{t('register_title')}</CardTitle>
             <CardDescription>
-              {step === 'email' ? t('register_email_step') : t('register_code_step')}
+              {step === 'email' && t('register_email_step')}
+              {step === 'code' && t('register_code_step')}
+              {step === 'password' && t('register_password_step')}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -92,7 +95,7 @@ export function RegisterPage() {
               </div>
             )}
 
-            {step === 'email' ? (
+            {step === 'email' && (
               <form onSubmit={handleSendCode} className="flex flex-col gap-3">
                 <Input
                   label="Email"
@@ -108,10 +111,31 @@ export function RegisterPage() {
                   {t('register_get_code')}
                 </Button>
               </form>
-            ) : (
-              <form onSubmit={handleVerify} className="flex flex-col gap-3">
-                <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 flex flex-col gap-1">
-                  <span>{t('register_email_sent', { email })}</span>
+            )}
+
+            {step === 'code' && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setError('')
+                  setIsLoading(true)
+                  try {
+                    await registerCheckCode(email, code)
+                    setStep('password')
+                  } catch (err) {
+                    if (err instanceof ApiError) {
+                      setError(err.message)
+                    } else {
+                      setError(t('error_generic'))
+                    }
+                  } finally {
+                    setIsLoading(false)
+                  }
+                }}
+                className="flex flex-col gap-3"
+              >
+                <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+                  {t('register_email_sent', { email })}
                 </div>
                 <Input
                   label={t('register_code_label')}
@@ -124,28 +148,8 @@ export function RegisterPage() {
                   autoComplete="one-time-code"
                   inputMode="numeric"
                 />
-                <Input
-                  label={t('register_password')}
-                  id="password"
-                  type="password"
-                  placeholder={t('register_password_hint')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
-                <Input
-                  label={t('register_confirm_password')}
-                  id="confirm-password"
-                  type="password"
-                  placeholder={t('register_repeat_password')}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  {t('register_create')}
+                  {t('register_next')}
                 </Button>
                 <Button
                   type="button"
@@ -159,6 +163,32 @@ export function RegisterPage() {
                   }}
                 >
                   {t('register_change_email')}
+                </Button>
+              </form>
+            )}
+
+            {step === 'password' && (
+              <form onSubmit={handleVerify} className="flex flex-col gap-3">
+                <PasswordInput
+                  label={t('register_password')}
+                  id="password"
+                  placeholder={t('register_password_hint')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <PasswordInput
+                  label={t('register_confirm_password')}
+                  id="confirm-password"
+                  placeholder={t('register_repeat_password')}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <Button type="submit" isLoading={isLoading} className="w-full">
+                  {t('register_create')}
                 </Button>
               </form>
             )}

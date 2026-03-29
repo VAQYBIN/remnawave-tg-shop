@@ -287,25 +287,29 @@
 ## ФАЗА 6: Новостная лента
 
 ### 6.1 Bot — Channel post capture
-- [ ] Создать `bot/handlers/channel_posts.py` — ловит channel_post, фильтрует по NEWS_CHANNEL_ID
-- [ ] Сохраняет в `channel_posts` таблицу (текст, media_type, media_file_id, posted_at)
-- [ ] Публикует `PUBLISH news:new_post {post_id}` в Redis
-- [ ] Зарегистрировать хендлер в диспетчере
+- [x] Создать `bot/handlers/channel_posts.py` — ловит channel_post, фильтрует по NEWS_CHANNEL_ID
+- [x] Сохраняет в `channel_posts` таблицу (текст, media_type, media_file_id, posted_at)
+- [x] Публикует `PUBLISH news:new_post {post_id}` в Redis
+- [x] Зарегистрировать хендлер в диспетчере (bot/routers.py)
 - [ ] **ПРОВЕРКА**: пост в канале → запись в БД + Redis PUBLISH
 
 ### 6.2 Backend — News API
-- [ ] Создать `web/schemas/news.py`
-- [ ] Создать `web/routers/news.py`:
-  - [ ] `GET /api/news?page=1&limit=20` — пагинация из БД
-  - [ ] `GET /api/news/stream` — SSE (Redis SUBSCRIBE → StreamingResponse)
-  - [ ] `GET /api/news/media/{file_id}` — прокси Telegram media (кэш в Redis 1 час)
+- [x] Создать `web/schemas/news.py`
+- [x] Создать `web/routers/news.py`:
+  - [x] `GET /api/news?page=1&limit=20` — пагинация из БД
+  - [x] `GET /api/news/stream` — SSE (Redis SUBSCRIBE → StreamingResponse)
+  - [x] `GET /api/news/media/{file_id}` — прокси Telegram media (кэш в Redis 1 час)
+- [x] Зарегистрировать роутер в `web/main.py`
 - [ ] **ПРОВЕРКА**: GET /api/news возвращает посты, SSE отправляет события
 
 ### 6.3 Frontend — News UI
-- [ ] Создать `src/pages/NewsPage.tsx`
-- [ ] Создать `src/components/news/NewsFeed.tsx` — контейнер ленты
-- [ ] Создать `src/components/news/NewsPost.tsx` — отдельный пост (текст + медиа)
-- [ ] Подключить EventSource для SSE — новые посты добавляются в начало
+- [x] Создать `src/pages/NewsPage.tsx`
+- [x] Создать `src/components/news/NewsFeed.tsx` — контейнер ленты с SSE
+- [x] Создать `src/components/news/NewsPost.tsx` — отдельный пост (текст + медиа)
+- [x] Создать `src/api/news.ts` — HTTP клиент + утилиты URL
+- [x] Добавить маршрут `/news` в App.tsx
+- [x] Обновить Sidebar.tsx и MobileNav.tsx — пункт «Новости»
+- [x] Добавить i18n ключи (ru + en) в i18n.ts
 - [ ] **ПРОВЕРКА**: пост в канале → через 1-2 сек появляется на сайте
 
 ### КОНТРОЛЬНАЯ ПРОВЕРКА ФАЗЫ 6

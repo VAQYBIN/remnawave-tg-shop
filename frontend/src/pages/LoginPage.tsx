@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-do
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/auth/useAuth'
 import { login, getTelegramClientId } from '@/api/auth'
@@ -84,10 +85,9 @@ export function LoginPage() {
                 required
                 autoComplete="email"
               />
-              <Input
+              <PasswordInput
                 label={t('login_password')}
                 id="password"
-                type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

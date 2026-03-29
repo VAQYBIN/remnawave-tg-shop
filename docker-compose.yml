@@ -36,6 +36,9 @@ services:
     image: redis:7-alpine
     container_name: remnawave-tg-shop-redis
     hostname: remnawave-tg-shop-redis
+    command: redis-server --save 60 1
+    volumes:
+      - remnawave-tg-shop-redis-data:/data
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -85,3 +88,5 @@ networks:
 volumes:
   remnawave-tg-shop-db-data:
     name: remnawave-tg-shop-db-data
+  remnawave-tg-shop-redis-data:
+    name: remnawave-tg-shop-redis-data

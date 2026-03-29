@@ -347,5 +347,6 @@ class ChannelPost(Base):
     media_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     media_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     media_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reply_markup_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

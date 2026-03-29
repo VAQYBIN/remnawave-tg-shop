@@ -3,12 +3,16 @@ from aiogram import Router, F
 from bot.handlers.user import user_router_aggregate
 from bot.handlers import inline_mode
 from bot.handlers.admin import admin_router_aggregate
+from bot.handlers import channel_posts
 from bot.filters.admin_filter import AdminFilter
 from config.settings import Settings
 
 
 def build_root_router(settings: Settings) -> Router:
     root = Router(name="root")
+
+    # Channel post handler — no private-chat restriction (channel updates)
+    root.include_router(channel_posts.router)
 
     # Allow all updates only in private chats (messages, callback queries, etc.)
     root.message.filter(F.chat.type == "private")

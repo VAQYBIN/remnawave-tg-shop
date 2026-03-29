@@ -17,6 +17,7 @@ async def create_channel_post(
     media_type: Optional[str] = None,
     media_file_id: Optional[str] = None,
     media_url: Optional[str] = None,
+    reply_markup_json: Optional[str] = None,
 ) -> ChannelPost:
     post = ChannelPost(
         telegram_message_id=telegram_message_id,
@@ -26,6 +27,7 @@ async def create_channel_post(
         media_type=media_type,
         media_file_id=media_file_id,
         media_url=media_url,
+        reply_markup_json=reply_markup_json,
         posted_at=posted_at,
     )
     session.add(post)

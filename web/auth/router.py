@@ -12,6 +12,7 @@ from web.schemas.auth import (
     TelegramCallbackRequest,
     RegisterSendCodeRequest,
     RegisterVerifyRequest,
+    CheckCodeRequest,
     LoginRequest,
     SendResetCodeRequest,
     ResetPasswordRequest,
@@ -217,6 +218,25 @@ async def register_send_code(
     return MessageResponse(message="Код отправлен на email, если он не зарегистрирован")
 
 
+# ─── POST /auth/register/check-code ─────────────────────────────────────────
+
+@router.post("/register/check-code", response_model=MessageResponse)
+async def register_check_code(
+    request: Request,
+    body: CheckCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+):
+    ip = get_client_ip(request)
+    await check_rate_limit(redis, f"rl:auth:check:{ip}", max_requests=10, window_seconds=300)
+
+    code_record = await get_active_code(db, email=body.email, purpose="register", code=body.code)
+    if not code_record:
+        raise HTTPException(status_code=400, detail="Неверный или истёкший код")
+
+    return MessageResponse(message="Код подтверждён")
+
+
 # ─── POST /auth/register/verify ─────────────────────────────────────────────
 
 @router.post("/register/verify", response_model=TokenResponse)
@@ -330,6 +350,27 @@ async def password_send_reset_code(
             logger.warning("RESEND_API_KEY not set — reset code for %s: %s", body.email, code_record.code)
 
     return MessageResponse(message="Если этот email зарегистрирован, на него отправлен код")
+
+
+# ─── POST /auth/password/check-reset-code ────────────────────────────────────
+
+@router.post("/password/check-reset-code", response_model=MessageResponse)
+async def password_check_reset_code(
+    request: Request,
+    body: CheckCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+):
+    ip = get_client_ip(request)
+    await check_rate_limit(redis, f"rl:auth:check:{ip}", max_requests=10, window_seconds=300)
+
+    code_record = await get_active_code(
+        db, email=body.email, purpose="reset_password", code=body.code
+    )
+    if not code_record:
+        raise HTTPException(status_code=400, detail="Неверный или истёкший код")
+
+    return MessageResponse(message="Код подтверждён")
 
 
 # ─── POST /auth/password/reset ───────────────────────────────────────────────

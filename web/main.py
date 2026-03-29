@@ -61,6 +61,9 @@ def create_app() -> FastAPI:
     from web.routers.devices import router as devices_router
     app.include_router(devices_router, prefix="/api")
 
+    from web.routers.news import router as news_router
+    app.include_router(news_router, prefix="/api")
+
     return app
 
 

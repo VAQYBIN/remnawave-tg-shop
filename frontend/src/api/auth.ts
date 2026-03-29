@@ -37,6 +37,16 @@ export async function registerSendCode(email: string): Promise<MessageResponse> 
   })
 }
 
+export async function registerCheckCode(
+  email: string,
+  code: string,
+): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>('/auth/register/check-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
+  })
+}
+
 export async function registerVerify(
   email: string,
   code: string,
@@ -59,6 +69,16 @@ export async function sendResetCode(email: string): Promise<MessageResponse> {
   return apiRequest<MessageResponse>('/auth/password/send-reset-code', {
     method: 'POST',
     body: JSON.stringify({ email }),
+  })
+}
+
+export async function checkResetCode(
+  email: string,
+  code: string,
+): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>('/auth/password/check-reset-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
   })
 }
 

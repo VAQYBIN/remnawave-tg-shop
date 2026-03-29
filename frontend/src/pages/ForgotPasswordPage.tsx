@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
-import { sendResetCode, resetPassword } from '@/api/auth'
+import { sendResetCode, checkResetCode, resetPassword } from '@/api/auth'
 import { ApiError } from '@/api/client'
 
-type Step = 'email' | 'reset' | 'done'
+type Step = 'email' | 'code' | 'reset' | 'done'
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -27,7 +28,7 @@ export function ForgotPasswordPage() {
     setIsLoading(true)
     try {
       await sendResetCode(email)
-      setStep('reset')
+      setStep('code')
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -80,7 +81,8 @@ export function ForgotPasswordPage() {
             <CardTitle>{t('forgot_title')}</CardTitle>
             <CardDescription>
               {step === 'email' && t('forgot_email_step')}
-              {step === 'reset' && t('forgot_code_step')}
+              {step === 'code' && t('forgot_code_step')}
+              {step === 'reset' && t('forgot_password_step')}
               {step === 'done' && t('forgot_done_step')}
             </CardDescription>
           </CardHeader>
@@ -109,10 +111,29 @@ export function ForgotPasswordPage() {
               </form>
             )}
 
-            {step === 'reset' && (
-              <form onSubmit={handleReset} className="flex flex-col gap-3">
-                <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 flex flex-col gap-1">
-                  <span>{t('forgot_email_hint', { email })}</span>
+            {step === 'code' && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setError('')
+                  setIsLoading(true)
+                  try {
+                    await checkResetCode(email, code)
+                    setStep('reset')
+                  } catch (err) {
+                    if (err instanceof ApiError) {
+                      setError(err.message)
+                    } else {
+                      setError(t('error_generic'))
+                    }
+                  } finally {
+                    setIsLoading(false)
+                  }
+                }}
+                className="flex flex-col gap-3"
+              >
+                <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+                  {t('forgot_email_hint', { email })}
                 </div>
                 <Input
                   label={t('forgot_code_label')}
@@ -125,28 +146,8 @@ export function ForgotPasswordPage() {
                   autoComplete="one-time-code"
                   inputMode="numeric"
                 />
-                <Input
-                  label={t('forgot_new_password')}
-                  id="new-password"
-                  type="password"
-                  placeholder={t('forgot_password_hint')}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
-                <Input
-                  label={t('forgot_confirm_password')}
-                  id="confirm-password"
-                  type="password"
-                  placeholder={t('forgot_repeat_password')}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
                 <Button type="submit" isLoading={isLoading} className="w-full">
-                  {t('forgot_save')}
+                  {t('forgot_next')}
                 </Button>
                 <Button
                   type="button"
@@ -156,9 +157,36 @@ export function ForgotPasswordPage() {
                   onClick={() => {
                     setStep('email')
                     setError('')
+                    setCode('')
                   }}
                 >
                   {t('forgot_change_email')}
+                </Button>
+              </form>
+            )}
+
+            {step === 'reset' && (
+              <form onSubmit={handleReset} className="flex flex-col gap-3">
+                <PasswordInput
+                  label={t('forgot_new_password')}
+                  id="new-password"
+                  placeholder={t('forgot_password_hint')}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <PasswordInput
+                  label={t('forgot_confirm_password')}
+                  id="confirm-password"
+                  placeholder={t('forgot_repeat_password')}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <Button type="submit" isLoading={isLoading} className="w-full">
+                  {t('forgot_save')}
                 </Button>
               </form>
             )}

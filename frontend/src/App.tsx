@@ -12,6 +12,7 @@ import { TelegramCallbackPage } from '@/pages/TelegramCallbackPage'
 import { ReferralPage } from '@/pages/ReferralPage'
 import { DevicesPage } from '@/pages/DevicesPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { NewsPage } from '@/pages/NewsPage'
 
 export default function App() {
   return (
@@ -79,6 +80,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/news"
+            element={
+              <ProtectedRoute>
+                <NewsPage />
               </ProtectedRoute>
             }
           />
