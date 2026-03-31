@@ -656,11 +656,11 @@ class Settings(BaseSettings):
     WEB_JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
     RESEND_API_KEY: Optional[str] = Field(default=None)
-    RESEND_FROM_EMAIL: str = Field(default="noreply@raccoonito.org")
-    WEB_FRONTEND_URL: str = Field(default="https://app.raccoonito.org")
-    WEB_API_URL: str = Field(default="https://api.raccoonito.org")
+    RESEND_FROM_EMAIL: str = Field(default="noreply@domain.com")
+    WEB_FRONTEND_URL: str = Field(default="https://app.domain.com")
+    WEB_API_URL: str = Field(default="https://api.domain.com")
     NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
-    WEB_CORS_ORIGINS: str = Field(default="https://app.raccoonito.org")
+    WEB_CORS_ORIGINS: str = Field(default="https://app.domain.com")
     WEB_DOCS_ENABLED: bool = Field(default=False, description="Enable /docs and /redoc (dev only)")
     BOT_USERNAME: Optional[str] = Field(
         default=None,
