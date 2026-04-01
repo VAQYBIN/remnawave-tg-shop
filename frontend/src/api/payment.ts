@@ -53,6 +53,10 @@ export function getPayments(page = 1, limit = 20): Promise<PaymentsList> {
   return apiRequest<PaymentsList>(`/payments?page=${page}&limit=${limit}`)
 }
 
+export function getPaymentsCount(): Promise<{ total: number }> {
+  return apiRequest<{ total: number }>('/payments/count')
+}
+
 export function createPayment(data: CreatePaymentRequest): Promise<CreatePaymentResponse> {
   return apiRequest<CreatePaymentResponse>('/payments/create', {
     method: 'POST',

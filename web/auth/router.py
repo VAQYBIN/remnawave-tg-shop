@@ -213,7 +213,7 @@ async def register_send_code(
             from_email=settings.RESEND_FROM_EMAIL,
         )
     else:
-        logger.warning("RESEND_API_KEY not set — code for %s: %s", body.email, code_record.code)
+        logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)
 
     return MessageResponse(message="Код отправлен на email, если он не зарегистрирован")
 
@@ -347,7 +347,7 @@ async def password_send_reset_code(
                 from_email=settings.RESEND_FROM_EMAIL,
             )
         else:
-            logger.warning("RESEND_API_KEY not set — reset code for %s: %s", body.email, code_record.code)
+            logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)
 
     return MessageResponse(message="Если этот email зарегистрирован, на него отправлен код")
 

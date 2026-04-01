@@ -37,6 +37,10 @@ class CreatePaymentResponse(BaseModel):
     currency: str
 
 
+class PaymentsCountResponse(BaseModel):
+    total: int
+
+
 class PaymentStatusResponse(BaseModel):
     payment_id: int
     status: str

@@ -8,6 +8,7 @@ from web.dependencies import get_current_account, get_db
 from web.schemas.payment import (
     PaymentResponse,
     PaymentsListResponse,
+    PaymentsCountResponse,
     CreatePaymentRequest,
     CreatePaymentResponse,
     PaymentStatusResponse,
@@ -54,6 +55,21 @@ async def get_payments(
     ]
 
     return PaymentsListResponse(items=items, total=total, page=page, limit=limit)
+
+
+@router.get("/count", response_model=PaymentsCountResponse)
+async def get_payments_count(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> PaymentsCountResponse:
+    if not account.telegram_user_id:
+        return PaymentsCountResponse(total=0)
+
+    count_result = await db.execute(
+        select(func.count()).select_from(Payment).where(Payment.user_id == account.telegram_user_id)
+    )
+    total = count_result.scalar() or 0
+    return PaymentsCountResponse(total=total)
 
 
 @router.post("/create", response_model=CreatePaymentResponse)

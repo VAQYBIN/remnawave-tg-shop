@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/auth/useAuth'
 import { getSubscription } from '@/api/subscription'
 import { getProfile } from '@/api/profile'
-import { getPayments } from '@/api/payment'
+import { getPaymentsCount } from '@/api/payment'
 import { CreditCard, Receipt, ArrowRight } from 'lucide-react'
 
 export function DashboardPage() {
@@ -24,9 +24,9 @@ export function DashboardPage() {
     queryFn: getSubscription,
   })
 
-  const { data: payments } = useQuery({
-    queryKey: ['payments', 1, 3],
-    queryFn: () => getPayments(1, 3),
+  const { data: paymentsCount } = useQuery({
+    queryKey: ['payments-count'],
+    queryFn: getPaymentsCount,
   })
 
   const displayName =
@@ -96,8 +96,8 @@ export function DashboardPage() {
               <CardContent>
                 <CardTitle className="text-base">{t('dashboard_history')}</CardTitle>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  {payments?.total
-                    ? t('dashboard_payments_count', { count: payments.total })
+                  {paymentsCount?.total
+                    ? t('dashboard_payments_count', { count: paymentsCount.total })
                     : t('dashboard_no_payments')}
                 </p>
               </CardContent>
