@@ -23,6 +23,8 @@ services:
       - .env
     volumes:
       - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -85,7 +87,7 @@ networks:
   remnawave-network:
     name: remnawave-network
     driver: bridge
-    external: true
+    external: false
 
 volumes:
   remnawave-tg-shop-db-data:
