@@ -1,18 +1,23 @@
 version: "3.9"
 
-# Production docker-compose — no exposed dev ports, uses external Nginx/Caddy as reverse proxy.
+# Production docker-compose — pulls pre-built images from GHCR, no local build required.
 # Usage:
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
 #
 # Required env vars (via .env):
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #   BOT_TOKEN, WEBHOOK_HOST, ...  (see .env.example)
 #   WEB_JWT_SECRET, REDIS_URL, RESEND_API_KEY, WEB_FRONTEND_URL, WEB_API_URL, WEB_CORS_ORIGINS
+#
+# Images on GHCR:
+#   ghcr.io/vaqybin/remnawave-tg-shop:latest          — Telegram bot
+#   ghcr.io/vaqybin/remnawave-tg-shop-web-api:latest  — FastAPI web backend
+#   ghcr.io/vaqybin/remnawave-tg-shop-web-frontend:latest — React SPA (served via nginx)
 
 services:
   remnawave-tg-shop:
-    image: kavore/remnawave-tg-shop:latest
-    build: .
+    image: ghcr.io/vaqybin/remnawave-tg-shop:latest
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     env_file:
@@ -70,14 +75,12 @@ services:
       retries: 10
 
   remnawave-tg-shop-web-api:
-    build:
-      context: .
-      dockerfile: web/Dockerfile
+    image: ghcr.io/vaqybin/remnawave-tg-shop-web-api:latest
     container_name: remnawave-tg-shop-web-api
     hostname: remnawave-tg-shop-web-api
     env_file:
       - .env
-    # No ports exposed — accessed via reverse proxy on api.raccoonito.org → :8090
+    # No ports exposed — accessed via reverse proxy on api.domain.com → :8090
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -94,14 +97,12 @@ services:
       start_period: 10s
 
   remnawave-tg-shop-web-frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: ghcr.io/vaqybin/remnawave-tg-shop-web-frontend:latest
     environment:
       API_URL: ${WEB_API_URL}/api
     container_name: remnawave-tg-shop-web-frontend
     hostname: remnawave-tg-shop-web-frontend
-    # No ports exposed — accessed via reverse proxy on app.raccoonito.org → :3000
+    # No ports exposed — accessed via reverse proxy on app.domain.com → :3000
     networks:
       - remnawave-network
     restart: unless-stopped
