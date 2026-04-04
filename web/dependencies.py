@@ -87,3 +87,15 @@ async def get_current_account(
         raise HTTPException(status_code=401, detail="Account not found")
 
     return account
+
+
+async def get_current_admin(
+    account: Account = Depends(get_current_account),
+    settings: Settings = Depends(get_settings_dep),
+) -> Account:
+    """FastAPI dependency: require the current account to be an admin."""
+    if not account.telegram_user_id:
+        raise HTTPException(status_code=403, detail="Admin access requires linked Telegram")
+    if account.telegram_user_id not in settings.ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Not an admin")
+    return account

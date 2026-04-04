@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/auth/useAuth'
 import { login, getTelegramClientId } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { resolveLogoUrl } from '@/hooks/useBranding'
 
 export function LoginPage() {
   const { setAuth } = useAuth()
@@ -16,6 +18,9 @@ export function LoginPage() {
   const [searchParams] = useSearchParams()
   const { t } = useTranslation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+
+  const { branding } = useBrandingContext()
+  const logoUrl = resolveLogoUrl(branding?.logo_url)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -51,7 +56,12 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
+          {logoUrl && (
+            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
+          )}
+          <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
+            {branding?.brand_name ?? 'Raccoonito'}
+          </h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 

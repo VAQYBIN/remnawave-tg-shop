@@ -350,3 +350,24 @@ class ChannelPost(Base):
     reply_markup_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SiteSettings(Base):
+    """Single-row table for site customization. Always id=1."""
+    __tablename__ = "site_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, autoincrement=False)
+    brand_name: Mapped[str] = mapped_column(String(100), nullable=False, default="Raccoonito")
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    favicon_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    primary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#2AACDF")
+    secondary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#897569")
+    background_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#F5F1ED")
+    font_family: Mapped[str] = mapped_column(String(100), nullable=False, default="Nunito")
+    custom_css: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    __table_args__ = (UniqueConstraint('id'),)

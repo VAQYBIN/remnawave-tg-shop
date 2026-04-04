@@ -1,7 +1,9 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from config.settings import get_settings
 
@@ -82,6 +84,17 @@ def create_app() -> FastAPI:
 
     from web.routers.news import router as news_router
     app.include_router(news_router, prefix="/api")
+
+    from web.routers.admin import admin_router
+    app.include_router(admin_router, prefix="/api")
+
+    from web.routers.config import router as config_router
+    app.include_router(config_router, prefix="/api")
+
+    # Static files (logos, favicons)
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    os.makedirs(static_dir, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return app
 
