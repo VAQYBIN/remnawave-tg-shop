@@ -7,6 +7,8 @@ import {
   Palette,
   ToggleLeft,
   ArrowLeft,
+  CalendarDays,
+  Wallet,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -19,6 +21,8 @@ const NAV_ITEMS = [
 const SITE_ITEMS = [
   { to: '/admin/branding', icon: Palette, label: 'Бренд и цвета' },
   { to: '/admin/features', icon: ToggleLeft, label: 'Разделы' },
+  { to: '/admin/plans', icon: CalendarDays, label: 'Тарифы' },
+  { to: '/admin/payment-providers', icon: Wallet, label: 'Провайдеры оплаты' },
 ]
 
 export function AdminSidebar() {

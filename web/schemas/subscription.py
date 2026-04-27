@@ -22,6 +22,7 @@ class TimePlan(BaseModel):
     kind: Literal["time"] = "time"
     months: int
     price_rub: float
+    price_stars: Optional[int] = None
 
 
 class TrafficPlan(BaseModel):

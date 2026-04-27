@@ -1,2 +1,5 @@
 export * from './dashboard'
 export * from './branding'
+export * from './plans'
+export * from './payment-providers'
+export * from './users'

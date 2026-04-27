@@ -22,6 +22,10 @@ import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { BrandingPage } from '@/pages/admin/BrandingPage'
 import { FeaturesPage } from '@/pages/admin/FeaturesPage'
+import { PlansPage } from '@/pages/admin/PlansPage'
+import { PaymentProvidersPage } from '@/pages/admin/PaymentProvidersPage'
+import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
+import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage'
 
 export default function App() {
   return (
@@ -117,6 +121,10 @@ export default function App() {
               <Route path="dashboard" element={<ErrorBoundary><AdminDashboardPage /></ErrorBoundary>} />
               <Route path="branding" element={<ErrorBoundary><BrandingPage /></ErrorBoundary>} />
               <Route path="features" element={<ErrorBoundary><FeaturesPage /></ErrorBoundary>} />
+              <Route path="plans" element={<ErrorBoundary><PlansPage /></ErrorBoundary>} />
+              <Route path="payment-providers" element={<ErrorBoundary><PaymentProvidersPage /></ErrorBoundary>} />
+              <Route path="users" element={<ErrorBoundary><AdminUsersPage /></ErrorBoundary>} />
+              <Route path="users/:userId" element={<ErrorBoundary><AdminUserDetailPage /></ErrorBoundary>} />
             </Route>
 
               {/* Default redirect */}

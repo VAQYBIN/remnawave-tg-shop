@@ -604,6 +604,59 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
+    async def extend_user_subscription(self, user_uuid: str, days: int) -> bool:
+        """Extend user subscription by adding N days to current expireAt."""
+        user_data = await self.get_user_by_uuid(user_uuid)
+        if not user_data:
+            logging.error(f"extend_user_subscription: user {user_uuid} not found on panel.")
+            return False
+
+        current_expire_str = user_data.get("expireAt")
+        now = datetime.now(timezone.utc)
+        if current_expire_str:
+            try:
+                expire_dt = datetime.fromisoformat(current_expire_str.replace("Z", "+00:00"))
+                base = max(expire_dt, now)
+            except (ValueError, AttributeError):
+                base = now
+        else:
+            base = now
+
+        new_expire = base + timedelta(days=days)
+        new_expire_iso = new_expire.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+        result = await self.update_user_details_on_panel(
+            user_uuid,
+            {"uuid": user_uuid, "expireAt": new_expire_iso},
+        )
+        return result is not None
+
+    async def add_user_traffic(self, user_uuid: str, bytes_to_add: int) -> bool:
+        """Add bytes to user's traffic limit (sets trafficLimitBytes += bytes_to_add)."""
+        user_data = await self.get_user_by_uuid(user_uuid)
+        if not user_data:
+            logging.error(f"add_user_traffic: user {user_uuid} not found on panel.")
+            return False
+
+        current_limit = int(user_data.get("trafficLimitBytes") or 0)
+        new_limit = current_limit + bytes_to_add
+
+        result = await self.update_user_details_on_panel(
+            user_uuid,
+            {"uuid": user_uuid, "trafficLimitBytes": new_limit},
+        )
+        return result is not None
+
+    async def reset_user_traffic_on_panel(self, user_uuid: str) -> bool:
+        """Reset user's used traffic counter via panel action endpoint."""
+        endpoint = f"/users/{user_uuid}/actions/reset-traffic"
+        response_data = await self._request("POST", endpoint, log_full_response=False)
+        if response_data and not response_data.get("error"):
+            logging.info(f"Traffic reset for panel user {user_uuid}.")
+            return True
+        logging.error(f"Failed to reset traffic for panel user {user_uuid}. Response: {response_data}")
+        return False
+
     async def encrypt_happ_link(self, link_to_encrypt: str) -> Optional[str]:
         """Encrypt a subscription link using the panel's happ crypt4 API.
 

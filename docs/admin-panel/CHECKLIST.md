@@ -84,31 +84,31 @@
 
 ### Backend
 
-- [ ] **3.1** Создать модели `PricingPlan`, `PaymentProviderConfig` в `db/models.py`
-- [ ] **3.2** Создать Alembic-миграцию + seed (перенос текущих тарифов из env vars)
-- [ ] **3.3** Создать `core/dal/pricing_plan_dal.py` — CRUD операции
-- [ ] **3.4** Создать `core/dal/payment_provider_config_dal.py` — get_all, update
-- [ ] **3.5** Создать `web/routers/admin/plans.py` — CRUD `/api/admin/plans`
-- [ ] **3.6** Создать `web/routers/admin/payment_providers.py` — GET/PATCH `/api/admin/payment-providers`
-- [ ] **3.7** Создать `web/schemas/admin/plans.py` — схемы тарифов
-- [ ] **3.8** Создать `web/schemas/admin/payment_providers.py` — схемы провайдеров
-- [ ] **3.9** Адаптировать `GET /api/subscription/plans` — читать из БД (`PricingPlan`) вместо env vars
-- [ ] **3.10** Адаптировать логику создания платежей — использовать `PaymentProviderConfig` для проверки enabled и порядка
+- [x] **3.1** Создать модели `PricingPlan`, `PaymentProviderConfig` в `db/models.py`
+- [x] **3.2** Создать Alembic-миграцию + seed (перенос текущих тарифов из env vars)
+- [x] **3.3** Создать `core/dal/pricing_plan_dal.py` — CRUD операции
+- [x] **3.4** Создать `core/dal/payment_provider_config_dal.py` — get_all, update
+- [x] **3.5** Создать `web/routers/admin/plans.py` — CRUD `/api/admin/plans`
+- [x] **3.6** Создать `web/routers/admin/payment_providers.py` — GET/PATCH `/api/admin/payment-providers`
+- [x] **3.7** Создать `web/schemas/admin/plans.py` — схемы тарифов
+- [x] **3.8** Создать `web/schemas/admin/payment_providers.py` — схемы провайдеров
+- [x] **3.9** Адаптировать `GET /api/subscription/plans` — читать из БД (`PricingPlan`) вместо env vars
+- [x] **3.10** Адаптировать логику создания платежей — использовать `PaymentProviderConfig` для проверки enabled и порядка
 
 ### Frontend
 
-- [ ] **3.11** Создать `frontend/src/api/admin/plans.ts` — API-клиент тарифов
-- [ ] **3.12** Создать `frontend/src/api/admin/payment-providers.ts` — API-клиент провайдеров
-- [ ] **3.13** Создать `frontend/src/pages/admin/PlansPage.tsx` — таблица тарифов + модалка создания/редактирования
-- [ ] **3.14** Создать `frontend/src/pages/admin/PaymentProvidersPage.tsx` — список с toggle и сортировкой
-- [ ] **3.15** Добавить роуты и пункты sidebar
+- [x] **3.11** Создать `frontend/src/api/admin/plans.ts` — API-клиент тарифов
+- [x] **3.12** Создать `frontend/src/api/admin/payment-providers.ts` — API-клиент провайдеров
+- [x] **3.13** Создать `frontend/src/pages/admin/PlansPage.tsx` — таблица тарифов + модалка создания/редактирования
+- [x] **3.14** Создать `frontend/src/pages/admin/PaymentProvidersPage.tsx` — список с toggle и сортировкой
+- [x] **3.15** Добавить роуты и пункты sidebar
 
 ### Ручная проверка Фазы 3
-- [ ] Можно создать новый тарифный план → он появляется на странице подписки
-- [ ] Можно отключить тариф → он исчезает из публичной страницы
-- [ ] Можно изменить цену → новая цена отображается
-- [ ] Можно отключить платёжный провайдер → он не отображается при оплате
-- [ ] Порядок провайдеров сохраняется после drag-n-drop
+- [x] Можно создать новый тарифный план → он появляется на странице подписки
+- [x] Можно отключить тариф → он исчезает из публичной страницы
+- [x] Можно изменить цену → новая цена отображается
+- [x] Можно отключить платёжный провайдер → он не отображается при оплате
+- [x] Порядок провайдеров сохраняется после drag-n-drop
 
 ---
 
@@ -118,33 +118,33 @@
 
 ### Backend
 
-- [ ] **4.1** Создать `web/routers/admin/users.py`:
+- [x] **4.1** Создать `web/routers/admin/users.py`:
   - `GET /api/admin/users` — пагинация, поиск (email, username, telegram_id), фильтры (banned, has_subscription)
   - `GET /api/admin/users/{user_id}` — детали: account + user + подписка + последние платежи + данные панели
   - `POST /api/admin/users/{user_id}/ban` — забанить
   - `POST /api/admin/users/{user_id}/unban` — разбанить
   - `POST /api/admin/users/{user_id}/add-days` — добавить дни подписки (через panel API)
   - `POST /api/admin/users/{user_id}/add-traffic` — добавить трафик (через panel API)
-- [ ] **4.2** Создать `web/schemas/admin/users.py` — `AdminUserListResponse`, `AdminUserDetailResponse`, action requests
-- [ ] **4.3** Расширить `core/dal/user_dal.py` — методы для пагинированного поиска
-- [ ] **4.4** Расширить `panel_client.py` — методы для add-days (`extend_subscription`), add-traffic (`extend_traffic`)
+- [x] **4.2** Создать `web/schemas/admin/users.py` — `AdminUserListResponse`, `AdminUserDetailResponse`, action requests
+- [x] **4.3** Расширить `core/dal/user_dal.py` — методы для пагинированного поиска
+- [x] **4.4** Расширить `panel_client.py` — методы для add-days (`extend_subscription`), add-traffic (`extend_traffic`)
 
 ### Frontend
 
-- [ ] **4.5** Создать `frontend/src/components/admin/DataTable.tsx` — переиспользуемая таблица с пагинацией, сортировкой, поиском
-- [ ] **4.6** Создать `frontend/src/api/admin/users.ts` — API-клиент
-- [ ] **4.7** Создать `frontend/src/pages/admin/AdminUsersPage.tsx` — DataTable с фильтрами
-- [ ] **4.8** Создать `frontend/src/pages/admin/AdminUserDetailPage.tsx` — карточка юзера с табами (инфо, подписка, платежи, панель)
-- [ ] **4.9** Модалки: бан (с причиной), выдача дней (input кол-ва), выдача трафика
-- [ ] **4.10** Добавить роуты `/admin/users`, `/admin/users/:id`
+- [x] **4.5** Создать `frontend/src/components/admin/DataTable.tsx` — переиспользуемая таблица с пагинацией, сортировкой, поиском
+- [x] **4.6** Создать `frontend/src/api/admin/users.ts` — API-клиент
+- [x] **4.7** Создать `frontend/src/pages/admin/AdminUsersPage.tsx` — DataTable с фильтрами
+- [x] **4.8** Создать `frontend/src/pages/admin/AdminUserDetailPage.tsx` — карточка юзера с табами (инфо, подписка, платежи, панель)
+- [x] **4.9** Модалки: бан (с причиной), выдача дней (input кол-ва), выдача трафика
+- [x] **4.10** Добавить роуты `/admin/users`, `/admin/users/:id`
 
 ### Ручная проверка Фазы 4
-- [ ] Таблица пользователей загружается с пагинацией
-- [ ] Поиск по email/username/telegram_id работает
-- [ ] Детали юзера показывают всю информацию (аккаунт + подписка + платежи)
-- [ ] Бан юзера → он не может войти
-- [ ] Выдача дней → подписка продлена (проверить в панели Remnawave)
-- [ ] Выдача трафика → трафик увеличен
+- [x] Таблица пользователей загружается с пагинацией
+- [x] Поиск по email/username/telegram_id работает
+- [x] Детали юзера показывают всю информацию (аккаунт + подписка + платежи)
+- [x] Бан юзера → он не может войти
+- [x] Выдача дней → подписка продлена (проверить в панели Remnawave)
+- [x] Выдача трафика → трафик увеличен
 
 ---
 

@@ -352,6 +352,33 @@ class ChannelPost(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class PricingPlan(Base):
+    """Time-based subscription pricing plans managed via admin panel."""
+    __tablename__ = "pricing_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    duration_months: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class PaymentProviderConfig(Base):
+    """Payment provider enable/disable and display order managed via admin panel."""
+    __tablename__ = "payment_provider_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_key: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
 class SiteSettings(Base):
     """Single-row table for site customization. Always id=1."""
     __tablename__ = "site_settings"

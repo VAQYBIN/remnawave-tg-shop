@@ -25,7 +25,7 @@ class PaymentsListResponse(BaseModel):
 
 class CreatePaymentRequest(BaseModel):
     provider: str
-    months: int = Field(ge=1, le=12)
+    months: int = Field(ge=1, le=120)
     promo_code: Optional[str] = None
 
 
