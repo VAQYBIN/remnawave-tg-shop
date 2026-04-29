@@ -26,6 +26,8 @@ import { PlansPage } from '@/pages/admin/PlansPage'
 import { PaymentProvidersPage } from '@/pages/admin/PaymentProvidersPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage'
+import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage'
+import { AdminPromosPage } from '@/pages/admin/AdminPromosPage'
 
 export default function App() {
   return (
@@ -125,6 +127,8 @@ export default function App() {
               <Route path="payment-providers" element={<ErrorBoundary><PaymentProvidersPage /></ErrorBoundary>} />
               <Route path="users" element={<ErrorBoundary><AdminUsersPage /></ErrorBoundary>} />
               <Route path="users/:userId" element={<ErrorBoundary><AdminUserDetailPage /></ErrorBoundary>} />
+              <Route path="payments" element={<ErrorBoundary><AdminPaymentsPage /></ErrorBoundary>} />
+              <Route path="promos" element={<ErrorBoundary><AdminPromosPage /></ErrorBoundary>} />
             </Route>
 
               {/* Default redirect */}

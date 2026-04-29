@@ -1,8 +1,9 @@
 import logging
-from typing import Optional, List, Dict, Any
+from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, func, and_
+from sqlalchemy import update, func, and_, literal_column
 from sqlalchemy.orm import selectinload
 
 from db.models import Payment
@@ -317,10 +318,10 @@ async def update_payment_discount_info(
 
 async def get_financial_statistics(session: AsyncSession) -> Dict[str, Any]:
     """Get comprehensive financial statistics."""
-    from datetime import datetime, timedelta
+    from datetime import timezone, timedelta
     from sqlalchemy import and_
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
     month_start = today_start - timedelta(days=30)
@@ -429,3 +430,113 @@ async def get_user_payments(
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def get_admin_payments_list(
+    session: AsyncSession,
+    page: int = 0,
+    page_size: int = 20,
+    status: Optional[str] = None,
+    provider: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    user_id: Optional[int] = None,
+) -> Tuple[List[Payment], int]:
+    conditions = []
+    if status:
+        conditions.append(Payment.status == status)
+    if provider:
+        conditions.append(Payment.provider == provider)
+    if date_from:
+        conditions.append(Payment.created_at >= date_from)
+    if date_to:
+        conditions.append(Payment.created_at <= date_to)
+    if user_id:
+        conditions.append(Payment.user_id == user_id)
+
+    where_clause = and_(*conditions) if conditions else None
+
+    count_stmt = select(func.count(Payment.payment_id))
+    if where_clause is not None:
+        count_stmt = count_stmt.where(where_clause)
+    total_result = await session.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    stmt = (
+        select(Payment)
+        .options(selectinload(Payment.user), selectinload(Payment.promo_code_used))
+        .order_by(Payment.created_at.desc())
+        .limit(page_size)
+        .offset(page * page_size)
+    )
+    if where_clause is not None:
+        stmt = stmt.where(where_clause)
+
+    result = await session.execute(stmt)
+    return result.scalars().all(), total
+
+
+async def get_payments_stats_by_provider(
+    session: AsyncSession,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    conditions = [Payment.status == "succeeded"]
+    if date_from:
+        conditions.append(Payment.created_at >= date_from)
+    if date_to:
+        conditions.append(Payment.created_at <= date_to)
+
+    stmt = (
+        select(
+            Payment.provider,
+            func.sum(Payment.amount).label("total_amount"),
+            func.count(Payment.payment_id).label("total_count"),
+        )
+        .where(and_(*conditions))
+        .group_by(Payment.provider)
+        .order_by(func.sum(Payment.amount).desc())
+    )
+
+    result = await session.execute(stmt)
+    return [
+        {
+            "provider": row["provider"] or "unknown",
+            "amount": float(row["total_amount"] or 0),
+            "count": row["total_count"] or 0,
+        }
+        for row in result.mappings().all()
+    ]
+
+
+async def get_daily_revenue_chart(
+    session: AsyncSession,
+    days: int = 30,
+) -> List[Dict[str, Any]]:
+    from datetime import timezone, timedelta
+
+    date_from = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ) - timedelta(days=days - 1)
+    day_expr = func.date_trunc(literal_column("'day'"), Payment.created_at)
+
+    stmt = (
+        select(
+            day_expr.label("day"),
+            func.sum(Payment.amount).label("amount"),
+            func.count(Payment.payment_id).label("count"),
+        )
+        .where(and_(Payment.status == "succeeded", Payment.created_at >= date_from))
+        .group_by(day_expr)
+        .order_by(day_expr)
+    )
+
+    result = await session.execute(stmt)
+    return [
+        {
+            "date": row["day"].strftime("%Y-%m-%d") if row["day"] else "",
+            "amount": float(row["amount"] or 0),
+            "count": row["count"] or 0,
+        }
+        for row in result.mappings().all()
+    ]

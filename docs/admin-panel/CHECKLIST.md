@@ -154,26 +154,26 @@
 
 ### Backend
 
-- [ ] **5.1** Создать `web/routers/admin/payments.py`:
+- [x] **5.1** Создать `web/routers/admin/payments.py`:
   - `GET /api/admin/payments` — пагинация, фильтры (статус, провайдер, период, user_id)
   - `GET /api/admin/payments/stats` — доход: сегодня, неделя, месяц, всего; по провайдерам; график по дням
-- [ ] **5.2** Создать `web/routers/admin/promos.py`:
+- [x] **5.2** Создать `web/routers/admin/promos.py`:
   - `GET /api/admin/promos` — список с пагинацией
   - `POST /api/admin/promos` — создать (тип, значение, макс. активации, срок)
   - `PATCH /api/admin/promos/{id}` — обновить
   - `DELETE /api/admin/promos/{id}` — удалить
-- [ ] **5.3** Создать `web/schemas/admin/payments.py` — `PaymentListResponse`, `PaymentStatsResponse`
-- [ ] **5.4** Создать `web/schemas/admin/promos.py` — `PromoListResponse`, `PromoCreateRequest`, `PromoUpdateRequest`
-- [ ] **5.5** Расширить `core/dal/payment_dal.py` — методы для фильтрованного поиска, агрегации дохода
+- [x] **5.3** Создать `web/schemas/admin/payments.py` — `PaymentListResponse`, `PaymentStatsResponse`
+- [x] **5.4** Создать `web/schemas/admin/promos.py` — `PromoListResponse`, `PromoCreateRequest`, `PromoUpdateRequest`
+- [x] **5.5** Расширить `core/dal/payment_dal.py` — методы для фильтрованного поиска, агрегации дохода
 
 ### Frontend
 
-- [ ] **5.6** Создать `frontend/src/api/admin/payments.ts`
-- [ ] **5.7** Создать `frontend/src/api/admin/promos.ts`
-- [ ] **5.8** Создать `frontend/src/pages/admin/AdminPaymentsPage.tsx` — таблица + фильтры + карточки статистики
-- [ ] **5.9** Добавить графики дохода (по дням, по провайдерам) — использовать recharts
-- [ ] **5.10** Создать `frontend/src/pages/admin/AdminPromosPage.tsx` — таблица + модалка создания
-- [ ] **5.11** Добавить роуты и пункты sidebar
+- [x] **5.6** Создать `frontend/src/api/admin/payments.ts`
+- [x] **5.7** Создать `frontend/src/api/admin/promos.ts`
+- [x] **5.8** Создать `frontend/src/pages/admin/AdminPaymentsPage.tsx` — таблица + фильтры + карточки статистики
+- [x] **5.9** Добавить графики дохода (по дням, по провайдерам) — recharts BarChart
+- [x] **5.10** Создать `frontend/src/pages/admin/AdminPromosPage.tsx` — таблица + модалка создания
+- [x] **5.11** Добавить роуты и пункты sidebar
 
 ### Ручная проверка Фазы 5
 - [ ] Таблица платежей загружается с фильтрами по статусу/провайдеру/периоду
