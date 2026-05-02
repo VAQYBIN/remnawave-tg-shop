@@ -112,6 +112,7 @@ class Payment(Base):
     currency = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
+    redirect_url = Column(Text, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
     promo_code_id = Column(Integer,
                            ForeignKey("promo_codes.promo_code_id"),

@@ -159,12 +159,15 @@ async def count_user_succeeded_payments(
 
 async def update_provider_payment_and_status(
         session: AsyncSession, payment_db_id: int,
-        provider_payment_id: str, new_status: str) -> Optional[Payment]:
+        provider_payment_id: str, new_status: str,
+        redirect_url: Optional[str] = None) -> Optional[Payment]:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
         payment.status = new_status
         payment.provider_payment_id = provider_payment_id
         payment.updated_at = func.now()
+        if redirect_url:
+            payment.redirect_url = redirect_url
         await session.flush()
         await session.refresh(payment)
         logging.info(
@@ -175,6 +178,19 @@ async def update_provider_payment_and_status(
             f"Payment record with DB ID {payment_db_id} not found for provider update."
         )
     return payment
+
+
+async def get_latest_pending_payment_by_user(
+        session: AsyncSession, user_id: int) -> Optional[Payment]:
+    stmt = (
+        select(Payment)
+        .where(Payment.user_id == user_id, Payment.status == "pending")
+        .options(selectinload(Payment.promo_code_used))
+        .order_by(Payment.created_at.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def mark_provider_payment_succeeded_once(

@@ -96,7 +96,7 @@ async def update_promo(
     if not promo:
         raise HTTPException(status_code=404, detail="Promo code not found")
 
-    update_data = body.model_dump(exclude_none=True)
+    update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         return _to_item(promo)
 

@@ -46,5 +46,11 @@ class PaymentStatusResponse(BaseModel):
     status: str
     provider: str
     amount: float
+    original_amount: Optional[float]
+    discount_applied: Optional[float]
     currency: str
+    description: Optional[str]
+    subscription_duration_months: Optional[int]
+    redirect_url: Optional[str]
+    promo_code: Optional[str]
     created_at: datetime

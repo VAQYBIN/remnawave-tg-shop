@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, Tag } from 'lucide-react'
+import { Plus, Trash2, Tag, Pencil } from 'lucide-react'
 import { DataTable, type Column } from '@/components/admin/DataTable'
 import {
   getAdminPromos,
@@ -9,6 +9,7 @@ import {
   deletePromo,
   type AdminPromoItem,
   type PromoCreateRequest,
+  type PromoUpdateRequest,
 } from '@/api/admin/promos'
 
 function fmtDate(dt: string | null) {
@@ -222,10 +223,132 @@ function DeleteConfirm({ promo, onClose, onDeleted }: DeleteConfirmProps) {
   )
 }
 
+interface EditModalProps {
+  promo: AdminPromoItem
+  onClose: () => void
+  onUpdated: () => void
+}
+
+function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
+  const [maxActivations, setMaxActivations] = useState(String(promo.max_activations))
+  const [validUntil, setValidUntil] = useState(
+    promo.valid_until ? promo.valid_until.slice(0, 10) : ''
+  )
+  const [bonusDays, setBonusDays] = useState(String(promo.bonus_days ?? ''))
+  const [discountPct, setDiscountPct] = useState(String(promo.discount_percentage ?? ''))
+  const [error, setError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: (data: PromoUpdateRequest) => updatePromo(promo.promo_code_id, data),
+    onSuccess: () => {
+      onUpdated()
+      onClose()
+    },
+    onError: (e: Error) => setError(e.message),
+  })
+
+  function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault()
+    setError('')
+    if (!maxActivations || Number(maxActivations) < 1) return setError('Укажите макс. активаций')
+    if (promo.promo_type === 'bonus_days' && (!bonusDays || Number(bonusDays) < 1))
+      return setError('Укажите количество бонусных дней')
+    if (
+      promo.promo_type === 'discount' &&
+      (!discountPct || Number(discountPct) < 1 || Number(discountPct) > 100)
+    )
+      return setError('Скидка должна быть от 1 до 100%')
+
+    const payload: PromoUpdateRequest = {
+      max_activations: Number(maxActivations),
+      valid_until: validUntil ? new Date(validUntil).toISOString() : null,
+      ...(promo.promo_type === 'bonus_days' ? { bonus_days: Number(bonusDays) } : {}),
+      ...(promo.promo_type === 'discount' ? { discount_percentage: Number(discountPct) } : {}),
+    }
+    mutation.mutate(payload)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-[hsl(var(--card))] rounded-2xl border border-[hsl(var(--border))] w-full max-w-md p-6 shadow-xl">
+        <h2 className="text-lg font-bold mb-1">Редактировать промокод</h2>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4 font-mono">{promo.code}</p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {promo.promo_type === 'bonus_days' ? (
+            <div>
+              <label className="block text-sm font-medium mb-1">Бонусных дней</label>
+              <input
+                type="number"
+                min={1}
+                value={bonusDays}
+                onChange={(e) => setBonusDays(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium mb-1">Скидка (%)</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={discountPct}
+                onChange={(e) => setDiscountPct(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Макс. активаций</label>
+            <input
+              type="number"
+              min={1}
+              value={maxActivations}
+              onChange={(e) => setMaxActivations(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Действует до (необязательно)</label>
+            <input
+              type="date"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
+
+          <div className="flex gap-2 mt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="flex-1 h-9 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {mutation.isPending ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export function AdminPromosPage() {
   const [page, setPage] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AdminPromoItem | null>(null)
+  const [editTarget, setEditTarget] = useState<AdminPromoItem | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -322,10 +445,17 @@ export function AdminPromosPage() {
     {
       key: 'actions',
       header: '',
-      size: 70,
+      size: 90,
       enableResizing: false,
       render: (r) => (
         <div className="flex gap-1">
+          <button
+            onClick={() => setEditTarget(r)}
+            className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] transition-colors"
+            title="Редактировать"
+          >
+            <Pencil size={14} />
+          </button>
           <button
             onClick={() => setDeleteTarget(r)}
             className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
@@ -392,6 +522,14 @@ export function AdminPromosPage() {
           promo={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onDeleted={invalidate}
+        />
+      )}
+
+      {editTarget && (
+        <EditModal
+          promo={editTarget}
+          onClose={() => setEditTarget(null)}
+          onUpdated={invalidate}
         />
       )}
     </div>

@@ -401,7 +401,7 @@ async def create_web_payment(
     payment_db_id = payment.payment_id
 
     return_url = (
-        f"{settings.WEB_FRONTEND_URL.rstrip('/')}/payment/callback?payment_id={payment_db_id}"
+        f"{settings.WEB_FRONTEND_URL.rstrip('/')}/payment/{payment_db_id}"
     )
 
     try:
@@ -456,7 +456,7 @@ async def create_web_payment(
         raise
 
     await payment_dal.update_provider_payment_and_status(
-        db, payment_db_id, provider_id, "pending"
+        db, payment_db_id, provider_id, "pending", redirect_url=redirect_url
     )
 
     return payment_db_id, redirect_url

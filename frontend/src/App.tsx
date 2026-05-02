@@ -13,6 +13,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { SubscriptionPage } from '@/pages/SubscriptionPage'
 import { PaymentHistoryPage } from '@/pages/PaymentHistoryPage'
 import { PaymentCallbackPage } from '@/pages/PaymentCallbackPage'
+import { PaymentPendingPage } from '@/pages/PaymentPendingPage'
 import { TelegramCallbackPage } from '@/pages/TelegramCallbackPage'
 import { ReferralPage } from '@/pages/ReferralPage'
 import { DevicesPage } from '@/pages/DevicesPage'
@@ -68,6 +69,15 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/payment/:paymentId"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary><PaymentPendingPage /></ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            {/* Legacy callback URL — kept for backwards compat with old return_url */}
             <Route
               path="/payment/callback"
               element={
