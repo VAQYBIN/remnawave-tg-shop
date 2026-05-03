@@ -11,6 +11,7 @@ import {
   Wallet,
   Activity,
   Server,
+  Megaphone,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: '/admin/users', icon: Users, label: 'Пользователи' },
   { to: '/admin/payments', icon: CreditCard, label: 'Платежи' },
   { to: '/admin/promos', icon: Tag, label: 'Промокоды' },
+  { to: '/admin/broadcast', icon: Megaphone, label: 'Рассылка' },
 ]
 
 const SITE_ITEMS = [

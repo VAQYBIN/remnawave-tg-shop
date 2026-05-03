@@ -34,6 +34,7 @@ import { NodesPage } from '@/pages/admin/NodesPage'
 import { NodeDetailPage } from '@/pages/admin/NodeDetailPage'
 import { PanelUsersPage } from '@/pages/admin/PanelUsersPage'
 import { PanelUserDetailPage } from '@/pages/admin/PanelUserDetailPage'
+import { BroadcastPage } from '@/pages/admin/BroadcastPage'
 
 export default function App() {
   return (
@@ -144,6 +145,7 @@ export default function App() {
               <Route path="users/:userId" element={<ErrorBoundary><AdminUserDetailPage /></ErrorBoundary>} />
               <Route path="payments" element={<ErrorBoundary><AdminPaymentsPage /></ErrorBoundary>} />
               <Route path="promos" element={<ErrorBoundary><AdminPromosPage /></ErrorBoundary>} />
+              <Route path="broadcast" element={<ErrorBoundary><BroadcastPage /></ErrorBoundary>} />
               <Route path="panel" element={<ErrorBoundary><PanelStatsPage /></ErrorBoundary>} />
               <Route path="panel/users" element={<ErrorBoundary><PanelUsersPage /></ErrorBoundary>} />
               <Route path="panel/users/:uuid" element={<ErrorBoundary><PanelUserDetailPage /></ErrorBoundary>} />
