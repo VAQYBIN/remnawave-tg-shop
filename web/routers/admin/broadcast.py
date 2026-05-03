@@ -35,7 +35,12 @@ async def start_broadcast(
         ex=_STATUS_TTL,
     )
 
-    payload = {"id": broadcast_id, "text": req.text, "filter": req.filter}
+    payload = {
+        "id": broadcast_id,
+        "text": req.text,
+        "filter": req.filter,
+        "buttons": [b.model_dump() for b in req.buttons],
+    }
     await redis.publish("broadcast:request", json.dumps(payload))
 
     return BroadcastStartResponse(broadcast_id=broadcast_id, status="queued")

@@ -1,10 +1,18 @@
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from pydantic import BaseModel
+
+
+class ButtonItem(BaseModel):
+    text: str
+    url: str
+    color: Literal["", "danger", "success", "primary"] = ""
+    row: int = 0  # buttons with the same row index are placed in one keyboard row
 
 
 class BroadcastRequest(BaseModel):
     text: str
     filter: Literal["all", "active", "inactive"] = "all"
+    buttons: List[ButtonItem] = []
 
 
 class BroadcastStartResponse(BaseModel):

@@ -8,6 +8,7 @@ import logging
 from typing import Optional
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from redis.asyncio import Redis
 from sqlalchemy.orm import sessionmaker
 
@@ -19,6 +20,27 @@ logger = logging.getLogger(__name__)
 _STATUS_TTL = 3600  # Redis key TTL in seconds
 _RATE_LIMIT_DELAY = 0.05  # 20 msg/s to stay under Telegram's limit
 _STATUS_UPDATE_EVERY = 20  # update Redis status every N messages
+
+
+def _build_keyboard(buttons: list) -> Optional[InlineKeyboardMarkup]:
+    """Build InlineKeyboardMarkup from broadcast button list grouped by row index."""
+    if not buttons:
+        return None
+
+    rows: dict[int, list[InlineKeyboardButton]] = {}
+    for btn in buttons:
+        text = (btn.get("text") or "").strip()
+        url = (btn.get("url") or "").strip()
+        if not text or not url:
+            continue
+        row_idx = int(btn.get("row", 0))
+        rows.setdefault(row_idx, []).append(InlineKeyboardButton(text=text, url=url))
+
+    if not rows:
+        return None
+
+    keyboard = [rows[idx] for idx in sorted(rows)]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 class WebBroadcastService:
@@ -88,13 +110,19 @@ class WebBroadcastService:
         broadcast_id = data.get("id")
         text = data.get("text", "").strip()
         filter_type = data.get("filter", "all")
+        buttons_raw = data.get("buttons", [])
 
         if not broadcast_id or not text:
             logger.warning("WebBroadcastService: invalid broadcast payload: %s", data)
             return
 
+        keyboard = _build_keyboard(buttons_raw)
+
         logger.info(
-            "WebBroadcastService: starting broadcast %s filter=%s", broadcast_id, filter_type
+            "WebBroadcastService: starting broadcast %s filter=%s buttons=%d",
+            broadcast_id,
+            filter_type,
+            len(buttons_raw),
         )
 
         try:
@@ -121,6 +149,7 @@ class WebBroadcastService:
                         text=text,
                         parse_mode="HTML",
                         disable_web_page_preview=True,
+                        reply_markup=keyboard,
                     )
                     sent += 1
                 except Exception as exc:
