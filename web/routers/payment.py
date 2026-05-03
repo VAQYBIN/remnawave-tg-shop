@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -13,7 +14,9 @@ from web.schemas.payment import (
     CreatePaymentResponse,
     PaymentStatusResponse,
 )
-from core.services.telegram_notify import send_payment_created_notification
+from core.services.telegram_notify import send_payment_reminder_after_delay
+
+_REMINDER_DELAY_SECONDS = 15 * 60  # 15 minutes
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -99,7 +102,7 @@ async def create_payment(
     from core.dal.payment_dal import get_payment_by_db_id
     payment = await get_payment_by_db_id(db, payment_db_id)
 
-    # Telegram notification (fire-and-forget, failure is non-critical)
+    # Telegram reminder after 15 min (fire-and-forget, sent only if still pending)
     if account.telegram_user_id and settings.BOT_TOKEN:
         promo_code_str: str | None = None
         discount_pct: int | None = None
@@ -108,8 +111,11 @@ async def create_payment(
             discount_pct = payment.promo_code_used.discount_percentage
 
         import asyncio
+        from web.dependencies import _get_session_factory
         asyncio.ensure_future(
-            send_payment_created_notification(
+            send_payment_reminder_after_delay(
+                delay_seconds=_REMINDER_DELAY_SECONDS,
+                session_factory=_get_session_factory(),
                 bot_token=settings.BOT_TOKEN,
                 telegram_user_id=account.telegram_user_id,
                 payment_id=payment_db_id,
@@ -148,6 +154,29 @@ async def get_pending_payment(
         return None
 
     return _payment_to_status_response(payment)
+
+
+@router.post("/{payment_id}/expire", status_code=204)
+async def expire_payment(
+    payment_id: int,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Mark a payment as expired if it belongs to the current user and is stale (≥65 min old).
+
+    Called by the frontend when the payment page determines the invoice has expired
+    so the dashboard banner is removed without waiting for the background cleanup.
+    """
+    from core.dal.payment_dal import get_payment_by_db_id, expire_payment_if_stale
+
+    payment = await get_payment_by_db_id(db, payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.user_id != account.telegram_user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    await expire_payment_if_stale(db, payment_id)
+    return Response(status_code=204)
 
 
 @router.get("/{payment_id}/status", response_model=PaymentStatusResponse)

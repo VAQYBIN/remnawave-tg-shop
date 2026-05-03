@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { getPaymentStatus, type PaymentStatus } from '@/api/payment'
+import { getPaymentStatus, expirePayment, type PaymentStatus } from '@/api/payment'
 import { CheckCircle, XCircle, Loader2, Clock, AlertTriangle, ExternalLink } from 'lucide-react'
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -25,10 +26,15 @@ function monthsLabel(n: number) {
   return 'месяцев'
 }
 
+function parseUtcMs(isoString: string): number {
+  // Append 'Z' if the string has no timezone designator so JavaScript
+  // always interprets the timestamp as UTC, not local time.
+  const s = /[Z+]/.test(isoString) ? isoString : isoString + 'Z'
+  return new Date(s).getTime()
+}
+
 function isExpired(payment: PaymentStatus) {
-  // Consider payment expired if created more than 65 minutes ago and still pending
-  const createdAt = new Date(payment.created_at).getTime()
-  return Date.now() - createdAt > 65 * 60 * 1000
+  return Date.now() - parseUtcMs(payment.created_at) > 65 * 60 * 1000
 }
 
 type PageState = 'loading' | 'countdown' | 'checking' | 'succeeded' | 'expired' | 'failed' | 'error'
@@ -36,6 +42,7 @@ type PageState = 'loading' | 'countdown' | 'checking' | 'succeeded' | 'expired' 
 export function PaymentPendingPage() {
   const { paymentId } = useParams<{ paymentId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [pageState, setPageState] = useState<PageState>('loading')
   const [payment, setPayment] = useState<PaymentStatus | null>(null)
@@ -60,11 +67,17 @@ export function PaymentPendingPage() {
     window.location.href = url
   }, [redirectedKey, stopCountdown])
 
+  const markExpiredAndInvalidate = useCallback((id: number) => {
+    queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
+    expirePayment(id).catch(() => {})
+  }, [queryClient])
+
   const applyPaymentStatus = useCallback((p: PaymentStatus) => {
     if (p.status === 'succeeded') {
       stopPolling()
       stopCountdown()
       setPageState('succeeded')
+      queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
       setTimeout(() => navigate('/subscription'), 3000)
       return
     }
@@ -72,14 +85,16 @@ export function PaymentPendingPage() {
       stopPolling()
       stopCountdown()
       setPageState('failed')
+      queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
       return
     }
     if (p.status === 'pending' && isExpired(p)) {
       stopPolling()
       stopCountdown()
       setPageState('expired')
+      markExpiredAndInvalidate(p.payment_id)
     }
-  }, [stopPolling, stopCountdown, navigate])
+  }, [stopPolling, stopCountdown, navigate, queryClient, markExpiredAndInvalidate])
 
   // Initial load
   useEffect(() => {
@@ -95,15 +110,18 @@ export function PaymentPendingPage() {
 
         if (p.status === 'succeeded') {
           setPageState('succeeded')
+          queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
           setTimeout(() => navigate('/subscription'), 3000)
           return
         }
         if (p.status === 'failed' || p.status === 'cancelled' || p.status === 'canceled') {
           setPageState('failed')
+          queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
           return
         }
         if (p.status === 'pending' && isExpired(p)) {
           setPageState('expired')
+          markExpiredAndInvalidate(p.payment_id)
           return
         }
 
@@ -122,7 +140,7 @@ export function PaymentPendingPage() {
         setPageState('error')
         setErrorMsg('Не удалось загрузить информацию о платеже')
       })
-  }, [paymentId, redirectedKey, navigate])
+  }, [paymentId, redirectedKey, navigate, queryClient, markExpiredAndInvalidate])
 
   // Countdown → auto-redirect
   useEffect(() => {

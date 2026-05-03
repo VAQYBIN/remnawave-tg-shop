@@ -1,6 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
+from web.schemas.types import UTCDatetime
 
 
 class PaymentResponse(BaseModel):
@@ -13,7 +14,7 @@ class PaymentResponse(BaseModel):
     description: Optional[str]
     subscription_duration_months: Optional[int]
     provider: str
-    created_at: datetime
+    created_at: UTCDatetime
 
 
 class PaymentsListResponse(BaseModel):
@@ -53,4 +54,4 @@ class PaymentStatusResponse(BaseModel):
     subscription_duration_months: Optional[int]
     redirect_url: Optional[str]
     promo_code: Optional[str]
-    created_at: datetime
+    created_at: UTCDatetime

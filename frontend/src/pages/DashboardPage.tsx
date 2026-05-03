@@ -8,8 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/auth/useAuth'
 import { getSubscription } from '@/api/subscription'
 import { getProfile } from '@/api/profile'
-import { getPaymentsCount, getPendingPayment } from '@/api/payment'
+import { getPaymentsCount, getPendingPayment, type PaymentStatus } from '@/api/payment'
 import { CreditCard, Receipt, ArrowRight, AlertCircle, X } from 'lucide-react'
+
+const PAYMENT_EXPIRY_MS = 65 * 60 * 1000
+
+function parseUtcMs(isoString: string): number {
+  // Append 'Z' if the string has no timezone designator so JavaScript
+  // always interprets the timestamp as UTC, not local time.
+  const s = /[Z+]/.test(isoString) ? isoString : isoString + 'Z'
+  return new Date(s).getTime()
+}
+
+function isPendingPaymentExpired(payment: PaymentStatus): boolean {
+  return Date.now() - parseUtcMs(payment.created_at) > PAYMENT_EXPIRY_MS
+}
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -62,7 +75,7 @@ export function DashboardPage() {
           </p>
         </div>
 
-        {pendingPayment && !bannerDismissed && (
+        {pendingPayment && !bannerDismissed && !isPendingPaymentExpired(pendingPayment) && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
             <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-500" />
             <div className="flex-1 min-w-0">

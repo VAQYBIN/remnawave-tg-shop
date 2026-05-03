@@ -1,13 +1,14 @@
 from typing import Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel
+from web.schemas.types import UTCDatetime
 
 
 class SubscriptionResponse(BaseModel):
     subscription_id: int
     is_active: bool
-    start_date: Optional[datetime]
-    end_date: datetime
+    start_date: Optional[UTCDatetime]
+    end_date: UTCDatetime
     duration_months: Optional[int]
     status_from_panel: Optional[str]
     traffic_limit_bytes: Optional[int]

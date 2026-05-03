@@ -27,6 +27,56 @@ def _months_label(n: int) -> str:
     return "месяцев"
 
 
+async def send_payment_reminder_after_delay(
+    *,
+    delay_seconds: int,
+    session_factory,
+    bot_token: str,
+    telegram_user_id: int,
+    payment_id: int,
+    frontend_url: str,
+    months: int,
+    amount: float,
+    currency: str,
+    provider: str,
+    original_amount: Optional[float] = None,
+    discount_applied: Optional[float] = None,
+    discount_percentage: Optional[int] = None,
+    promo_code: Optional[str] = None,
+) -> None:
+    """Wait delay_seconds, then send a reminder only if the payment is still pending."""
+    import asyncio
+
+    await asyncio.sleep(delay_seconds)
+
+    try:
+        async with session_factory() as session:
+            from core.dal.payment_dal import get_payment_by_db_id
+            payment = await get_payment_by_db_id(session, payment_id)
+            if not payment:
+                return
+            if payment.status not in ("pending", "pending_yookassa", "waiting_for_capture"):
+                return
+    except Exception as exc:
+        logger.warning("Reminder pre-check failed for payment %s: %s", payment_id, exc)
+        return
+
+    await send_payment_created_notification(
+        bot_token=bot_token,
+        telegram_user_id=telegram_user_id,
+        payment_id=payment_id,
+        frontend_url=frontend_url,
+        months=months,
+        amount=amount,
+        currency=currency,
+        provider=provider,
+        original_amount=original_amount,
+        discount_applied=discount_applied,
+        discount_percentage=discount_percentage,
+        promo_code=promo_code,
+    )
+
+
 async def send_payment_created_notification(
     *,
     bot_token: str,

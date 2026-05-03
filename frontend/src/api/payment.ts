@@ -78,6 +78,10 @@ export function getPendingPayment(): Promise<PaymentStatus | null> {
   return apiRequest<PaymentStatus | null>('/payments/pending/latest')
 }
 
+export function expirePayment(paymentId: number): Promise<void> {
+  return apiRequest<void>(`/payments/${paymentId}/expire`, { method: 'POST' })
+}
+
 export function applyPromo(code: string): Promise<PromoApplyResponse> {
   return apiRequest<PromoApplyResponse>('/promo/apply', {
     method: 'POST',

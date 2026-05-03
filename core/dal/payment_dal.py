@@ -430,6 +430,69 @@ async def get_referral_revenue(session: AsyncSession, referrer_id: int) -> float
     return float(total or 0)
 
 
+async def expire_stale_pending_payments(session: AsyncSession) -> int:
+    """Atomically mark pending payments older than 70 minutes as 'expired'.
+
+    YooKassa invoices expire after ~1 hour. Any payment still in a pending
+    state after 70 minutes can safely be considered expired without calling
+    the provider API.
+
+    Returns the number of payments marked as expired.
+    """
+    from datetime import timezone, timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=70)
+
+    stmt = (
+        update(Payment)
+        .where(
+            Payment.status.in_(("pending", "pending_yookassa", "waiting_for_capture")),
+            Payment.created_at < cutoff,
+        )
+        .values(
+            status="expired",
+            updated_at=func.now(),
+        )
+    )
+    result = await session.execute(stmt)
+    count = result.rowcount or 0
+    if count:
+        logging.info("expire_stale_pending_payments: marked %d payment(s) as expired.", count)
+    return count
+
+
+async def expire_payment_if_stale(
+    session: AsyncSession,
+    payment_db_id: int,
+    min_age_minutes: int = 65,
+) -> bool:
+    """Atomically mark a single payment as 'expired' if it is old enough.
+
+    Returns True if the payment was actually updated.
+    """
+    from datetime import timezone, timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=min_age_minutes)
+
+    stmt = (
+        update(Payment)
+        .where(
+            Payment.payment_id == payment_db_id,
+            Payment.status.in_(("pending", "pending_yookassa", "waiting_for_capture")),
+            Payment.created_at < cutoff,
+        )
+        .values(
+            status="expired",
+            updated_at=func.now(),
+        )
+    )
+    result = await session.execute(stmt)
+    updated = (result.rowcount or 0) > 0
+    if updated:
+        logging.info("Payment %d marked as expired.", payment_db_id)
+    return updated
+
+
 async def get_user_payments(
     session: AsyncSession,
     user_id: int,

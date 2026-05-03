@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from web.schemas.types import UTCDatetime
 
 
 class PaymentProviderResponse(BaseModel):
@@ -9,7 +10,7 @@ class PaymentProviderResponse(BaseModel):
     display_name: str
     is_enabled: bool
     sort_order: int
-    updated_at: Optional[datetime]
+    updated_at: Optional[UTCDatetime]
 
     model_config = {"from_attributes": True}
 

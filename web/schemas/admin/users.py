@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
+from web.schemas.types import UTCDatetime
 
 
 class AdminUserListItem(BaseModel):
@@ -9,11 +10,11 @@ class AdminUserListItem(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     is_banned: bool
-    registration_date: Optional[datetime]
+    registration_date: Optional[UTCDatetime]
     panel_user_uuid: Optional[str]
     email: Optional[str]
     has_active_subscription: bool
-    subscription_end_date: Optional[datetime]
+    subscription_end_date: Optional[UTCDatetime]
 
     model_config = {"from_attributes": True}
 
@@ -31,7 +32,7 @@ class AdminPaymentItem(BaseModel):
     currency: str
     status: str
     provider: Optional[str]
-    created_at: Optional[datetime]
+    created_at: Optional[UTCDatetime]
     subscription_duration_months: Optional[int]
 
     model_config = {"from_attributes": True}
@@ -40,8 +41,8 @@ class AdminPaymentItem(BaseModel):
 class AdminSubscriptionDetail(BaseModel):
     subscription_id: int
     is_active: bool
-    start_date: Optional[datetime]
-    end_date: Optional[datetime]
+    start_date: Optional[UTCDatetime]
+    end_date: Optional[UTCDatetime]
     duration_months: Optional[int]
     provider: Optional[str]
     auto_renew_enabled: bool
@@ -58,7 +59,7 @@ class AdminUserDetailResponse(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     is_banned: bool
-    registration_date: Optional[datetime]
+    registration_date: Optional[UTCDatetime]
     panel_user_uuid: Optional[str]
     language_code: Optional[str]
     referral_code: Optional[str]

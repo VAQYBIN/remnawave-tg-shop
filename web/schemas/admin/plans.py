@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from web.schemas.types import UTCDatetime
 
 
 class PlanResponse(BaseModel):
@@ -11,8 +12,8 @@ class PlanResponse(BaseModel):
     price_stars: Optional[int]
     is_enabled: bool
     sort_order: int
-    created_at: datetime
-    updated_at: Optional[datetime]
+    created_at: UTCDatetime
+    updated_at: Optional[UTCDatetime]
 
     model_config = {"from_attributes": True}
 

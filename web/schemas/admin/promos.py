@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
+from web.schemas.types import UTCDatetime
 
 
 class AdminPromoItem(BaseModel):
@@ -13,8 +14,8 @@ class AdminPromoItem(BaseModel):
     max_activations: int
     current_activations: int
     is_active: bool
-    created_at: Optional[datetime] = None
-    valid_until: Optional[datetime] = None
+    created_at: Optional[UTCDatetime] = None
+    valid_until: Optional[UTCDatetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -32,7 +33,7 @@ class PromoCreateRequest(BaseModel):
     bonus_days: Optional[int] = None
     discount_percentage: Optional[int] = None
     max_activations: int
-    valid_until: Optional[datetime] = None
+    valid_until: Optional[UTCDatetime] = None
 
     @field_validator("promo_type")
     @classmethod
@@ -52,6 +53,6 @@ class PromoCreateRequest(BaseModel):
 class PromoUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
     max_activations: Optional[int] = None
-    valid_until: Optional[datetime] = None
+    valid_until: Optional[UTCDatetime] = None
     bonus_days: Optional[int] = None
     discount_percentage: Optional[int] = None

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
+from web.schemas.types import UTCDatetime
 
 
 class AdminPaymentListItem(BaseModel):
@@ -17,7 +18,7 @@ class AdminPaymentListItem(BaseModel):
     provider: Optional[str] = None
     subscription_duration_months: Optional[int] = None
     promo_code: Optional[str] = None
-    created_at: Optional[datetime] = None
+    created_at: Optional[UTCDatetime] = None
 
     model_config = {"from_attributes": True}
 
