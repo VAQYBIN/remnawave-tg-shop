@@ -23,7 +23,11 @@ _STATUS_UPDATE_EVERY = 20  # update Redis status every N messages
 
 
 def _build_keyboard(buttons: list) -> Optional[InlineKeyboardMarkup]:
-    """Build InlineKeyboardMarkup from broadcast button list grouped by row index."""
+    """Build InlineKeyboardMarkup from broadcast button list grouped by row index.
+
+    The optional ``color`` field maps directly to the Bot API 9.4 ``style`` field:
+    'danger' → red, 'success' → green, 'primary' → blue.
+    """
     if not buttons:
         return None
 
@@ -34,7 +38,13 @@ def _build_keyboard(buttons: list) -> Optional[InlineKeyboardMarkup]:
         if not text or not url:
             continue
         row_idx = int(btn.get("row", 0))
-        rows.setdefault(row_idx, []).append(InlineKeyboardButton(text=text, url=url))
+        color = (btn.get("color") or "").strip()  # "", "danger", "success", "primary"
+        kb_btn = InlineKeyboardButton(
+            text=text,
+            url=url,
+            **({"style": color} if color else {}),
+        )
+        rows.setdefault(row_idx, []).append(kb_btn)
 
     if not rows:
         return None

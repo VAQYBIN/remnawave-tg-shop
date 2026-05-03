@@ -275,7 +275,7 @@ function KeyboardPreview({ rows }: { rows: UIRows }) {
         })}
       </div>
       <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-        * Цвета отображаются только в этом интерфейсе — в Telegram все кнопки одного стиля
+        Цвета отображаются в Telegram (Bot API 9.4+): синий — primary, зелёный — success, красный — danger
       </p>
     </div>
   )
