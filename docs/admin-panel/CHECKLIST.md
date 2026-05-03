@@ -189,17 +189,17 @@
 
 > **context7:** `fastapi`, `httpx`, `shadcn-ui`, `tanstack-react-query`
 >
-> **Важно:** Использовать `context7` с ID `remnawave` для получения актуальной документации Remnawave API v2.7.0+
+> **Важно:** Использовать `context7` с ID `remnawave` для получения актуальной документации Remnawave API v2.7.4+
 
 ### Backend
 
-- [ ] **6.1** Расширить `core/services/panel_client.py` новыми методами:
+- [x] **6.1** Расширить `core/services/panel_client.py` новыми методами:
   - `get_system_stats()` → `GET /api/system/stats`
   - `get_system_metadata()` → `GET /api/system/metadata`
   - `get_bandwidth_stats()` → `GET /api/system/stats/bandwidth`
   - `get_nodes_stats()` → `GET /api/system/stats/nodes`
   - `get_nodes_bandwidth(date_from, date_to)` → `GET /api/bandwidth-stats/nodes`
-  - `get_nodes_realtime()` → `GET /api/bandwidth-stats/nodes/realtime`
+  - `get_nodes_realtime()` → `GET /api/nodes` (`system.stats.interface.rxBytesPerSec/txBytesPerSec`, так как `GET /api/bandwidth-stats/nodes/realtime` удалён в Remnawave 2.7.0)
   - `get_all_nodes()` → `GET /api/nodes`
   - `get_node_by_uuid(uuid)` → `GET /api/nodes/{uuid}`
   - `enable_node(uuid)` → `POST /api/nodes/{uuid}/actions/enable`
@@ -208,52 +208,52 @@
   - `restart_all_nodes()` → `POST /api/nodes/actions/restart-all`
   - `get_node_users_bandwidth(node_uuid)` → `GET /api/bandwidth-stats/nodes/{uuid}/users`
   - `get_hwid_stats()` → `GET /api/hwid/devices/stats`
-- [ ] **6.2** Создать `web/routers/admin/panel_stats.py`:
+- [x] **6.2** Создать `web/routers/admin/panel_stats.py`:
   - `GET /api/admin/panel/stats` — CPU, RAM, юзеры, онлайн
   - `GET /api/admin/panel/metadata` — версия панели
   - `GET /api/admin/panel/bandwidth` — bandwidth за период
-  - `GET /api/admin/panel/bandwidth/realtime` — realtime
-- [ ] **6.3** Создать `web/routers/admin/panel_nodes.py`:
+  - `GET /api/admin/panel/bandwidth/realtime` — realtime, нормализованный из `GET /api/nodes`
+- [x] **6.3** Создать `web/routers/admin/panel_nodes.py`:
   - `GET /api/admin/panel/nodes` — список нод
   - `GET /api/admin/panel/nodes/{uuid}` — детали ноды
   - `POST /api/admin/panel/nodes/{uuid}/enable`
   - `POST /api/admin/panel/nodes/{uuid}/disable`
   - `POST /api/admin/panel/nodes/{uuid}/restart`
   - `POST /api/admin/panel/nodes/restart-all`
-- [ ] **6.4** Создать `web/routers/admin/panel_users.py`:
+- [x] **6.4** Создать `web/routers/admin/panel_users.py`:
   - `GET /api/admin/panel/users` — юзеры панели (пагинация)
   - `GET /api/admin/panel/users/{uuid}` — детали
-- [ ] **6.5** Создать `web/schemas/admin/panel.py` — схемы для panel endpoints
+- [x] **6.5** Создать `web/schemas/admin/panel.py` — схемы для panel endpoints
 
 ### Frontend
 
-- [ ] **6.6** Создать `frontend/src/api/admin/panel.ts` — API-клиент для panel endpoints
-- [ ] **6.7** Создать `frontend/src/pages/admin/PanelStatsPage.tsx`:
+- [x] **6.6** Создать `frontend/src/api/admin/panel.ts` — API-клиент для panel endpoints
+- [x] **6.7** Создать `frontend/src/pages/admin/PanelStatsPage.tsx`:
   - StatsCards: CPU, RAM, users online, total users, версия панели
   - Графики bandwidth (по нодам, за 7 дней)
   - HWID статистика
-- [ ] **6.8** Создать `frontend/src/pages/admin/NodesPage.tsx`:
+- [x] **6.8** Создать `frontend/src/pages/admin/NodesPage.tsx`:
   - Таблица нод (имя, статус, трафик, онлайн юзеры)
   - Кнопки: enable/disable/restart для каждой ноды
   - Кнопка «Restart All»
   - Индикаторы статуса (зелёный/красный/жёлтый)
-- [ ] **6.9** Создать `frontend/src/pages/admin/NodeDetailPage.tsx`:
+- [x] **6.9** Создать `frontend/src/pages/admin/NodeDetailPage.tsx`:
   - Детали ноды
   - Bandwidth за период (график)
   - Топ юзеров по трафику на этой ноде
-- [ ] **6.10** Auto-refresh: polling каждые 30 сек для realtime данных (TanStack Query refetchInterval)
-- [ ] **6.11** Добавить роуты `/admin/panel`, `/admin/nodes`, `/admin/nodes/:uuid`
-- [ ] **6.12** Добавить секцию «Remnawave» в AdminSidebar
+- [x] **6.10** Auto-refresh: polling каждые 30 сек для realtime данных (TanStack Query refetchInterval)
+- [x] **6.11** Добавить роуты `/admin/panel`, `/admin/nodes`, `/admin/nodes/:uuid`
+- [x] **6.12** Добавить секцию «Remnawave» в AdminSidebar
 
 ### Ручная проверка Фазы 6
-- [ ] Страница статистики показывает CPU/RAM/users с панели
-- [ ] Версия панели отображается
-- [ ] Графики bandwidth рендерятся с реальными данными
-- [ ] Список нод загружается со статусами
-- [ ] Enable/Disable ноды работает → статус обновляется
-- [ ] Restart ноды работает
-- [ ] Детали ноды показывают bandwidth и топ юзеров
-- [ ] Данные авто-обновляются каждые 30 сек
+- [x] Страница статистики показывает CPU/RAM/users с панели
+- [x] Версия панели отображается
+- [x] Графики bandwidth рендерятся с реальными данными
+- [x] Список нод загружается со статусами
+- [x] Enable/Disable ноды работает → статус обновляется
+- [x] Restart ноды работает
+- [x] Детали ноды показывают bandwidth и топ юзеров
+- [x] Данные авто-обновляются каждые 30 сек
 
 ---
 

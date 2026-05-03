@@ -39,6 +39,8 @@ interface DataTableProps<T> {
   page: number
   pageSize: number
   onPageChange: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  pageSizeOptions?: number[]
   sorting?: SortingConfig | null
   onSortingChange?: (cfg: SortingConfig) => void
   isLoading?: boolean
@@ -59,6 +61,8 @@ export function DataTable<T>({
   page,
   pageSize,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 30, 50, 100],
   sorting,
   onSortingChange,
   isLoading,
@@ -233,24 +237,41 @@ export function DataTable<T>({
         <span>
           {total === 0 ? '0 записей' : `${from}–${to} из ${total}`}
         </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 0 || isLoading}
-            className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="px-2">
-            {page + 1} / {totalPages}
-          </span>
-          <button
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages - 1 || isLoading}
-            className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronRight size={16} />
-          </button>
+        <div className="flex items-center gap-3">
+          {onPageSizeChange && (
+            <label className="flex items-center gap-2">
+              <span>Строк</span>
+              <select
+                value={pageSize}
+                onChange={(event) => onPageSizeChange(Number(event.target.value))}
+                disabled={isLoading}
+                className="h-8 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 text-sm text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.25)] disabled:opacity-50"
+              >
+                {pageSizeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 0 || isLoading}
+              className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="px-2">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => onPageChange(page + 1)}
+              disabled={page >= totalPages - 1 || isLoading}
+              className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

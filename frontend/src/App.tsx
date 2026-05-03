@@ -29,6 +29,11 @@ import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage'
 import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage'
 import { AdminPromosPage } from '@/pages/admin/AdminPromosPage'
+import { PanelStatsPage } from '@/pages/admin/PanelStatsPage'
+import { NodesPage } from '@/pages/admin/NodesPage'
+import { NodeDetailPage } from '@/pages/admin/NodeDetailPage'
+import { PanelUsersPage } from '@/pages/admin/PanelUsersPage'
+import { PanelUserDetailPage } from '@/pages/admin/PanelUserDetailPage'
 
 export default function App() {
   return (
@@ -139,6 +144,11 @@ export default function App() {
               <Route path="users/:userId" element={<ErrorBoundary><AdminUserDetailPage /></ErrorBoundary>} />
               <Route path="payments" element={<ErrorBoundary><AdminPaymentsPage /></ErrorBoundary>} />
               <Route path="promos" element={<ErrorBoundary><AdminPromosPage /></ErrorBoundary>} />
+              <Route path="panel" element={<ErrorBoundary><PanelStatsPage /></ErrorBoundary>} />
+              <Route path="panel/users" element={<ErrorBoundary><PanelUsersPage /></ErrorBoundary>} />
+              <Route path="panel/users/:uuid" element={<ErrorBoundary><PanelUserDetailPage /></ErrorBoundary>} />
+              <Route path="nodes" element={<ErrorBoundary><NodesPage /></ErrorBoundary>} />
+              <Route path="nodes/:uuid" element={<ErrorBoundary><NodeDetailPage /></ErrorBoundary>} />
             </Route>
 
               {/* Default redirect */}

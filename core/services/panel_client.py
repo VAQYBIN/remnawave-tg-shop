@@ -11,6 +11,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 import asyncio
 from urllib.parse import urlencode
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -590,6 +591,13 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
+    async def get_system_metadata(self) -> Optional[Dict[str, Any]]:
+        """Get panel metadata (version, build and git details)."""
+        response_data = await self._request("GET", "/system/metadata", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
     async def get_bandwidth_stats(self) -> Optional[Dict[str, Any]]:
         """Get bandwidth statistics"""
         response_data = await self._request("GET", "/system/stats/bandwidth", log_full_response=False)
@@ -597,9 +605,174 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
+    async def get_nodes_stats(self) -> Optional[Dict[str, Any]]:
+        """Get last-seven-days nodes traffic statistics."""
+        return await self.get_nodes_statistics()
+
     async def get_nodes_statistics(self) -> Optional[Dict[str, Any]]:
         """Get nodes statistics"""
         response_data = await self._request("GET", "/system/stats/nodes", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def get_nodes_bandwidth(
+            self,
+            date_from: date | str,
+            date_to: date | str,
+            top_nodes_limit: int = 10) -> Optional[Dict[str, Any]]:
+        """Get nodes bandwidth chart for a date range."""
+        params = {
+            "start": date_from.isoformat() if isinstance(date_from, date) else date_from,
+            "end": date_to.isoformat() if isinstance(date_to, date) else date_to,
+            "topNodesLimit": top_nodes_limit,
+        }
+        response_data = await self._request(
+            "GET", "/bandwidth-stats/nodes", params=params, log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def get_nodes_realtime(self) -> Optional[Dict[str, Any]]:
+        """Get current node interface throughput.
+
+        Remnawave removed /bandwidth-stats/nodes/realtime in 2.7.0. Current
+        node throughput is exposed on /nodes under system.stats.interface.
+        """
+        nodes = await self.get_all_nodes()
+        if nodes is None:
+            return None
+
+        realtime_nodes: List[Dict[str, Any]] = []
+        total_rx = 0.0
+        total_tx = 0.0
+
+        for node in nodes:
+            system = node.get("system") if isinstance(node, dict) else None
+            stats = system.get("stats") if isinstance(system, dict) else None
+            interface = stats.get("interface") if isinstance(stats, dict) else None
+            if not isinstance(interface, dict):
+                interface = {}
+
+            rx = interface.get("rxBytesPerSec") or 0
+            tx = interface.get("txBytesPerSec") or 0
+            try:
+                rx_value = float(rx)
+            except (TypeError, ValueError):
+                rx_value = 0.0
+            try:
+                tx_value = float(tx)
+            except (TypeError, ValueError):
+                tx_value = 0.0
+
+            total_rx += rx_value
+            total_tx += tx_value
+            realtime_nodes.append({
+                "uuid": node.get("uuid"),
+                "name": node.get("name"),
+                "countryCode": node.get("countryCode"),
+                "isConnected": node.get("isConnected"),
+                "isDisabled": node.get("isDisabled"),
+                "usersOnline": node.get("usersOnline"),
+                "interface": interface.get("interface"),
+                "rxBytesPerSec": rx_value,
+                "txBytesPerSec": tx_value,
+                "totalBytesPerSec": rx_value + tx_value,
+            })
+
+        return {
+            "nodes": realtime_nodes,
+            "totalRxBytesPerSec": total_rx,
+            "totalTxBytesPerSec": total_tx,
+            "totalBytesPerSec": total_rx + total_tx,
+        }
+
+    async def get_all_nodes(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all Remnawave nodes."""
+        response_data = await self._request("GET", "/nodes", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            response = response_data.get("response")
+            if isinstance(response, dict):
+                nodes = response.get("nodes")
+                if isinstance(nodes, list):
+                    return nodes
+            if isinstance(response, list):
+                return response
+        return None
+
+    async def get_node_by_uuid(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+        """Get one Remnawave node by UUID."""
+        response_data = await self._request(
+            "GET", f"/nodes/{node_uuid}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def _node_action(self, node_uuid: str, action: str) -> Optional[Dict[str, Any]]:
+        response_data = await self._request(
+            "POST", f"/nodes/{node_uuid}/actions/{action}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def enable_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+        return await self._node_action(node_uuid, "enable")
+
+    async def disable_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+        return await self._node_action(node_uuid, "disable")
+
+    async def restart_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+        return await self._node_action(node_uuid, "restart")
+
+    async def restart_all_nodes(self) -> bool:
+        response_data = await self._request(
+            "POST", "/nodes/actions/restart-all", log_full_response=False
+        )
+        return bool(response_data and not response_data.get("error"))
+
+    async def get_node_users_bandwidth(
+            self,
+            node_uuid: str,
+            date_from: date | str,
+            date_to: date | str,
+            top_users_limit: int = 10) -> Optional[Dict[str, Any]]:
+        """Get top users bandwidth for a node and date range."""
+        params = {
+            "start": date_from.isoformat() if isinstance(date_from, date) else date_from,
+            "end": date_to.isoformat() if isinstance(date_to, date) else date_to,
+            "topUsersLimit": top_users_limit,
+        }
+        response_data = await self._request(
+            "GET",
+            f"/bandwidth-stats/nodes/{node_uuid}/users",
+            params=params,
+            log_full_response=False,
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def get_hwid_stats(self) -> Optional[Dict[str, Any]]:
+        """Get HWID devices statistics."""
+        response_data = await self._request("GET", "/hwid/devices/stats", log_full_response=False)
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def get_panel_users_page(
+            self,
+            start: int = 0,
+            size: int = 20) -> Optional[Dict[str, Any]]:
+        """Get one paginated page of panel users."""
+        response_data = await self._request(
+            "GET",
+            "/users",
+            params={"start": start, "size": size},
+            log_full_response=False,
+        )
         if response_data and not response_data.get("error") and "response" in response_data:
             return response_data.get("response")
         return None

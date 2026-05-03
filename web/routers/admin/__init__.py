@@ -8,6 +8,9 @@ from .payment_providers import router as payment_providers_router
 from .users import router as users_router
 from .payments import router as payments_router
 from .promos import router as promos_router
+from .panel_stats import router as panel_stats_router
+from .panel_nodes import router as panel_nodes_router
+from .panel_users import router as panel_users_router
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 admin_router.include_router(auth_router)
@@ -19,3 +22,6 @@ admin_router.include_router(payment_providers_router)
 admin_router.include_router(users_router)
 admin_router.include_router(payments_router)
 admin_router.include_router(promos_router)
+admin_router.include_router(panel_stats_router)
+admin_router.include_router(panel_nodes_router)
+admin_router.include_router(panel_users_router)

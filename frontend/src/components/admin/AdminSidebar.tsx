@@ -9,6 +9,8 @@ import {
   ArrowLeft,
   CalendarDays,
   Wallet,
+  Activity,
+  Server,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -23,6 +25,12 @@ const SITE_ITEMS = [
   { to: '/admin/features', icon: ToggleLeft, label: 'Разделы' },
   { to: '/admin/plans', icon: CalendarDays, label: 'Тарифы' },
   { to: '/admin/payment-providers', icon: Wallet, label: 'Провайдеры оплаты' },
+]
+
+const REMNAWAVE_ITEMS = [
+  { to: '/admin/panel', icon: Activity, label: 'Мониторинг', end: true },
+  { to: '/admin/nodes', icon: Server, label: 'Ноды' },
+  { to: '/admin/panel/users', icon: Users, label: 'Юзеры панели' },
 ]
 
 export function AdminSidebar() {
@@ -56,6 +64,19 @@ export function AdminSidebar() {
 
         {SITE_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} className={linkClass}>
+            <Icon size={18} />
+            {label}
+          </NavLink>
+        ))}
+
+        <div className="mt-4 mb-1 px-3">
+          <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+            Remnawave
+          </span>
+        </div>
+
+        {REMNAWAVE_ITEMS.map(({ to, icon: Icon, label, end }) => (
+          <NavLink key={to} to={to} end={end} className={linkClass}>
             <Icon size={18} />
             {label}
           </NavLink>

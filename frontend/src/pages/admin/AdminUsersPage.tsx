@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Search, X, ShieldAlert, CheckCircle2, XCircle } from 'lucide-react'
 import { getAdminUsers } from '@/api/admin/users'
 import type { AdminUserListItem } from '@/api/admin/users'
 import { DataTable } from '@/components/admin/DataTable'
 import type { Column, SortingConfig } from '@/components/admin/DataTable'
-
-const PAGE_SIZE = 20
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -21,24 +19,25 @@ export function AdminUsersPage() {
   const [isBanned, setIsBanned] = useState<boolean | undefined>(undefined)
   const [hasSub, setHasSub] = useState<boolean | undefined>(undefined)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [sorting, setSorting] = useState<SortingConfig>({
     sortKey: 'registration_date',
     order: 'desc',
   })
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'users', search, isBanned, hasSub, page, sorting],
+    queryKey: ['admin', 'users', search, isBanned, hasSub, page, pageSize, sorting],
     queryFn: () =>
       getAdminUsers({
         query: search || undefined,
         is_banned: isBanned,
         has_subscription: hasSub,
         page,
-        page_size: PAGE_SIZE,
+        page_size: pageSize,
         order_by: sorting.sortKey,
         order: sorting.order,
       }),
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
   })
 
   function handleSearch(e: React.FormEvent) {
@@ -247,8 +246,12 @@ export function AdminUsersPage() {
         data={data?.items ?? []}
         total={data?.total ?? 0}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         onPageChange={setPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize)
+          setPage(0)
+        }}
         sorting={sorting}
         onSortingChange={handleSortingChange}
         isLoading={isLoading}

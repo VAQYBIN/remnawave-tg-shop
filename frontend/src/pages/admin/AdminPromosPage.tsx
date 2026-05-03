@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2, Tag, Pencil } from 'lucide-react'
 import { DataTable, type Column } from '@/components/admin/DataTable'
 import {
@@ -346,15 +346,17 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
 
 export function AdminPromosPage() {
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AdminPromoItem | null>(null)
   const [editTarget, setEditTarget] = useState<AdminPromoItem | null>(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'promos', page],
-    queryFn: () => getAdminPromos(page, 20),
+    queryKey: ['admin', 'promos', page, pageSize],
+    queryFn: () => getAdminPromos(page, pageSize),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   })
 
   const toggleMutation = useMutation({
@@ -505,8 +507,12 @@ export function AdminPromosPage() {
           data={data?.items ?? []}
           total={data?.total ?? 0}
           page={page}
-          pageSize={20}
+          pageSize={pageSize}
           onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(0)
+          }}
           isLoading={isLoading}
           emptyMessage="Промокоды не найдены"
           keyExtractor={(r) => r.promo_code_id}

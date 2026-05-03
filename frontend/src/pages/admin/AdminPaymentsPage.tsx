@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   BarChart,
   Bar,
@@ -141,6 +141,7 @@ const COLUMNS: Column<AdminPaymentListItem>[] = [
 
 export function AdminPaymentsPage() {
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [status, setStatus] = useState('')
   const [provider, setProvider] = useState('')
 
@@ -152,15 +153,16 @@ export function AdminPaymentsPage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'payments', 'list', page, status, provider],
+    queryKey: ['admin', 'payments', 'list', page, pageSize, status, provider],
     queryFn: () =>
       getAdminPayments({
         page,
-        page_size: 20,
+        page_size: pageSize,
         status: status || undefined,
         provider: provider || undefined,
       }),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   })
 
   const chartData = (stats?.daily_chart ?? []).map((d) => ({
@@ -313,8 +315,12 @@ export function AdminPaymentsPage() {
         data={data?.items ?? []}
         total={data?.total ?? 0}
         page={page}
-        pageSize={20}
+        pageSize={pageSize}
         onPageChange={setPage}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize)
+          setPage(0)
+        }}
         isLoading={isLoading}
         emptyMessage="Платежи не найдены"
         keyExtractor={(r) => r.payment_id}
