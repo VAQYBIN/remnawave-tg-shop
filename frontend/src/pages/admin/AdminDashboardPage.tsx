@@ -7,10 +7,12 @@ import {
   TrendingUp,
   UserPlus,
   Banknote,
-  CalendarDays,
-  AlertTriangle,
+  Clock,
+  ServerCrash,
 } from 'lucide-react'
 import { getDashboard } from '@/api/admin'
+import { getPanelNodes } from '@/api/admin/panel'
+import { getBool, getString } from './panel-utils'
 import { StatsCard } from '@/components/admin/StatsCard'
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -26,8 +28,22 @@ function fmt(n: number): string {
   return n.toLocaleString('ru-RU')
 }
 
-function fmtRub(n: number): string {
-  return `${n.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽`
+function fmtCurrency(amount: number, currency = 'RUB'): string {
+  return amount.toLocaleString('ru-RU', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  })
+}
+
+function pluralRu(n: number, forms: [string, string, string]): string {
+  const abs = Math.abs(n) % 100
+  const last = abs % 10
+
+  if (abs > 10 && abs < 20) return forms[2]
+  if (last > 1 && last < 5) return forms[1]
+  if (last === 1) return forms[0]
+  return forms[2]
 }
 
 function fmtDate(iso: string | null): string {
@@ -62,6 +78,17 @@ export function AdminDashboardPage() {
     refetchInterval: 2 * 60 * 1000,
   })
 
+  const nodesQuery = useQuery({
+    queryKey: ['admin', 'panel', 'nodes'],
+    queryFn: getPanelNodes,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
+  const offlineNodes = (nodesQuery.data?.items ?? []).filter(
+    node => !getBool(node, 'isDisabled') && !getBool(node, 'isConnected'),
+  )
+
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
@@ -95,7 +122,7 @@ export function AdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard title="Новых пользователей" value={fmt(data.new_users_today)} icon={UserPlus} />
           <StatsCard title="Успешных платежей" value={fmt(data.payments_today)} icon={CreditCard} />
-          <StatsCard title="Выручка" value={fmtRub(data.revenue_today)} icon={Banknote} />
+          <StatsCard title="Выручка" value={fmtCurrency(data.revenue_today)} icon={Banknote} />
         </div>
       </Section>
 
@@ -103,43 +130,103 @@ export function AdminDashboardPage() {
       <Section title="За 7 дней">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatsCard title="Новых пользователей" value={fmt(data.new_users_7days)} icon={UserPlus} />
-          <StatsCard title="Выручка" value={fmtRub(data.revenue_7days)} icon={Banknote} />
+          <StatsCard title="Выручка" value={fmtCurrency(data.revenue_7days)} icon={Banknote} />
         </div>
       </Section>
 
-      {/* 30 days + All-time */}
-      <Section title="За 30 дней / Всего">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard title="Выручка за 30 дней" value={fmtRub(data.revenue_30days)} icon={TrendingUp} />
+      {/* Main stats */}
+      <Section title="Основные показатели">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <StatsCard title="Выручка за 30 дней" value={fmtCurrency(data.revenue_30days)} icon={TrendingUp} />
           <StatsCard title="Пользователей всего" value={fmt(data.total_users)} icon={Users} />
           <StatsCard
             title="Активных подписок"
             value={fmt(data.active_subscriptions)}
-            subtitle={`из ${fmt(data.total_subscriptions)} всего`}
+            subtitle={`из ${fmt(data.total_subscriptions)} всего${
+              data.total_subscriptions > 0
+                ? `, ${Math.round((data.active_subscriptions / data.total_subscriptions) * 100)}% активны`
+                : ''
+            }`}
             icon={Activity}
           />
-          <StatsCard title="Общая выручка" value={fmtRub(data.total_revenue)} icon={TrendingUp} />
+          <StatsCard
+            title="Успешных платежей всего"
+            value={fmt(data.total_payments)}
+            icon={CreditCard}
+          />
+          <StatsCard title="Общая выручка" value={fmtCurrency(data.total_revenue)} icon={Banknote} />
         </div>
       </Section>
 
-      {/* Expiring soon */}
-      {data.expiring_soon_count > 0 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50">
-          <AlertTriangle size={20} className="text-amber-600 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">
-              Истекает в ближайшие 3 дня: {data.expiring_soon_count} подписок
-            </p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              Пользователи могут потерять доступ — проверьте статус нод Remnawave
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/admin/panel')}
-            className="ml-auto text-xs font-semibold text-amber-800 underline hover:no-underline whitespace-nowrap"
-          >
-            Перейти к мониторингу
-          </button>
+      {/* Alerts */}
+      {(data.expiring_soon_count > 0 || nodesQuery.isError || (nodesQuery.isSuccess && offlineNodes.length > 0)) && (
+        <div className="space-y-3">
+          {data.expiring_soon_count > 0 && (
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50">
+              <Clock size={20} className="text-amber-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">
+                  Истекает в ближайшие 3 дня: {data.expiring_soon_count}{' '}
+                  {pluralRu(data.expiring_soon_count, ['подписка', 'подписки', 'подписок'])}
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Проверьте список пользователей и динамику продлений
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="ml-auto text-xs font-semibold text-amber-800 underline hover:no-underline whitespace-nowrap"
+              >
+                Посмотреть пользователей
+              </button>
+            </div>
+          )}
+
+          {nodesQuery.isSuccess && offlineNodes.length > 0 && (
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-red-300 bg-red-50">
+              <ServerCrash size={20} className="text-red-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">
+                  {offlineNodes.length} {pluralRu(offlineNodes.length, ['нода', 'ноды', 'нод'])}{' '}
+                  {offlineNodes.length === 1 ? 'недоступна' : 'недоступны'}
+                </p>
+                <p className="text-xs text-red-700 mt-0.5">
+                  {offlineNodes
+                    .slice(0, 3)
+                    .map(n => getString(n, 'name'))
+                    .join(', ')}
+                  {offlineNodes.length > 3 &&
+                    ` и ещё ${offlineNodes.length - 3} ${pluralRu(offlineNodes.length - 3, ['нода', 'ноды', 'нод'])}`}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/admin/nodes')}
+                className="ml-auto text-xs font-semibold text-red-800 underline hover:no-underline whitespace-nowrap"
+              >
+                Перейти к нодам
+              </button>
+            </div>
+          )}
+
+          {nodesQuery.isError && (
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-red-300 bg-red-50">
+              <ServerCrash size={20} className="text-red-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">
+                  Не удалось загрузить статус нод
+                </p>
+                <p className="text-xs text-red-700 mt-0.5">
+                  Проверьте подключение к панели и доступность мониторинга
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/admin/nodes')}
+                className="ml-auto text-xs font-semibold text-red-800 underline hover:no-underline whitespace-nowrap"
+              >
+                Перейти к нодам
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -169,7 +256,7 @@ export function AdminDashboardPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[hsl(var(--primary))]">
-                      {fmtRub(p.amount)}
+                      {fmtCurrency(p.amount, p.currency)}
                     </td>
                     <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                       {PROVIDER_LABELS[p.provider ?? ''] ?? p.provider ?? '—'}
@@ -192,66 +279,6 @@ export function AdminDashboardPage() {
           </div>
         </Section>
       )}
-
-      {/* Subscription summary */}
-      <Section title="Подписки">
-        <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm text-[hsl(var(--foreground))]">
-                Активные: <b>{fmt(data.active_subscriptions)}</b>
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[hsl(var(--muted-foreground))]" />
-              <span className="text-sm text-[hsl(var(--foreground))]">
-                Неактивные: <b>{fmt(data.total_subscriptions - data.active_subscriptions)}</b>
-              </span>
-            </div>
-            {data.expiring_soon_count > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <span className="text-sm text-[hsl(var(--foreground))]">
-                  Истекает скоро: <b>{fmt(data.expiring_soon_count)}</b>
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 relative h-4 bg-[hsl(var(--muted))] rounded-full overflow-hidden">
-            <div
-              className="absolute left-0 top-0 h-full bg-green-500 transition-all"
-              style={{
-                width: `${data.total_subscriptions > 0
-                  ? (data.active_subscriptions / data.total_subscriptions) * 100
-                  : 0}%`,
-              }}
-            />
-          </div>
-          <p className="mt-1.5 text-xs text-[hsl(var(--muted-foreground))]">
-            {data.total_subscriptions > 0
-              ? `${Math.round((data.active_subscriptions / data.total_subscriptions) * 100)}% активны`
-              : 'Нет данных'}
-          </p>
-        </div>
-      </Section>
-
-      {/* Misc stats */}
-      <Section title="Итого">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatsCard
-            title="Всего платежей (успешных)"
-            value={fmt(data.total_payments)}
-            icon={CreditCard}
-          />
-          <StatsCard
-            title="Общая выручка"
-            value={fmtRub(data.total_revenue)}
-            icon={CalendarDays}
-          />
-        </div>
-      </Section>
     </div>
   )
 }
