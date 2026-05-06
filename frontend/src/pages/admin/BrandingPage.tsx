@@ -4,6 +4,7 @@ import { Upload, Save } from 'lucide-react'
 import { getAdminBranding, patchBranding, uploadLogo } from '@/api/admin/branding'
 import { useToastContext } from '@/lib/toast-context'
 import { resolveLogoUrl } from '@/hooks/useBranding'
+import { useTranslation } from 'react-i18next'
 
 interface ColorFieldProps {
   label: string
@@ -38,6 +39,7 @@ function ColorField({ label, value, onChange }: ColorFieldProps) {
 export function BrandingPage() {
   const qc = useQueryClient()
   const { toast: showToast } = useToastContext()
+  const { t } = useTranslation()
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'branding'],
@@ -71,9 +73,9 @@ export function BrandingPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
       qc.invalidateQueries({ queryKey: ['public', 'branding'] })
-      showToast('Настройки бренда сохранены', 'success')
+      showToast(t('admin_branding_saved'), 'success')
     },
-    onError: () => showToast('Ошибка сохранения', 'error'),
+    onError: () => showToast(t('admin_branding_save_error'), 'error'),
   })
 
   const logoMutation = useMutation({
@@ -81,9 +83,9 @@ export function BrandingPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
       qc.invalidateQueries({ queryKey: ['public', 'branding'] })
-      showToast('Логотип загружен', 'success')
+      showToast(t('admin_branding_logo_uploaded'), 'success')
     },
-    onError: (err: Error) => showToast(err.message || 'Ошибка загрузки', 'error'),
+    onError: (err: Error) => showToast(err.message || t('admin_branding_logo_error'), 'error'),
   })
 
   const fileRef = useRef<HTMLInputElement>(null)
@@ -117,15 +119,15 @@ export function BrandingPage() {
   return (
     <div className="p-8 max-w-2xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Кастомизация бренда</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_branding_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Название, цвета и логотип сайта
+          {t('admin_branding_subtitle')}
         </p>
       </div>
 
       {/* Logo */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Логотип</h2>
+        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_logo')}</h2>
         <div className="flex items-center gap-4">
           {resolveLogoUrl(data?.logo_url) ? (
             <img
@@ -145,9 +147,9 @@ export function BrandingPage() {
               disabled={logoMutation.isPending}
               className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {logoMutation.isPending ? 'Загрузка…' : 'Загрузить логотип'}
+              {logoMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_logo')}
             </button>
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">PNG, JPG, SVG, WebP — до 2 МБ</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_logo_hint')}</p>
           </div>
         </div>
         <input
@@ -161,10 +163,10 @@ export function BrandingPage() {
 
       {/* Brand name */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Основные настройки</h2>
+        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_main_settings')}</h2>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-[hsl(var(--foreground))]">Название бренда</label>
+          <label className="text-sm font-medium text-[hsl(var(--foreground))]">{t('admin_branding_brand_name')}</label>
           <input
             type="text"
             value={form.brand_name}
@@ -175,7 +177,7 @@ export function BrandingPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-[hsl(var(--foreground))]">Шрифт</label>
+          <label className="text-sm font-medium text-[hsl(var(--foreground))]">{t('admin_branding_font')}</label>
           <input
             type="text"
             value={form.font_family}
@@ -188,20 +190,20 @@ export function BrandingPage() {
 
       {/* Colors */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Цвета</h2>
+        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_colors')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ColorField
-            label="Основной цвет"
+            label={t('admin_branding_primary_color')}
             value={form.primary_color}
             onChange={v => setForm(f => ({ ...f, primary_color: v }))}
           />
           <ColorField
-            label="Вторичный цвет"
+            label={t('admin_branding_secondary_color')}
             value={form.secondary_color}
             onChange={v => setForm(f => ({ ...f, secondary_color: v }))}
           />
           <ColorField
-            label="Цвет фона"
+            label={t('admin_branding_background_color')}
             value={form.background_color}
             onChange={v => setForm(f => ({ ...f, background_color: v }))}
           />
@@ -210,13 +212,13 @@ export function BrandingPage() {
 
       {/* Custom CSS */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Дополнительный CSS</h2>
+        <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_custom_css')}</h2>
         <textarea
           value={form.custom_css}
           onChange={e => setForm(f => ({ ...f, custom_css: e.target.value }))}
           rows={6}
           className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm font-mono resize-y"
-          placeholder="/* Ваш CSS */"
+          placeholder={t('admin_branding_custom_css_placeholder')}
         />
       </div>
 
@@ -227,7 +229,7 @@ export function BrandingPage() {
         className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[hsl(var(--primary))] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
       >
         <Save size={16} />
-        {saveMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+        {saveMutation.isPending ? t('admin_saving') : t('admin_save')}
       </button>
     </div>
   )

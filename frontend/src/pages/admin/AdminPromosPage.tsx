@@ -11,6 +11,8 @@ import {
   type PromoCreateRequest,
   type PromoUpdateRequest,
 } from '@/api/admin/promos'
+import { useToast } from '@/hooks/useToast'
+import { useTranslation } from 'react-i18next'
 
 function fmtDate(dt: string | null) {
   if (!dt) return '—'
@@ -18,13 +20,14 @@ function fmtDate(dt: string | null) {
 }
 
 function PromoTypeBadge({ type }: { type: string }) {
+  const { t } = useTranslation()
   const cls =
     type === 'discount'
       ? 'bg-purple-100 text-purple-700'
       : 'bg-blue-100 text-blue-700'
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {type === 'discount' ? 'Скидка' : 'Бонус дней'}
+      {type === 'discount' ? t('admin_promos_discount') : t('admin_promos_bonus_days')}
     </span>
   )
 }
@@ -42,25 +45,32 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
   const [maxActivations, setMaxActivations] = useState('100')
   const [validUntil, setValidUntil] = useState('')
   const [error, setError] = useState('')
+  const toast = useToast()
+  const { t } = useTranslation()
 
   const mutation = useMutation({
     mutationFn: createPromo,
     onSuccess: () => {
+      toast.success(t('admin_promos_created_toast'))
       onCreated()
       onClose()
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => {
+      const message = e.message || t('admin_promos_create_error')
+      setError(message)
+      toast.error(message)
+    },
   })
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     setError('')
-    if (!code.trim()) return setError('Введите код')
-    if (!maxActivations || Number(maxActivations) < 1) return setError('Укажите макс. активаций')
+    if (!code.trim()) return setError(t('admin_promos_enter_code'))
+    if (!maxActivations || Number(maxActivations) < 1) return setError(t('admin_promos_enter_max_activations'))
     if (promoType === 'bonus_days' && (!bonusDays || Number(bonusDays) < 1))
-      return setError('Укажите количество бонусных дней')
+      return setError(t('admin_promos_enter_bonus_days'))
     if (promoType === 'discount' && (!discountPct || Number(discountPct) < 1 || Number(discountPct) > 100))
-      return setError('Скидка должна быть от 1 до 100%')
+      return setError(t('admin_promos_discount_range'))
 
     const payload: PromoCreateRequest = {
       code: code.trim().toUpperCase(),
@@ -76,10 +86,10 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-2xl border border-[hsl(var(--border))] w-full max-w-md p-6 shadow-xl">
-        <h2 className="text-lg font-bold mb-4">Создать промокод</h2>
+        <h2 className="text-lg font-bold mb-4">{t('admin_promos_create')}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Код</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_code')}</label>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -89,20 +99,20 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Тип</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_type')}</label>
             <div className="flex gap-2">
-              {(['bonus_days', 'discount'] as const).map((t) => (
+              {(['bonus_days', 'discount'] as const).map((type) => (
                 <button
-                  key={t}
+                  key={type}
                   type="button"
-                  onClick={() => setPromoType(t)}
+                  onClick={() => setPromoType(type)}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    promoType === t
+                    promoType === type
                       ? 'bg-[hsl(var(--primary))] text-white border-transparent'
                       : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
                   }`}
                 >
-                  {t === 'bonus_days' ? 'Бонус дней' : 'Скидка %'}
+                  {type === 'bonus_days' ? t('admin_promos_bonus_days') : t('admin_promos_discount_percent')}
                 </button>
               ))}
             </div>
@@ -110,7 +120,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
 
           {promoType === 'bonus_days' ? (
             <div>
-              <label className="block text-sm font-medium mb-1">Бонусных дней</label>
+              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_bonus_days')}</label>
               <input
                 type="number"
                 min={1}
@@ -122,7 +132,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium mb-1">Скидка (%)</label>
+              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_discount')}</label>
               <input
                 type="number"
                 min={1}
@@ -136,7 +146,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Макс. активаций</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_max_activations')}</label>
             <input
               type="number"
               min={1}
@@ -147,7 +157,7 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Действует до (необязательно)</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_valid_until')}</label>
             <input
               type="date"
               value={validUntil}
@@ -164,14 +174,14 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
               onClick={onClose}
               className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
             >
-              Отмена
+              {t('admin_cancel')}
             </button>
             <button
               type="submit"
               disabled={mutation.isPending}
               className="flex-1 h-9 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {mutation.isPending ? 'Создание...' : 'Создать'}
+              {mutation.isPending ? t('admin_creating') : t('admin_create')}
             </button>
           </div>
         </form>
@@ -187,35 +197,38 @@ interface DeleteConfirmProps {
 }
 
 function DeleteConfirm({ promo, onClose, onDeleted }: DeleteConfirmProps) {
+  const toast = useToast()
+  const { t } = useTranslation()
   const mutation = useMutation({
     mutationFn: () => deletePromo(promo.promo_code_id),
     onSuccess: () => {
+      toast.success(t('admin_promos_deleted_toast'))
       onDeleted()
       onClose()
     },
+    onError: () => toast.error(t('admin_promos_delete_error')),
   })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-2xl border border-[hsl(var(--border))] w-full max-w-sm p-6 shadow-xl">
-        <h2 className="text-lg font-bold mb-2">Удалить промокод?</h2>
+        <h2 className="text-lg font-bold mb-2">{t('admin_promos_delete_confirm')}</h2>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">
-          Промокод <span className="font-mono font-semibold">{promo.code}</span> будет удалён
-          без возможности восстановления. Все связанные активации будут очищены.
+          {t('admin_promos_delete_description', { code: promo.code })}
         </p>
         <div className="flex gap-2">
           <button
             onClick={onClose}
             className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
           >
-            Отмена
+            {t('admin_cancel')}
           </button>
           <button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
             className="flex-1 h-9 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
           >
-            {mutation.isPending ? 'Удаление...' : 'Удалить'}
+            {mutation.isPending ? t('admin_deleting') : t('admin_delete')}
           </button>
         </div>
       </div>
@@ -237,27 +250,34 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
   const [bonusDays, setBonusDays] = useState(String(promo.bonus_days ?? ''))
   const [discountPct, setDiscountPct] = useState(String(promo.discount_percentage ?? ''))
   const [error, setError] = useState('')
+  const toast = useToast()
+  const { t } = useTranslation()
 
   const mutation = useMutation({
     mutationFn: (data: PromoUpdateRequest) => updatePromo(promo.promo_code_id, data),
     onSuccess: () => {
+      toast.success(t('admin_promos_updated_toast'))
       onUpdated()
       onClose()
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => {
+      const message = e.message || t('admin_promos_update_error')
+      setError(message)
+      toast.error(message)
+    },
   })
 
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     setError('')
-    if (!maxActivations || Number(maxActivations) < 1) return setError('Укажите макс. активаций')
+    if (!maxActivations || Number(maxActivations) < 1) return setError(t('admin_promos_enter_max_activations'))
     if (promo.promo_type === 'bonus_days' && (!bonusDays || Number(bonusDays) < 1))
-      return setError('Укажите количество бонусных дней')
+      return setError(t('admin_promos_enter_bonus_days'))
     if (
       promo.promo_type === 'discount' &&
       (!discountPct || Number(discountPct) < 1 || Number(discountPct) > 100)
     )
-      return setError('Скидка должна быть от 1 до 100%')
+      return setError(t('admin_promos_discount_range'))
 
     const payload: PromoUpdateRequest = {
       max_activations: Number(maxActivations),
@@ -271,12 +291,12 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-2xl border border-[hsl(var(--border))] w-full max-w-md p-6 shadow-xl">
-        <h2 className="text-lg font-bold mb-1">Редактировать промокод</h2>
+        <h2 className="text-lg font-bold mb-1">{t('admin_edit')} {t('admin_nav_promos').toLowerCase()}</h2>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4 font-mono">{promo.code}</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {promo.promo_type === 'bonus_days' ? (
             <div>
-              <label className="block text-sm font-medium mb-1">Бонусных дней</label>
+              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_bonus_days')}</label>
               <input
                 type="number"
                 min={1}
@@ -287,7 +307,7 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium mb-1">Скидка (%)</label>
+              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_discount')}</label>
               <input
                 type="number"
                 min={1}
@@ -300,7 +320,7 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Макс. активаций</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_max_activations')}</label>
             <input
               type="number"
               min={1}
@@ -311,7 +331,7 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Действует до (необязательно)</label>
+            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_valid_until')}</label>
             <input
               type="date"
               value={validUntil}
@@ -328,14 +348,14 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
               onClick={onClose}
               className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
             >
-              Отмена
+              {t('admin_cancel')}
             </button>
             <button
               type="submit"
               disabled={mutation.isPending}
               className="flex-1 h-9 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {mutation.isPending ? 'Сохранение...' : 'Сохранить'}
+              {mutation.isPending ? t('admin_saving') : t('admin_save')}
             </button>
           </div>
         </form>
@@ -351,6 +371,8 @@ export function AdminPromosPage() {
   const [deleteTarget, setDeleteTarget] = useState<AdminPromoItem | null>(null)
   const [editTarget, setEditTarget] = useState<AdminPromoItem | null>(null)
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const { t } = useTranslation()
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'promos', page, pageSize],
@@ -362,7 +384,11 @@ export function AdminPromosPage() {
   const toggleMutation = useMutation({
     mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) =>
       updatePromo(id, { is_active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'promos'] }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promos'] })
+      toast.success(vars.is_active ? t('admin_promos_activated_toast') : t('admin_promos_deactivated_toast'))
+    },
+    onError: () => toast.error(t('admin_promos_status_error')),
   })
 
   function invalidate() {
@@ -372,7 +398,7 @@ export function AdminPromosPage() {
   const columns: Column<AdminPromoItem>[] = [
     {
       key: 'code',
-      header: 'Код',
+      header: t('admin_code'),
       size: 140,
       render: (r) => (
         <span className="font-mono font-semibold text-sm">{r.code}</span>
@@ -380,22 +406,22 @@ export function AdminPromosPage() {
     },
     {
       key: 'type',
-      header: 'Тип',
+      header: t('admin_type'),
       size: 120,
       render: (r) => <PromoTypeBadge type={r.promo_type} />,
     },
     {
       key: 'value',
-      header: 'Значение',
+      header: t('admin_value'),
       size: 110,
       render: (r) =>
         r.promo_type === 'discount'
           ? `${r.discount_percentage}%`
-          : `${r.bonus_days} дн.`,
+          : `${r.bonus_days} ${t('admin_days_short')}`,
     },
     {
       key: 'activations',
-      header: 'Активации',
+      header: t('admin_promos_activations'),
       size: 110,
       render: (r) => (
         <div className="flex flex-col">
@@ -415,13 +441,13 @@ export function AdminPromosPage() {
     },
     {
       key: 'valid_until',
-      header: 'До',
+      header: t('admin_promos_valid_until'),
       size: 100,
       render: (r) => fmtDate(r.valid_until),
     },
     {
       key: 'status',
-      header: 'Статус',
+      header: t('admin_status'),
       size: 90,
       render: (r) => (
         <button
@@ -434,7 +460,7 @@ export function AdminPromosPage() {
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
             r.is_active ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground)/0.4)]'
           }`}
-          title={r.is_active ? 'Отключить' : 'Включить'}
+          title={r.is_active ? t('admin_promos_deactivate_title') : t('admin_promos_activate_title')}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
@@ -454,14 +480,14 @@ export function AdminPromosPage() {
           <button
             onClick={() => setEditTarget(r)}
             className="p-1.5 rounded-lg hover:bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] transition-colors"
-            title="Редактировать"
+            title={t('admin_edit')}
           >
             <Pencil size={14} />
           </button>
           <button
             onClick={() => setDeleteTarget(r)}
             className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
-            title="Удалить"
+            title={t('admin_delete')}
           >
             <Trash2 size={14} />
           </button>
@@ -471,32 +497,32 @@ export function AdminPromosPage() {
   ]
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Промокоды</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-            Управление скидочными кодами и бонусными днями
+    <div className="px-4 py-6 sm:p-8 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_promos_title')}</h1>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 max-w-xl">
+            {t('admin_promos_subtitle')}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 h-9 px-4 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
         >
           <Plus size={16} />
-          Создать
+          {t('admin_promos_create_short')}
         </button>
       </div>
 
       {data?.total === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center py-16 text-[hsl(var(--muted-foreground))]">
           <Tag size={40} className="mb-3 opacity-30" />
-          <p className="text-sm">Промокодов пока нет</p>
+          <p className="text-sm">{t('admin_promos_empty')}</p>
           <button
             onClick={() => setShowCreate(true)}
             className="mt-3 text-[hsl(var(--primary))] text-sm font-medium hover:underline"
           >
-            Создать первый
+            {t('admin_promos_create_first')}
           </button>
         </div>
       )}
@@ -514,7 +540,7 @@ export function AdminPromosPage() {
             setPage(0)
           }}
           isLoading={isLoading}
-          emptyMessage="Промокоды не найдены"
+          emptyMessage={t('admin_promos_empty_table')}
           keyExtractor={(r) => r.promo_code_id}
         />
       )}

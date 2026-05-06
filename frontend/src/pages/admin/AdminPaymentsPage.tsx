@@ -18,14 +18,7 @@ import {
 import { StatsCard } from '@/components/admin/StatsCard'
 import { DataTable, type Column } from '@/components/admin/DataTable'
 import { getAdminPayments, getPaymentStats, type AdminPaymentListItem } from '@/api/admin/payments'
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'Все статусы' },
-  { value: 'succeeded', label: 'Успешные' },
-  { value: 'pending', label: 'Ожидание' },
-  { value: 'canceled', label: 'Отменённые' },
-  { value: 'failed', label: 'Неуспешные' },
-]
+import { useTranslation } from 'react-i18next'
 
 const STATUS_BADGE: Record<string, string> = {
   succeeded: 'bg-green-100 text-green-700',
@@ -54,92 +47,8 @@ function fmtDate(dt: string | null) {
   })
 }
 
-const COLUMNS: Column<AdminPaymentListItem>[] = [
-  {
-    key: 'payment_id',
-    header: '#',
-    size: 70,
-    render: (r) => <span className="text-[hsl(var(--muted-foreground))]">#{r.payment_id}</span>,
-  },
-  {
-    key: 'user',
-    header: 'Пользователь',
-    size: 160,
-    render: (r) => (
-      <div className="flex flex-col">
-        <span className="font-medium">{r.first_name ?? '—'}</span>
-        {r.username && (
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">@{r.username}</span>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: 'amount',
-    header: 'Сумма',
-    size: 130,
-    render: (r) => (
-      <div className="flex flex-col">
-        <span className="font-semibold">{fmt(r.amount, r.currency)}</span>
-        {r.discount_applied != null && r.discount_applied > 0 && (
-          <span className="text-xs text-green-600">
-            −{fmt(r.discount_applied, r.currency)}
-          </span>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: 'status',
-    header: 'Статус',
-    size: 120,
-    render: (r) => (
-      <span
-        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-          STATUS_BADGE[r.status] ?? 'bg-gray-100 text-gray-600'
-        }`}
-      >
-        {r.status}
-      </span>
-    ),
-  },
-  {
-    key: 'provider',
-    header: 'Провайдер',
-    size: 110,
-    render: (r) => r.provider ?? '—',
-  },
-  {
-    key: 'months',
-    header: 'Срок',
-    size: 80,
-    render: (r) =>
-      r.subscription_duration_months ? `${r.subscription_duration_months} мес.` : '—',
-  },
-  {
-    key: 'promo',
-    header: 'Промокод',
-    size: 110,
-    render: (r) =>
-      r.promo_code ? (
-        <span className="font-mono text-xs bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">
-          {r.promo_code}
-        </span>
-      ) : (
-        '—'
-      ),
-  },
-  {
-    key: 'created_at',
-    header: 'Дата',
-    size: 130,
-    render: (r) => (
-      <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtDate(r.created_at)}</span>
-    ),
-  },
-]
-
 export function AdminPaymentsPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [status, setStatus] = useState('')
@@ -170,35 +79,109 @@ export function AdminPaymentsPage() {
     date: d.date.slice(5), // "MM-DD"
   }))
 
+  const statusOptions = [
+    { value: '', label: t('admin_payments_all_statuses') },
+    { value: 'succeeded', label: t('admin_payments_status_succeeded') },
+    { value: 'pending', label: t('admin_payments_status_pending') },
+    { value: 'canceled', label: t('admin_payments_status_canceled') },
+    { value: 'failed', label: t('admin_payments_status_failed') },
+  ]
+
+  const columns: Column<AdminPaymentListItem>[] = [
+    {
+      key: 'payment_id',
+      header: '#',
+      size: 70,
+      render: (r) => <span className="text-[hsl(var(--muted-foreground))]">#{r.payment_id}</span>,
+    },
+    {
+      key: 'user',
+      header: t('admin_user'),
+      size: 160,
+      render: (r) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{r.first_name ?? '—'}</span>
+          {r.username && (
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">@{r.username}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      header: t('admin_amount'),
+      size: 130,
+      render: (r) => (
+        <div className="flex flex-col">
+          <span className="font-semibold">{fmt(r.amount, r.currency)}</span>
+          {r.discount_applied != null && r.discount_applied > 0 && (
+            <span className="text-xs text-green-600">
+              {t('admin_payments_discount', { amount: fmt(r.discount_applied, r.currency) })}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: t('admin_status'),
+      size: 120,
+      render: (r) => (
+        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
+          {r.status}
+        </span>
+      ),
+    },
+    { key: 'provider', header: t('admin_provider'), size: 110, render: (r) => r.provider ?? '—' },
+    {
+      key: 'months',
+      header: t('admin_period'),
+      size: 80,
+      render: (r) => r.subscription_duration_months ? `${r.subscription_duration_months} ${t('admin_month_short')}` : '—',
+    },
+    {
+      key: 'promo',
+      header: t('admin_nav_promos'),
+      size: 110,
+      render: (r) => r.promo_code ? <span className="font-mono text-xs bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">{r.promo_code}</span> : '—',
+    },
+    {
+      key: 'created_at',
+      header: t('admin_date'),
+      size: 130,
+      render: (r) => <span className="text-xs text-[hsl(var(--muted-foreground))]">{fmtDate(r.created_at)}</span>,
+    },
+  ]
+
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Платежи</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_payments_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          История транзакций и статистика доходов
+          {t('admin_payments_subtitle')}
         </p>
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatsCard
-          title="Сегодня"
+          title={t('admin_dashboard_today')}
           value={statsLoading ? '...' : fmt(stats?.today_revenue ?? 0)}
-          subtitle={`${stats?.today_payments_count ?? 0} платежей`}
+          subtitle={t('admin_payments_count', { count: stats?.today_payments_count ?? 0 })}
           icon={CreditCard}
         />
         <StatsCard
-          title="За 7 дней"
+          title={t('admin_dashboard_7days')}
           value={statsLoading ? '...' : fmt(stats?.week_revenue ?? 0)}
           icon={Calendar}
         />
         <StatsCard
-          title="За 30 дней"
+          title={t('admin_payments_chart_title')}
           value={statsLoading ? '...' : fmt(stats?.month_revenue ?? 0)}
           icon={TrendingUp}
         />
         <StatsCard
-          title="Всего"
+          title={t('admin_filter_all')}
           value={statsLoading ? '...' : fmt(stats?.all_time_revenue ?? 0)}
           icon={DollarSign}
         />
@@ -206,21 +189,21 @@ export function AdminPaymentsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Daily chart */}
-        <div className="lg:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
+        <div className="lg:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 sm:p-5">
           <h2 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-4">
-            Доход за 30 дней
+            {t('admin_payments_chart_title')}
           </h2>
           {statsLoading ? (
-            <div className="h-40 flex items-center justify-center text-[hsl(var(--muted-foreground))]">
-              Загрузка...
+            <div className="h-32 sm:h-40 flex items-center justify-center text-[hsl(var(--muted-foreground))]">
+              {t('admin_loading')}
             </div>
           ) : chartData.length === 0 ? (
-            <div className="h-40 flex items-center justify-center text-[hsl(var(--muted-foreground))] text-sm">
-              Нет данных за период
+            <div className="h-32 sm:h-40 flex items-center justify-center text-[hsl(var(--muted-foreground))] text-sm">
+              {t('admin_payments_no_period_data')}
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={130} className="sm:!h-40">
+              <BarChart data={chartData} margin={{ top: 2, right: 2, left: -26, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="date"
@@ -235,7 +218,7 @@ export function AdminPaymentsPage() {
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  formatter={(value) => [fmt(Number(value ?? 0)), 'Доход']}
+                  formatter={(value) => [fmt(Number(value ?? 0)), t('admin_payments_income')]}
                   contentStyle={{
                     fontSize: 12,
                     borderRadius: 8,
@@ -250,9 +233,9 @@ export function AdminPaymentsPage() {
         </div>
 
         {/* By provider */}
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
+        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 sm:p-5">
           <h2 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-4">
-            По провайдерам
+            {t('admin_payments_by_provider')}
           </h2>
           {statsLoading ? (
             <div className="space-y-2">
@@ -261,7 +244,7 @@ export function AdminPaymentsPage() {
               ))}
             </div>
           ) : (stats?.by_provider ?? []).length === 0 ? (
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Нет данных</p>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_no_data')}</p>
           ) : (
             <div className="flex flex-col gap-2">
               {stats!.by_provider.map((p) => (
@@ -272,7 +255,7 @@ export function AdminPaymentsPage() {
                   <span className="capitalize font-medium">{p.provider}</span>
                   <div className="text-right">
                     <div className="font-semibold">{fmt(p.amount)}</div>
-                    <div className="text-xs text-[hsl(var(--muted-foreground))]">{p.count} платежей</div>
+                    <div className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_payments_count', { count: p.count })}</div>
                   </div>
                 </div>
               ))}
@@ -288,13 +271,13 @@ export function AdminPaymentsPage() {
           onChange={(e) => { setStatus(e.target.value); setPage(0) }}
           className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
         >
-          {STATUS_OPTIONS.map((o) => (
+          {statusOptions.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
         <input
           type="text"
-          placeholder="Провайдер..."
+          placeholder={t('admin_payments_provider_placeholder')}
           value={provider}
           onChange={(e) => { setProvider(e.target.value); setPage(0) }}
           className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
@@ -304,14 +287,14 @@ export function AdminPaymentsPage() {
             onClick={() => { setStatus(''); setProvider(''); setPage(0) }}
             className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
           >
-            Сбросить
+            {t('admin_reset')}
           </button>
         )}
       </div>
 
       {/* Table */}
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         data={data?.items ?? []}
         total={data?.total ?? 0}
         page={page}
@@ -322,7 +305,7 @@ export function AdminPaymentsPage() {
           setPage(0)
         }}
         isLoading={isLoading}
-        emptyMessage="Платежи не найдены"
+        emptyMessage={t('admin_payments_empty')}
         keyExtractor={(r) => r.payment_id}
       />
     </div>

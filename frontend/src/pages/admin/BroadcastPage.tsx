@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { startBroadcast, getBroadcastStatus } from '@/api/admin/broadcast'
 import type { BroadcastFilter, BroadcastStatusResponse, ButtonColor, ButtonItem } from '@/api/admin/broadcast'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -47,30 +49,28 @@ function totalButtons(rows: UIRows) {
   return rows.reduce((s, r) => s + r.length, 0)
 }
 
-function pluralBtn(n: number) {
-  if (n === 1) return 'кнопкой'
-  if (n >= 2 && n <= 4) return 'кнопками'
-  return 'кнопками'
+function pluralBtn(n: number, t: TFunction) {
+  return n === 1 ? t('admin_broadcast_button_instr') : t('admin_broadcast_buttons_instr')
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const FILTER_OPTIONS: {
   value: BroadcastFilter
-  label: string
+  labelKey: string
   icon: typeof Users
-  description: string
+  descriptionKey: string
 }[] = [
-  { value: 'all', label: 'Все пользователи', icon: Users, description: 'Все незабаненные пользователи' },
-  { value: 'active', label: 'С активной подпиской', icon: Activity, description: 'Только у кого активна подписка' },
-  { value: 'inactive', label: 'Без активной подписки', icon: UserX, description: 'Кто никогда не покупал или подписка истекла' },
+  { value: 'all', labelKey: 'admin_broadcast_filter_all', icon: Users, descriptionKey: 'admin_broadcast_all_unbanned' },
+  { value: 'active', labelKey: 'admin_broadcast_filter_active', icon: Activity, descriptionKey: 'admin_broadcast_active_description' },
+  { value: 'inactive', labelKey: 'admin_broadcast_filter_inactive', icon: UserX, descriptionKey: 'admin_broadcast_inactive_description' },
 ]
 
-const COLOR_OPTIONS: { value: ButtonColor; label: string }[] = [
-  { value: '', label: 'Без цвета' },
-  { value: 'primary', label: 'Синий' },
-  { value: 'success', label: 'Зелёный' },
-  { value: 'danger', label: 'Красный' },
+const COLOR_OPTIONS: { value: ButtonColor; labelKey: string }[] = [
+  { value: '', labelKey: 'admin_broadcast_no_color' },
+  { value: 'primary', labelKey: 'admin_broadcast_blue' },
+  { value: 'success', labelKey: 'admin_broadcast_green' },
+  { value: 'danger', labelKey: 'admin_broadcast_red' },
 ]
 
 // For the button editor color chips
@@ -121,12 +121,13 @@ function ButtonEditor({
   onUpdate: (patch: Partial<UIButton>) => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-2 p-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))]">
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Текст кнопки"
+          placeholder={t('admin_broadcast_button_text')}
           value={btn.text}
           onChange={(e) => onUpdate({ text: e.target.value })}
           className="flex-1 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1.5 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
@@ -134,7 +135,7 @@ function ButtonEditor({
         <button
           type="button"
           onClick={onRemove}
-          title="Удалить кнопку"
+          title={t('admin_broadcast_button_delete')}
           className="flex items-center justify-center w-8 h-8 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
         >
           <Trash2 size={14} />
@@ -153,12 +154,12 @@ function ButtonEditor({
       </div>
 
       <div className="flex gap-1.5 flex-wrap">
-        {COLOR_OPTIONS.map(({ value, label }) => (
+        {COLOR_OPTIONS.map(({ value, labelKey }) => (
           <button
             key={value}
             type="button"
             onClick={() => onUpdate({ color: value })}
-            title={label}
+            title={t(labelKey)}
             className={[
               'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-medium transition-all',
               btn.color === value
@@ -167,7 +168,7 @@ function ButtonEditor({
             ].join(' ')}
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${COLOR_DOT[value]}`} />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -198,24 +199,25 @@ function RowEditor({
   onRemoveButton: (btnId: string) => void
   onRemoveRow: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.4)]">
         <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide flex-1">
-          Строка {rowIndex + 1}
+          {t('admin_broadcast_row', { number: rowIndex + 1 })}
         </span>
         <div className="flex items-center gap-1">
           <button type="button" onClick={onMoveUp} disabled={rowIndex === 0}
-            title="Поднять строку"
+            title={t('admin_broadcast_move_row_up')}
             className="p-1 rounded hover:bg-[hsl(var(--muted))] disabled:opacity-30 transition-colors">
             <ChevronUp size={14} />
           </button>
           <button type="button" onClick={onMoveDown} disabled={rowIndex === totalRows - 1}
-            title="Опустить строку"
+            title={t('admin_broadcast_move_row_down')}
             className="p-1 rounded hover:bg-[hsl(var(--muted))] disabled:opacity-30 transition-colors">
             <ChevronDown size={14} />
           </button>
-          <button type="button" onClick={onRemoveRow} title="Удалить строку"
+          <button type="button" onClick={onRemoveRow} title={t('admin_broadcast_row_delete')}
             className="p-1 rounded hover:bg-red-50 text-[hsl(var(--muted-foreground))] hover:text-red-600 transition-colors ml-1">
             <Trash2 size={14} />
           </button>
@@ -234,7 +236,7 @@ function RowEditor({
         <button type="button" onClick={onAddButton}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))] hover:text-[hsl(var(--primary))] transition-colors">
           <Plus size={14} />
-          Добавить кнопку в строку
+          {t('admin_broadcast_add_button')}
         </button>
       </div>
     </div>
@@ -244,6 +246,7 @@ function RowEditor({
 // ─── MessagePreview ──────────────────────────────────────────────────────────
 
 function MessagePreview({ text, rows }: { text: string; rows: UIRows }) {
+  const { t } = useTranslation()
   // Convert newlines to <br> for HTML preview
   const html = text.replace(/\n/g, '<br>')
   const hasText = text.trim().length > 0
@@ -255,14 +258,14 @@ function MessagePreview({ text, rows }: { text: string; rows: UIRows }) {
       {/* Header */}
       <div className="px-4 py-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.4)]">
         <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
-          Превью сообщения
+          {t('admin_broadcast_preview')}
         </p>
       </div>
 
       {/* Telegram chat simulation */}
       <div className="p-3 min-h-48" style={{ background: 'linear-gradient(135deg, #7b9eb5 0%, #6a8fa8 100%)' }}>
         {isEmpty ? (
-          <p className="text-white/60 text-sm text-center mt-8">Начните вводить текст…</p>
+          <p className="text-white/60 text-sm text-center mt-8">{t('admin_broadcast_preview_empty')}</p>
         ) : (
           /* Bot message bubble — incoming style (left-aligned, white) */
           <div className="max-w-[92%] rounded-2xl rounded-tl-none bg-white shadow-md overflow-hidden">
@@ -314,7 +317,7 @@ function MessagePreview({ text, rows }: { text: string; rows: UIRows }) {
 
       <div className="px-4 py-2 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
         <p className="text-[11px] text-[hsl(var(--muted-foreground))]">
-          Цвета кнопок отображаются в Telegram (Bot API 9.4+)
+          {t('admin_broadcast_color_hint')}
         </p>
       </div>
     </div>
@@ -344,6 +347,7 @@ function SendBlock({
   onCancel: () => void
   error: string | null
 }) {
+  const { t } = useTranslation()
   if (!confirming) {
     return (
       <div className="space-y-2">
@@ -353,11 +357,11 @@ function SendBlock({
           className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send size={16} />
-          Отправить рассылку
+          {t('admin_broadcast_send')}
         </button>
         {error && (
           <p className="text-xs text-red-600 text-center">
-            Ошибка: {error}
+            {t('admin_broadcast_error_prefix', { error })}
           </p>
         )}
       </div>
@@ -368,11 +372,13 @@ function SendBlock({
     <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
       <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
         <AlertCircle size={16} />
-        Подтвердите отправку
+        {t('admin_broadcast_confirm_heading')}
       </div>
       <p className="text-xs text-amber-700 leading-relaxed">
-        Сообщение{btnCount > 0 && ` с ${btnCount} ${pluralBtn(btnCount)}`} будет
-        отправлено получателям: <b>{filterLabel}</b>. Это действие нельзя отменить.
+        {t('admin_broadcast_confirm_body', {
+          buttons: btnCount > 0 ? t('admin_broadcast_with_buttons', { count: btnCount, label: pluralBtn(btnCount, t) }) : '',
+          filter: filterLabel,
+        })}
       </p>
       <div className="flex gap-2">
         <button
@@ -381,13 +387,13 @@ function SendBlock({
           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition disabled:opacity-50"
         >
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          Да, отправить
+          {t('admin_broadcast_confirm_send')}
         </button>
         <button
           onClick={onCancel}
           className="flex-1 py-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium hover:bg-[hsl(var(--muted))] transition"
         >
-          Отмена
+          {t('admin_cancel')}
         </button>
       </div>
     </div>
@@ -397,6 +403,7 @@ function SendBlock({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function BroadcastPage() {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [filter, setFilter] = useState<BroadcastFilter>('all')
   const [rows, setRows] = useState<UIRows>([])
@@ -471,7 +478,8 @@ export function BroadcastPage() {
   const isFailed = statusData?.status === 'failed'
   const canSend = text.trim().length > 0 && !mutation.isPending && !isRunning
   const btnCount = totalButtons(rows)
-  const filterLabel = FILTER_OPTIONS.find((o) => o.value === filter)?.label ?? ''
+  const filterLabelKey = FILTER_OPTIONS.find((o) => o.value === filter)?.labelKey
+  const filterLabel = filterLabelKey ? t(filterLabelKey) : ''
 
   function handleReset() {
     setBroadcastId(null)
@@ -485,9 +493,9 @@ export function BroadcastPage() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Рассылка</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_broadcast_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Отправить HTML-сообщение с кнопками через Telegram-бот
+          {t('admin_broadcast_subtitle')}
         </p>
       </div>
 
@@ -506,20 +514,20 @@ export function BroadcastPage() {
             {isFailed && <AlertCircle size={18} className="text-red-600" />}
             {isRunning && <Loader2 size={18} className="animate-spin text-[hsl(var(--primary))]" />}
             <span>
-              {isCompleted && 'Рассылка завершена'}
-              {isFailed && 'Ошибка рассылки'}
-              {statusData.status === 'pending' && 'Ожидание…'}
-              {statusData.status === 'running' && 'Отправка…'}
+              {isCompleted && t('admin_broadcast_completed')}
+              {isFailed && t('admin_broadcast_progress_error')}
+              {statusData.status === 'pending' && t('admin_broadcast_pending')}
+              {statusData.status === 'running' && t('admin_broadcast_running')}
             </span>
           </div>
           {statusData.total > 0 && (
             <>
               <ProgressBar value={statusData.sent + statusData.failed} max={statusData.total} />
               <div className="flex gap-6 text-sm">
-                <span>Всего: <b>{statusData.total}</b></span>
-                <span className="text-green-700">Отправлено: <b>{statusData.sent}</b></span>
+                <span>{t('admin_broadcast_total')} <b>{statusData.total}</b></span>
+                <span className="text-green-700">{t('admin_broadcast_sent')} <b>{statusData.sent}</b></span>
                 {statusData.failed > 0 && (
-                  <span className="text-red-700">Ошибок: <b>{statusData.failed}</b></span>
+                  <span className="text-red-700">{t('admin_broadcast_failed')} <b>{statusData.failed}</b></span>
                 )}
               </div>
             </>
@@ -530,7 +538,7 @@ export function BroadcastPage() {
               onClick={handleReset}
               className="text-sm text-[hsl(var(--primary))] hover:underline"
             >
-              Новая рассылка
+              {t('admin_broadcast_new')}
             </button>
           )}
         </div>
@@ -546,23 +554,23 @@ export function BroadcastPage() {
             {/* Text */}
             <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 space-y-3">
               <label className="block text-sm font-semibold text-[hsl(var(--foreground))]">
-                Текст сообщения
+                {t('admin_broadcast_text')}
               </label>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Поддерживается HTML: <b>жирный</b>, <i>курсив</i>, <u>подчёркнутый</u>, <a href='...'>ссылка</a>, <code>код</code>"
+                placeholder={t('admin_broadcast_html_placeholder')}
                 rows={8}
                 className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)] resize-y"
               />
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">{text.length} символов</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_broadcast_chars', { count: text.length })}</p>
             </div>
 
             {/* Button builder */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
-                  Кнопки{btnCount > 0 && ` (${btnCount})`}
+                  {t('admin_broadcast_buttons')}{btnCount > 0 && ` (${btnCount})`}
                 </p>
                 <button
                   type="button"
@@ -570,13 +578,13 @@ export function BroadcastPage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
                 >
                   <Plus size={14} />
-                  Добавить строку
+                  {t('admin_broadcast_add_row')}
                 </button>
               </div>
 
               {rows.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[hsl(var(--border))] p-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
-                  Нажмите «Добавить строку», чтобы добавить кнопки к сообщению
+                  {t('admin_broadcast_empty_buttons')}
                 </div>
               ) : (
                 rows.map((row, rowIdx) => (
@@ -598,9 +606,9 @@ export function BroadcastPage() {
 
             {/* Filter */}
             <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 space-y-3">
-              <p className="text-sm font-semibold text-[hsl(var(--foreground))]">Получатели</p>
+              <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_broadcast_filter')}</p>
               <div className="space-y-2">
-                {FILTER_OPTIONS.map(({ value, label, icon: Icon, description }) => (
+                {FILTER_OPTIONS.map(({ value, labelKey, icon: Icon, descriptionKey }) => (
                   <label
                     key={value}
                     className={[
@@ -620,8 +628,8 @@ export function BroadcastPage() {
                     />
                     <Icon size={16} className="text-[hsl(var(--muted-foreground))] shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-[hsl(var(--foreground))]">{label}</p>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{description}</p>
+                      <p className="text-sm font-medium text-[hsl(var(--foreground))]">{t(labelKey)}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{t(descriptionKey)}</p>
                     </div>
                   </label>
                 ))}
@@ -642,7 +650,7 @@ export function BroadcastPage() {
               onSend={() => setConfirming(true)}
               onConfirm={() => mutation.mutate()}
               onCancel={() => setConfirming(false)}
-              error={mutation.isError ? ((mutation.error as Error)?.message ?? 'Неизвестная ошибка') : null}
+              error={mutation.isError ? ((mutation.error as Error)?.message ?? t('admin_broadcast_unknown_error')) : null}
             />
           </div>
 

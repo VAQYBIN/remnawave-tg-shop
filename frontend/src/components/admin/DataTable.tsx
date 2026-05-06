@@ -8,22 +8,23 @@ import {
   type ColumnSizingState,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export interface Column<T> {
   key: string
   header: string
   render: (row: T) => React.ReactNode
   /**
-   * Если задан — колонка сортируемая.
-   * Значение — имя поля для передачи в API (order_by=<sortKey>).
+   * If set, the column is sortable.
+   * Value is the API field name for order_by=<sortKey>.
    */
   sortKey?: string
   className?: string
-  /** Ширина колонки в пикселях (по умолчанию 150). */
+  /** Column width in pixels, default 150. */
   size?: number
-  /** Минимальная ширина при ресайзе (по умолчанию 60). */
+  /** Minimum resize width, default 60. */
   minSize?: number
-  /** Разрешить ресайз (по умолчанию true). */
+  /** Allow resizing, default true. */
   enableResizing?: boolean
 }
 
@@ -66,10 +67,11 @@ export function DataTable<T>({
   sorting,
   onSortingChange,
   isLoading,
-  emptyMessage = 'Нет данных',
+  emptyMessage,
   keyExtractor,
 }: DataTableProps<T>) {
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+  const { t } = useTranslation()
 
   const tanstackColumns: ColumnDef<T>[] = columns.map((col) => ({
     id: col.key,
@@ -91,7 +93,7 @@ export function DataTable<T>({
 
       function handleClick() {
         if (!col.sortKey) return
-        // Первый клик → desc, второй → asc, третий → desc и т.д.
+        // First click -> desc, second -> asc, then it alternates.
         const nextOrder: 'asc' | 'desc' =
           isActive && currentOrder === 'desc' ? 'asc' : 'desc'
         onSortingChange!({ sortKey: col.sortKey, order: nextOrder })
@@ -137,7 +139,7 @@ export function DataTable<T>({
   return (
     <div className="flex flex-col gap-3">
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
           <table
             className="text-sm"
             style={{ tableLayout: 'fixed', width: '100%', minWidth: table.getTotalSize() }}
@@ -153,7 +155,7 @@ export function DataTable<T>({
                     return (
                       <th
                         key={header.id}
-                        className={`relative text-left px-4 py-3 select-none ${col?.className ?? ''}`}
+                        className={`relative text-left px-3 py-3 sm:px-4 select-none whitespace-nowrap ${col?.className ?? ''}`}
                         style={{ width: header.getSize() }}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -201,7 +203,7 @@ export function DataTable<T>({
                     colSpan={columns.length}
                     className="px-4 py-10 text-center text-[hsl(var(--muted-foreground))]"
                   >
-                    {emptyMessage}
+                    {emptyMessage ?? t('admin_no_data')}
                   </td>
                 </tr>
               ) : (
@@ -215,7 +217,7 @@ export function DataTable<T>({
                       return (
                         <td
                           key={cell.id}
-                          className={`px-4 py-3 overflow-hidden ${col?.className ?? ''}`}
+                          className={`px-3 py-3 sm:px-4 overflow-hidden ${col?.className ?? ''}`}
                           style={{ width: cell.column.getSize() }}
                         >
                           <div className="truncate">
@@ -233,14 +235,16 @@ export function DataTable<T>({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-[hsl(var(--muted-foreground))]">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[hsl(var(--muted-foreground))]">
         <span>
-          {total === 0 ? '0 записей' : `${from}–${to} из ${total}`}
+          {total === 0
+            ? t('admin_records_zero')
+            : t('admin_records_range', { from, to, total })}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {onPageSizeChange && (
             <label className="flex items-center gap-2">
-              <span>Строк</span>
+              <span>{t('admin_rows')}</span>
               <select
                 value={pageSize}
                 onChange={(event) => onPageSizeChange(Number(event.target.value))}

@@ -14,9 +14,10 @@ import { getDashboard } from '@/api/admin'
 import { getPanelNodes } from '@/api/admin/panel'
 import { getBool, getString } from './panel-utils'
 import { StatsCard } from '@/components/admin/StatsCard'
+import { useTranslation } from 'react-i18next'
 
 const PROVIDER_LABELS: Record<string, string> = {
-  yookassa: 'ЮКасса',
+  yookassa: 'admin_provider_yookassa',
   freekassa: 'FreeKassa',
   cryptopay: 'CryptoPay',
   platega: 'Platega',
@@ -46,6 +47,15 @@ function pluralRu(n: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
+function pluralKey(n: number, one: string, few: string, many: string): string {
+  const abs = Math.abs(n) % 100
+  const last = abs % 10
+  if (abs > 10 && abs < 20) return many
+  if (last > 1 && last < 5) return few
+  if (last === 1) return one
+  return many
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('ru-RU', {
@@ -70,6 +80,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function AdminDashboardPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'dashboard'],
@@ -91,7 +102,7 @@ export function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-6">
+      <div className="px-4 py-6 sm:p-8 space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
@@ -106,55 +117,55 @@ export function AdminDashboardPage() {
 
   if (isError || !data) {
     return (
-      <div className="p-8 text-[hsl(var(--muted-foreground))]">Ошибка загрузки данных</div>
+      <div className="px-4 py-6 sm:p-8 text-[hsl(var(--muted-foreground))]">{t('admin_error')}</div>
     )
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="px-4 py-6 sm:p-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Обзор</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Статистика магазина</p>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_dashboard_title')}</h1>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('admin_dashboard_subtitle')}</p>
       </div>
 
       {/* Today */}
-      <Section title="Сегодня">
+      <Section title={t('admin_dashboard_today')}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatsCard title="Новых пользователей" value={fmt(data.new_users_today)} icon={UserPlus} />
-          <StatsCard title="Успешных платежей" value={fmt(data.payments_today)} icon={CreditCard} />
-          <StatsCard title="Выручка" value={fmtCurrency(data.revenue_today)} icon={Banknote} />
+          <StatsCard title={t('admin_dashboard_new_users')} value={fmt(data.new_users_today)} icon={UserPlus} />
+          <StatsCard title={t('admin_dashboard_successful_payments')} value={fmt(data.payments_today)} icon={CreditCard} />
+          <StatsCard title={t('admin_dashboard_revenue')} value={fmtCurrency(data.revenue_today)} icon={Banknote} />
         </div>
       </Section>
 
       {/* 7 days */}
-      <Section title="За 7 дней">
+      <Section title={t('admin_dashboard_7days')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatsCard title="Новых пользователей" value={fmt(data.new_users_7days)} icon={UserPlus} />
-          <StatsCard title="Выручка" value={fmtCurrency(data.revenue_7days)} icon={Banknote} />
+          <StatsCard title={t('admin_dashboard_new_users')} value={fmt(data.new_users_7days)} icon={UserPlus} />
+          <StatsCard title={t('admin_dashboard_revenue')} value={fmtCurrency(data.revenue_7days)} icon={Banknote} />
         </div>
       </Section>
 
       {/* Main stats */}
-      <Section title="Основные показатели">
+      <Section title={t('admin_dashboard_main_stats')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatsCard title="Выручка за 30 дней" value={fmtCurrency(data.revenue_30days)} icon={TrendingUp} />
-          <StatsCard title="Пользователей всего" value={fmt(data.total_users)} icon={Users} />
+          <StatsCard title={t('admin_dashboard_revenue_30days')} value={fmtCurrency(data.revenue_30days)} icon={TrendingUp} />
+          <StatsCard title={t('admin_dashboard_total_users')} value={fmt(data.total_users)} icon={Users} />
           <StatsCard
-            title="Активных подписок"
+            title={t('admin_dashboard_active_subscriptions')}
             value={fmt(data.active_subscriptions)}
-            subtitle={`из ${fmt(data.total_subscriptions)} всего${
+            subtitle={`${t('admin_dashboard_subscriptions_total', { total: fmt(data.total_subscriptions) })}${
               data.total_subscriptions > 0
-                ? `, ${Math.round((data.active_subscriptions / data.total_subscriptions) * 100)}% активны`
+                ? t('admin_dashboard_subscriptions_percent', { percent: Math.round((data.active_subscriptions / data.total_subscriptions) * 100) })
                 : ''
             }`}
             icon={Activity}
           />
           <StatsCard
-            title="Успешных платежей всего"
+            title={t('admin_dashboard_successful_payments_total')}
             value={fmt(data.total_payments)}
             icon={CreditCard}
           />
-          <StatsCard title="Общая выручка" value={fmtCurrency(data.total_revenue)} icon={Banknote} />
+          <StatsCard title={t('admin_dashboard_total_revenue')} value={fmtCurrency(data.total_revenue)} icon={Banknote} />
         </div>
       </Section>
 
@@ -162,68 +173,79 @@ export function AdminDashboardPage() {
       {(data.expiring_soon_count > 0 || nodesQuery.isError || (nodesQuery.isSuccess && offlineNodes.length > 0)) && (
         <div className="space-y-3">
           {data.expiring_soon_count > 0 && (
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50">
-              <Clock size={20} className="text-amber-600 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-800">
-                  Истекает в ближайшие 3 дня: {data.expiring_soon_count}{' '}
-                  {pluralRu(data.expiring_soon_count, ['подписка', 'подписки', 'подписок'])}
-                </p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  Проверьте список пользователей и динамику продлений
-                </p>
+            <div className="flex flex-col gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3 min-w-0">
+                <Clock size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-800 leading-snug">
+                    {t('admin_dashboard_expiring', {
+                      count: data.expiring_soon_count,
+                      label: t(pluralKey(data.expiring_soon_count, 'admin_dashboard_subscription_one', 'admin_dashboard_subscription_few', 'admin_dashboard_subscription_many')),
+                    })}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                    {t('admin_dashboard_check_users')}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => navigate('/admin/users')}
-                className="ml-auto text-xs font-semibold text-amber-800 underline hover:no-underline whitespace-nowrap"
+                className="self-start rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
               >
-                Посмотреть пользователей
+                {t('admin_dashboard_view_users')}
               </button>
             </div>
           )}
 
           {nodesQuery.isSuccess && offlineNodes.length > 0 && (
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-red-300 bg-red-50">
-              <ServerCrash size={20} className="text-red-600 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-red-800">
-                  {offlineNodes.length} {pluralRu(offlineNodes.length, ['нода', 'ноды', 'нод'])}{' '}
-                  {offlineNodes.length === 1 ? 'недоступна' : 'недоступны'}
-                </p>
-                <p className="text-xs text-red-700 mt-0.5">
-                  {offlineNodes
-                    .slice(0, 3)
-                    .map(n => getString(n, 'name'))
-                    .join(', ')}
-                  {offlineNodes.length > 3 &&
-                    ` и ещё ${offlineNodes.length - 3} ${pluralRu(offlineNodes.length - 3, ['нода', 'ноды', 'нод'])}`}
-                </p>
+            <div className="flex flex-col gap-3 p-4 rounded-xl border border-red-300 bg-red-50 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3 min-w-0">
+                <ServerCrash size={20} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-red-800">
+                    {offlineNodes.length} {t(pluralKey(offlineNodes.length, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many'))}{' '}
+                    {t(offlineNodes.length === 1 ? 'admin_dashboard_node_unavailable_one' : 'admin_dashboard_node_unavailable_many')}
+                  </p>
+                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                    {offlineNodes
+                      .slice(0, 3)
+                      .map(n => getString(n, 'name'))
+                      .join(', ')}
+                    {offlineNodes.length > 3 &&
+                    ` ${t('admin_dashboard_more_nodes', {
+                      count: offlineNodes.length - 3,
+                      label: t(pluralKey(offlineNodes.length - 3, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many')),
+                    })}`}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => navigate('/admin/nodes')}
-                className="ml-auto text-xs font-semibold text-red-800 underline hover:no-underline whitespace-nowrap"
+                className="self-start rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
               >
-                Перейти к нодам
+                {t('admin_dashboard_go_nodes')}
               </button>
             </div>
           )}
 
           {nodesQuery.isError && (
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-red-300 bg-red-50">
-              <ServerCrash size={20} className="text-red-600 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-red-800">
-                  Не удалось загрузить статус нод
-                </p>
-                <p className="text-xs text-red-700 mt-0.5">
-                  Проверьте подключение к панели и доступность мониторинга
-                </p>
+            <div className="flex flex-col gap-3 p-4 rounded-xl border border-red-300 bg-red-50 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3 min-w-0">
+                <ServerCrash size={20} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-red-800">
+                    {t('admin_dashboard_nodes_load_error')}
+                  </p>
+                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                    {t('admin_dashboard_nodes_check')}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => navigate('/admin/nodes')}
-                className="ml-auto text-xs font-semibold text-red-800 underline hover:no-underline whitespace-nowrap"
+                className="self-start rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
               >
-                Перейти к нодам
+                {t('admin_dashboard_go_nodes')}
               </button>
             </div>
           )}
@@ -232,15 +254,16 @@ export function AdminDashboardPage() {
 
       {/* Recent payments */}
       {data.recent_payments.length > 0 && (
-        <Section title="Последние платежи">
+        <Section title={t('admin_dashboard_recent_payments')}>
           <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-[hsl(var(--border))] text-left text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
-                  <th className="px-4 py-3">Пользователь</th>
-                  <th className="px-4 py-3">Сумма</th>
-                  <th className="px-4 py-3">Провайдер</th>
-                  <th className="px-4 py-3">Дата</th>
+                  <th className="px-4 py-3">{t('admin_user')}</th>
+                  <th className="px-4 py-3">{t('admin_amount')}</th>
+                  <th className="px-4 py-3">{t('admin_provider')}</th>
+                  <th className="px-4 py-3">{t('admin_date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,7 +282,7 @@ export function AdminDashboardPage() {
                       {fmtCurrency(p.amount, p.currency)}
                     </td>
                     <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
-                      {PROVIDER_LABELS[p.provider ?? ''] ?? p.provider ?? '—'}
+                      {PROVIDER_LABELS[p.provider ?? ''] ? t(PROVIDER_LABELS[p.provider ?? '']) : p.provider ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
                       {fmtDate(p.created_at)}
@@ -268,12 +291,13 @@ export function AdminDashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="px-4 py-3 border-t border-[hsl(var(--border))]">
               <button
                 onClick={() => navigate('/admin/payments')}
                 className="text-xs text-[hsl(var(--primary))] font-semibold hover:underline"
               >
-                Все платежи →
+                {t('admin_dashboard_all_payments')} →
               </button>
             </div>
           </div>

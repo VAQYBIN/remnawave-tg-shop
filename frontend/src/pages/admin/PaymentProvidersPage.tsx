@@ -20,14 +20,15 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { getAdminPaymentProviders, updatePaymentProvider } from '@/api/admin/payment-providers'
 import type { PaymentProviderResponse } from '@/api/admin/payment-providers'
+import { useTranslation } from 'react-i18next'
 
-const PROVIDER_DESCRIPTIONS: Record<string, string> = {
-  yookassa: 'Банковские карты, СБП (ЮKassa)',
-  freekassa: 'Банковские карты, QIWI, ЮMoney',
-  platega: 'СБП QR, банковские карты',
-  severpay: 'СБП, банковские карты',
-  stars: 'Telegram Stars (внутри Telegram)',
-  cryptopay: 'Криптовалюта (CryptoPay)',
+const PROVIDER_DESCRIPTION_KEYS: Record<string, string> = {
+  yookassa: 'admin_provider_desc_yookassa',
+  freekassa: 'admin_provider_desc_freekassa',
+  platega: 'admin_provider_desc_platega',
+  severpay: 'admin_provider_desc_severpay',
+  stars: 'admin_provider_desc_stars',
+  cryptopay: 'admin_provider_desc_cryptopay',
 }
 
 function Toggle({ enabled, onChange, disabled }: { enabled: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
@@ -62,6 +63,7 @@ interface SortableProviderRowProps {
 }
 
 function SortableProviderRow({ provider, index, onToggle, disabled }: SortableProviderRowProps) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: provider.id,
   })
@@ -75,40 +77,40 @@ function SortableProviderRow({ provider, index, onToggle, disabled }: SortablePr
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="flex items-center gap-4 px-5 py-4 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted)/0.3)] transition-colors"
+      className="flex items-start gap-3 px-4 py-4 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted)/0.3)] transition-colors sm:items-center sm:gap-4 sm:px-5"
     >
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] touch-none"
-        aria-label="Перетащить для изменения порядка"
+        aria-label={t('admin_drag_reorder')}
       >
         <GripVertical size={18} />
       </button>
 
       {/* Position badge */}
-      <span className="text-xs text-[hsl(var(--muted-foreground))] w-5 text-center select-none">
+      <span className="mt-1 w-5 select-none text-center text-xs text-[hsl(var(--muted-foreground))] sm:mt-0">
         {index + 1}
       </span>
 
       {/* Provider info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-[hsl(var(--foreground))]">{provider.display_name}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium leading-snug text-[hsl(var(--foreground))]">{provider.display_name}</span>
           <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">
             {provider.provider_key}
           </span>
         </div>
-        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-          {PROVIDER_DESCRIPTIONS[provider.provider_key] ?? ''}
+        <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
+          {PROVIDER_DESCRIPTION_KEYS[provider.provider_key] ? t(PROVIDER_DESCRIPTION_KEYS[provider.provider_key]) : ''}
         </p>
       </div>
 
       {/* Toggle */}
-      <div className="flex items-center gap-2">
-        <span className={`text-xs font-medium ${provider.is_enabled ? 'text-green-600' : 'text-[hsl(var(--muted-foreground))]'}`}>
-          {provider.is_enabled ? 'Включён' : 'Выключен'}
+      <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+        <span className={`text-xs font-medium leading-none ${provider.is_enabled ? 'text-green-600' : 'text-[hsl(var(--muted-foreground))]'}`}>
+          {provider.is_enabled ? t('admin_enabled') : t('admin_disabled')}
         </span>
         <Toggle
           enabled={provider.is_enabled}
@@ -122,6 +124,7 @@ function SortableProviderRow({ provider, index, onToggle, disabled }: SortablePr
 
 export function PaymentProvidersPage() {
   const qc = useQueryClient()
+  const { t } = useTranslation()
   const [localOrder, setLocalOrder] = useState<number[] | null>(null)
 
   const { data, isLoading, isError } = useQuery({
@@ -175,11 +178,11 @@ export function PaymentProvidersPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Платёжные провайдеры</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Включите провайдеры и задайте порядок перетаскиванием. Учётные данные (ключи) задаются в .env.
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_providers_title')}</h1>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 max-w-3xl leading-relaxed">
+          {t('admin_providers_subtitle')}
         </p>
       </div>
 
@@ -192,7 +195,7 @@ export function PaymentProvidersPage() {
       )}
 
       {isError && (
-        <p className="text-[hsl(var(--muted-foreground))]">Ошибка загрузки провайдеров</p>
+        <p className="text-[hsl(var(--muted-foreground))]">{t('admin_providers_load_error')}</p>
       )}
 
       {providers.length > 0 && (
@@ -218,9 +221,7 @@ export function PaymentProvidersPage() {
       )}
 
       <div className="bg-[hsl(var(--muted)/0.5)] rounded-xl p-4 text-sm text-[hsl(var(--muted-foreground))]">
-        <strong className="text-[hsl(var(--foreground))]">Важно:</strong> Провайдер будет доступен
-        пользователям только если он включён здесь <em>и</em> его учётные данные заданы в .env.
-        Если ключи не заданы, провайдер не будет работать даже при включённом переключателе.
+        <strong className="text-[hsl(var(--foreground))]">{t('admin_providers_important')}</strong> {t('admin_providers_hint')}
       </div>
     </div>
   )

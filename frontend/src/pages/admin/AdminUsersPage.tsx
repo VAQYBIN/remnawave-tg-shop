@@ -6,6 +6,8 @@ import { getAdminUsers } from '@/api/admin/users'
 import type { AdminUserListItem } from '@/api/admin/users'
 import { DataTable } from '@/components/admin/DataTable'
 import type { Column, SortingConfig } from '@/components/admin/DataTable'
+import { useDebounce } from '@/hooks/useDebounce'
+import { useTranslation } from 'react-i18next'
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -14,8 +16,8 @@ function formatDate(iso: string | null): string {
 
 export function AdminUsersPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
   const [isBanned, setIsBanned] = useState<boolean | undefined>(undefined)
   const [hasSub, setHasSub] = useState<boolean | undefined>(undefined)
   const [page, setPage] = useState(0)
@@ -25,11 +27,13 @@ export function AdminUsersPage() {
     order: 'desc',
   })
 
+  const debouncedSearch = useDebounce(searchInput, 300)
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'users', search, isBanned, hasSub, page, pageSize, sorting],
+    queryKey: ['admin', 'users', debouncedSearch, isBanned, hasSub, page, pageSize, sorting],
     queryFn: () =>
       getAdminUsers({
-        query: search || undefined,
+        query: debouncedSearch || undefined,
         is_banned: isBanned,
         has_subscription: hasSub,
         page,
@@ -38,17 +42,11 @@ export function AdminUsersPage() {
         order: sorting.order,
       }),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   })
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    setSearch(searchInput)
-    setPage(0)
-  }
 
   function clearSearch() {
     setSearchInput('')
-    setSearch('')
     setPage(0)
   }
 
@@ -66,7 +64,7 @@ export function AdminUsersPage() {
   const columns: Column<AdminUserListItem>[] = [
     {
       key: 'user',
-      header: 'Пользователь',
+      header: t('admin_user'),
       sortKey: 'first_name',
       size: 220,
       render: (row) => (
@@ -82,7 +80,7 @@ export function AdminUsersPage() {
     },
     {
       key: 'id',
-      header: 'Telegram ID',
+      header: t('admin_users_telegram_id'),
       sortKey: 'user_id',
       size: 130,
       render: (row) => (
@@ -91,7 +89,7 @@ export function AdminUsersPage() {
     },
     {
       key: 'email',
-      header: 'Email',
+      header: t('admin_users_email'),
       size: 190,
       render: (row) => (
         <span className="text-[hsl(var(--foreground))]">{row.email || '—'}</span>
@@ -99,7 +97,7 @@ export function AdminUsersPage() {
     },
     {
       key: 'subscription',
-      header: 'Подписка',
+      header: t('admin_users_subscription'),
       sortKey: 'subscription_end_date',
       size: 150,
       render: (row) => (
@@ -108,13 +106,13 @@ export function AdminUsersPage() {
             <>
               <CheckCircle2 size={14} className="text-green-600 shrink-0" />
               <span className="text-xs text-green-700">
-                до {formatDate(row.subscription_end_date)}
+                {t('admin_users_until', { date: formatDate(row.subscription_end_date) })}
               </span>
             </>
           ) : (
             <>
               <XCircle size={14} className="text-[hsl(var(--muted-foreground))] shrink-0" />
-              <span className="text-xs text-[hsl(var(--muted-foreground))]">Нет</span>
+              <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_none')}</span>
             </>
           )}
         </div>
@@ -122,24 +120,24 @@ export function AdminUsersPage() {
     },
     {
       key: 'status',
-      header: 'Статус',
+      header: t('admin_status'),
       sortKey: 'is_banned',
       size: 110,
       render: (row) =>
         row.is_banned ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
             <ShieldAlert size={11} />
-            Забанен
+            {t('admin_users_banned')}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-            Активен
+            {t('admin_users_active')}
           </span>
         ),
     },
     {
       key: 'registered',
-      header: 'Регистрация',
+      header: t('admin_users_registered'),
       sortKey: 'registration_date',
       size: 120,
       render: (row) => (
@@ -156,7 +154,7 @@ export function AdminUsersPage() {
           onClick={() => navigate(`/admin/users/${row.user_id}`)}
           className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors"
         >
-          Детали
+          {t('admin_details')}
         </button>
       ),
     },
@@ -170,24 +168,24 @@ export function AdminUsersPage() {
     }`
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Пользователи</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_users_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          {data ? `Всего: ${data.total}` : 'Загрузка...'}
+          {data ? t('admin_total', { count: data.total }) : t('admin_loading')}
         </p>
       </div>
 
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+        <div className="flex gap-2 flex-1">
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]" />
             <input
               type="text"
-              placeholder="Поиск по имени, @username, email или ID..."
+              placeholder={t('admin_users_search_placeholder')}
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={(e) => { setSearchInput(e.target.value); setPage(0) }}
               className="w-full pl-9 pr-8 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
             />
             {searchInput && (
@@ -200,13 +198,7 @@ export function AdminUsersPage() {
               </button>
             )}
           </div>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90"
-          >
-            Найти
-          </button>
-        </form>
+        </div>
 
         {/* Quick filters */}
         <div className="flex gap-2 flex-wrap">
@@ -214,31 +206,31 @@ export function AdminUsersPage() {
             className={filterBtnClass(isBanned === undefined && hasSub === undefined)}
             onClick={() => { handleFilter('banned', undefined); handleFilter('sub', undefined) }}
           >
-            Все
+            {t('admin_filter_all')}
           </button>
           <button
             className={filterBtnClass(hasSub === true)}
             onClick={() => handleFilter('sub', hasSub === true ? undefined : true)}
           >
-            С подпиской
+            {t('admin_users_filter_subscribed')}
           </button>
           <button
             className={filterBtnClass(hasSub === false)}
             onClick={() => handleFilter('sub', hasSub === false ? undefined : false)}
           >
-            Без подписки
+            {t('admin_users_filter_no_sub')}
           </button>
           <button
             className={filterBtnClass(isBanned === true)}
             onClick={() => handleFilter('banned', isBanned === true ? undefined : true)}
           >
-            Забаненные
+            {t('admin_users_filter_banned')}
           </button>
         </div>
       </div>
 
       {isError && (
-        <p className="text-sm text-red-600">Ошибка загрузки пользователей</p>
+        <p className="text-sm text-red-600">{t('admin_users_load_error')}</p>
       )}
 
       <DataTable
@@ -255,7 +247,7 @@ export function AdminUsersPage() {
         sorting={sorting}
         onSortingChange={handleSortingChange}
         isLoading={isLoading}
-        emptyMessage="Пользователи не найдены"
+        emptyMessage={t('admin_users_empty')}
         keyExtractor={(row) => row.user_id}
       />
     </div>

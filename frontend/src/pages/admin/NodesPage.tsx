@@ -15,6 +15,7 @@ import {
   type PanelObject,
 } from '@/api/admin/panel'
 import { formatBytes, getBool, getNumber, getObject, getString } from './panel-utils'
+import { useTranslation } from 'react-i18next'
 
 function nodeStatus(node: PanelObject) {
   if (getBool(node, 'isDisabled')) return { label: 'disabled', className: 'bg-gray-100 text-gray-600' }
@@ -26,6 +27,7 @@ function nodeStatus(node: PanelObject) {
 export function NodesPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { t } = useTranslation()
   const [confirm, setConfirm] = useState<null | { title: string; description: string; action: () => void }>(null)
 
   const nodesQuery = useQuery({
@@ -47,16 +49,16 @@ export function NodesPage() {
       return restartPanelNode(uuid)
     },
     onSuccess: async () => {
-      toast.success('Команда отправлена')
+      toast.success(t('admin_nodes_restart_toast'))
       await refreshNodes()
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Ошибка Panel API'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t('admin_nodes_error_toast')),
   })
 
   const columns = useMemo<Column<PanelObject>[]>(() => [
     {
       key: 'name',
-      header: 'Нода',
+      header: t('admin_nodes_name'),
       size: 210,
       render: (node) => (
         <div className="flex flex-col">
@@ -67,7 +69,7 @@ export function NodesPage() {
     },
     {
       key: 'status',
-      header: 'Статус',
+      header: t('admin_status'),
       size: 110,
       render: (node) => {
         const status = nodeStatus(node)
@@ -76,7 +78,7 @@ export function NodesPage() {
     },
     {
       key: 'traffic',
-      header: 'Трафик',
+      header: t('admin_nodes_traffic'),
       size: 160,
       render: (node) => {
         const used = getNumber(node, 'trafficUsedBytes')
@@ -84,20 +86,20 @@ export function NodesPage() {
         return (
           <div className="flex flex-col">
             <span className="font-medium">{formatBytes(used)}</span>
-            <span className="text-xs text-[hsl(var(--muted-foreground))]">{limit ? `из ${formatBytes(limit)}` : 'без лимита'}</span>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">{limit ? t('admin_panel_memory_total', { total: formatBytes(limit) }) : 'no limit'}</span>
           </div>
         )
       },
     },
     {
       key: 'users',
-      header: 'Онлайн',
+      header: t('admin_nodes_online_users'),
       size: 90,
       render: (node) => getNumber(node, 'usersOnline'),
     },
     {
       key: 'system',
-      header: 'Система',
+      header: 'System',
       size: 150,
       render: (node) => {
         const system = getObject(node, 'system')
@@ -113,7 +115,7 @@ export function NodesPage() {
     },
     {
       key: 'actions',
-      header: 'Действия',
+      header: t('admin_actions'),
       size: 240,
       enableResizing: false,
       render: (node) => {
@@ -122,14 +124,14 @@ export function NodesPage() {
         return (
           <div className="flex items-center gap-1">
             <Link to={`/admin/nodes/${uuid}`}>
-              <Button variant="ghost" size="icon" title="Открыть"><Eye size={16} /></Button>
+              <Button variant="ghost" size="icon" title={t('admin_open')}><Eye size={16} /></Button>
             </Link>
             <Button
               variant="ghost"
               size="icon"
               title={disabled ? 'Enable' : 'Disable'}
               onClick={() => setConfirm({
-                title: disabled ? 'Включить ноду?' : 'Отключить ноду?',
+                title: disabled ? t('admin_nodes_enable_confirm') : t('admin_nodes_disable_confirm'),
                 description: getString(node, 'name'),
                 action: () => actionMutation.mutate({ uuid, action: disabled ? 'enable' : 'disable' }),
               })}
@@ -139,9 +141,9 @@ export function NodesPage() {
             <Button
               variant="ghost"
               size="icon"
-              title="Restart"
+              title={t('admin_nodes_restart')}
               onClick={() => setConfirm({
-                title: 'Перезагрузить ноду?',
+                title: t('admin_nodes_restart_confirm'),
                 description: getString(node, 'name'),
                 action: () => actionMutation.mutate({ uuid, action: 'restart' }),
               })}
@@ -152,27 +154,27 @@ export function NodesPage() {
         )
       },
     },
-  ], [actionMutation])
+  ], [actionMutation, t])
 
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Ноды Remnawave</h1>
+          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_nodes_title')}</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-            Статусы, трафик и команды управления
+            {t('admin_panel_subtitle')}
           </p>
         </div>
         <Button
           variant="outline"
           onClick={() => setConfirm({
-            title: 'Перезагрузить все ноды?',
-            description: 'Команда будет отправлена на все подключенные ноды.',
+            title: t('admin_nodes_restart_all_confirm'),
+            description: t('admin_broadcast_confirm_description'),
             action: () => actionMutation.mutate({ action: 'restart-all' }),
           })}
         >
           <RotateCcw size={16} />
-          Restart All
+          {t('admin_nodes_restart_all')}
         </Button>
       </div>
 
@@ -184,7 +186,7 @@ export function NodesPage() {
         pageSize={Math.max(nodesQuery.data?.total ?? 0, 1)}
         onPageChange={() => undefined}
         isLoading={nodesQuery.isLoading}
-        emptyMessage="Ноды не найдены"
+        emptyMessage={t('admin_nodes_empty')}
         keyExtractor={(node) => getString(node, 'uuid')}
       />
 
@@ -192,8 +194,8 @@ export function NodesPage() {
         open={confirm !== null}
         title={confirm?.title ?? ''}
         description={confirm?.description}
-        confirmLabel="Выполнить"
-        cancelLabel="Отмена"
+        confirmLabel={t('admin_nodes_execute')}
+        cancelLabel={t('admin_cancel')}
         destructive
         onConfirm={() => {
           const action = confirm?.action
@@ -205,4 +207,3 @@ export function NodesPage() {
     </div>
   )
 }
-

@@ -22,8 +22,10 @@ import {
   getPanelStats,
 } from '@/api/admin/panel'
 import { formatBytes, getArray, getNumber, getObject, getString } from './panel-utils'
+import { useTranslation } from 'react-i18next'
 
 export function PanelStatsPage() {
+  const { t } = useTranslation()
   const statsQuery = useQuery({
     queryKey: ['admin', 'panel', 'stats'],
     queryFn: getPanelStats,
@@ -100,24 +102,24 @@ export function PanelStatsPage() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Remnawave</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_panel_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Состояние панели, трафик и устройства
+          {t('admin_panel_subtitle')}
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard title="CPU" value={`${getNumber(cpu, 'cores')} ядер`} icon={Cpu} />
+        <StatsCard title="CPU" value={t('admin_panel_cpu_cores', { count: getNumber(cpu, 'cores') })} icon={Cpu} />
         <StatsCard
           title="RAM"
           value={formatBytes(getNumber(memory, 'used'))}
-          subtitle={`из ${formatBytes(getNumber(memory, 'total'))}`}
+          subtitle={t('admin_panel_memory_total', { total: formatBytes(getNumber(memory, 'total')) })}
           icon={HardDrive}
         />
-        <StatsCard title="Онлайн" value={getNumber(online, 'onlineNow')} icon={Radio} />
-        <StatsCard title="Юзеры" value={getNumber(users, 'totalUsers')} icon={Users} />
+        <StatsCard title={t('admin_panel_online')} value={getNumber(online, 'onlineNow')} icon={Radio} />
+        <StatsCard title={t('admin_panel_users')} value={getNumber(users, 'totalUsers')} icon={Users} />
         <StatsCard
-          title="Версия"
+          title={t('admin_panel_version')}
           value={getString(metadata, 'version', '—')}
           subtitle={getString(getObject(metadata, 'build'), 'number', '')}
           icon={Server}
@@ -126,10 +128,10 @@ export function PanelStatsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">Bandwidth по нодам</h2>
+          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_bandwidth_nodes')}</h2>
           {chartData.length === 0 ? (
             <div className="h-64 flex items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">
-              Нет данных
+              {t('admin_no_data')}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
@@ -154,7 +156,7 @@ export function PanelStatsPage() {
         </div>
 
         <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">Топ нод</h2>
+          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_top_nodes')}</h2>
           <div className="space-y-3">
             {topNodes.map((node) => (
               <div key={getString(node, 'uuid')} className="flex items-center justify-between gap-3 text-sm">
@@ -168,38 +170,38 @@ export function PanelStatsPage() {
                 <span className="text-[hsl(var(--muted-foreground))]">{formatBytes(node.total)}</span>
               </div>
             ))}
-            {topNodes.length === 0 && <p className="text-sm text-[hsl(var(--muted-foreground))]">Нет данных</p>}
+            {topNodes.length === 0 && <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_no_data')}</p>}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">Ноды сейчас</h2>
+          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_nodes_now')}</h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Онлайн</span><strong>{getNumber(nodes, 'totalOnline')}</strong></div>
+            <div className="flex justify-between"><span>{t('admin_panel_total_online')}</span><strong>{getNumber(nodes, 'totalOnline')}</strong></div>
             <div className="flex justify-between"><span>Lifetime traffic</span><strong>{formatBytes(nodes.totalBytesLifetime)}</strong></div>
             <div className="flex justify-between"><span>RX/s</span><strong>{formatBytes(getNumber(realtime, 'totalRxBytesPerSec'))}/s</strong></div>
             <div className="flex justify-between"><span>TX/s</span><strong>{formatBytes(getNumber(realtime, 'totalTxBytesPerSec'))}/s</strong></div>
-            <div className="flex justify-between"><span>Активные метрики</span><strong>{realtimeNodes.length}</strong></div>
+            <div className="flex justify-between"><span>{t('admin_panel_active_metrics')}</span><strong>{realtimeNodes.length}</strong></div>
           </div>
         </div>
 
         <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
           <h2 className="text-sm font-semibold mb-4">HWID</h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Уникальные устройства</span><strong>{getNumber(hwid, 'totalUniqueDevices')}</strong></div>
-            <div className="flex justify-between"><span>Всего HWID</span><strong>{getNumber(hwid, 'totalHwidDevices')}</strong></div>
-            <div className="flex justify-between"><span>Среднее на юзера</span><strong>{getNumber(hwid, 'averageHwidDevicesPerUser').toFixed(1)}</strong></div>
+            <div className="flex justify-between"><span>{t('admin_panel_unique_devices')}</span><strong>{getNumber(hwid, 'totalUniqueDevices')}</strong></div>
+            <div className="flex justify-between"><span>{t('admin_panel_hwid_total')}</span><strong>{getNumber(hwid, 'totalHwidDevices')}</strong></div>
+            <div className="flex justify-between"><span>{t('admin_panel_avg_per_user')}</span><strong>{getNumber(hwid, 'averageHwidDevicesPerUser').toFixed(1)}</strong></div>
           </div>
         </div>
 
         <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">7 дней</h2>
+          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_7days')}</h2>
           <ResponsiveContainer width="100%" height={130}>
             <BarChart data={lastSevenDaysByDate}>
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value) => [formatBytes(value), 'Трафик']} />
+              <Tooltip formatter={(value) => [formatBytes(value), t('admin_panel_traffic')]} />
               <Bar dataKey="totalBytes" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

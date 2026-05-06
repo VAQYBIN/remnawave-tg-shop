@@ -18,6 +18,8 @@ from core.dal.promo_code_dal import (
     get_promo_codes_count,
     update_promo_code,
 )
+from web.middleware.rate_limit import admin_action_limit
+from web.routers.admin.audit import add_admin_audit_log
 
 router = APIRouter()
 
@@ -54,7 +56,7 @@ async def list_promos(
     )
 
 
-@router.post("/promos", response_model=AdminPromoItem)
+@router.post("/promos", response_model=AdminPromoItem, dependencies=[Depends(admin_action_limit)])
 async def create_promo(
     body: PromoCreateRequest,
     db: AsyncSession = Depends(get_db),
@@ -81,16 +83,17 @@ async def create_promo(
     }
 
     promo = await create_promo_code(db, promo_data)
+    await add_admin_audit_log(db, admin, "admin_promo_create", details={"promo": promo_data})
     await db.commit()
     return _to_item(promo)
 
 
-@router.patch("/promos/{promo_id}", response_model=AdminPromoItem)
+@router.patch("/promos/{promo_id}", response_model=AdminPromoItem, dependencies=[Depends(admin_action_limit)])
 async def update_promo(
     promo_id: int,
     body: PromoUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
 ):
     promo = await get_promo_code_by_id(db, promo_id)
     if not promo:
@@ -101,19 +104,26 @@ async def update_promo(
         return _to_item(promo)
 
     updated = await update_promo_code(db, promo_id, update_data)
+    await add_admin_audit_log(
+        db,
+        admin,
+        "admin_promo_update",
+        details={"promo_id": promo_id, "updates": update_data},
+    )
     await db.commit()
     return _to_item(updated)
 
 
-@router.delete("/promos/{promo_id}")
+@router.delete("/promos/{promo_id}", dependencies=[Depends(admin_action_limit)])
 async def remove_promo(
     promo_id: int,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
 ):
     if not await get_promo_code_by_id(db, promo_id):
         raise HTTPException(status_code=404, detail="Promo code not found")
 
     await delete_promo_code(db, promo_id)
+    await add_admin_audit_log(db, admin, "admin_promo_delete", details={"promo_id": promo_id})
     await db.commit()
     return {"ok": True}

@@ -19,6 +19,8 @@ import {
   addTrafficToUser,
 } from '@/api/admin/users'
 import type { AdminUserDetailResponse, AdminPaymentItem } from '@/api/admin/users'
+import { useToast } from '@/hooks/useToast'
+import { useTranslation } from 'react-i18next'
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -33,21 +35,22 @@ function formatDate(iso: string | null | undefined): string {
 
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null) return '—'
-  if (bytes === 0) return '0 Б'
-  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ']
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  succeeded: 'Оплачен',
-  pending: 'Ожидание',
-  failed: 'Ошибка',
-  processing: 'Обработка',
+  succeeded: 'admin_payments_status_succeeded',
+  pending: 'admin_payments_status_pending',
+  failed: 'admin_payments_status_failed',
+  processing: 'admin_loading_action',
 }
 
-function statusBadge(status: string) {
-  const label = STATUS_LABELS[status] ?? status
+function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation()
+  const label = STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : status
   const cls =
     status === 'succeeded'
       ? 'bg-green-100 text-green-700'
@@ -80,6 +83,7 @@ function ConfirmModal({
   onClose: () => void
   isLoading: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
@@ -90,7 +94,7 @@ function ConfirmModal({
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]"
           >
-            Отмена
+            {t('admin_cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -99,7 +103,7 @@ function ConfirmModal({
               danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[hsl(var(--primary))] hover:opacity-90'
             }`}
           >
-            {isLoading ? 'Выполнение...' : confirmLabel}
+            {isLoading ? t('admin_loading_action') : confirmLabel}
           </button>
         </div>
       </div>
@@ -117,16 +121,17 @@ function AddDaysModal({
   isLoading: boolean
 }) {
   const [days, setDays] = useState(30)
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-[hsl(var(--foreground))]">Добавить дни подписки</h3>
+          <h3 className="text-base font-semibold text-[hsl(var(--foreground))]">{t('admin_users_add_days')}</h3>
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
           <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            Количество дней
+            {t('admin_promos_label_bonus_days')}
           </label>
           <input
             type="number"
@@ -139,14 +144,14 @@ function AddDaysModal({
         </div>
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
-            Отмена
+            {t('admin_cancel')}
           </button>
           <button
             onClick={() => onSubmit(days)}
             disabled={isLoading}
             className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            {isLoading ? 'Добавление...' : `Добавить ${days} дн.`}
+            {isLoading ? t('admin_loading_action') : t('admin_users_add_days_button', { count: days })}
           </button>
         </div>
       </div>
@@ -164,16 +169,17 @@ function AddTrafficModal({
   isLoading: boolean
 }) {
   const [gb, setGb] = useState(10)
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-[hsl(var(--foreground))]">Добавить трафик</h3>
+          <h3 className="text-base font-semibold text-[hsl(var(--foreground))]">{t('admin_users_add_traffic')}</h3>
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
           <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            Гигабайт (ГБ)
+            GB
           </label>
           <input
             type="number"
@@ -186,14 +192,14 @@ function AddTrafficModal({
         </div>
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
-            Отмена
+            {t('admin_cancel')}
           </button>
           <button
             onClick={() => onSubmit(gb)}
             disabled={isLoading}
             className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            {isLoading ? 'Добавление...' : `Добавить ${gb} ГБ`}
+            {isLoading ? t('admin_loading_action') : t('admin_users_add_traffic_button', { count: gb })}
           </button>
         </div>
       </div>
@@ -213,6 +219,8 @@ export function AdminUserDetailPage() {
   const [activeTab, setActiveTab] = useState<'info' | 'subscription' | 'payments'>('info')
 
   const uid = Number(userId)
+  const toast = useToast()
+  const { t } = useTranslation()
 
   const { data: user, isLoading, isError } = useQuery<AdminUserDetailResponse>({
     queryKey: ['admin', 'user', uid],
@@ -225,15 +233,33 @@ export function AdminUserDetailPage() {
     qc.invalidateQueries({ queryKey: ['admin', 'users'] })
   }
 
-  const banMut = useMutation({ mutationFn: () => banUser(uid), onSuccess: () => { invalidate(); setModal(null) } })
-  const unbanMut = useMutation({ mutationFn: () => unbanUser(uid), onSuccess: () => { invalidate(); setModal(null) } })
+  const banMut = useMutation({
+    mutationFn: () => banUser(uid),
+    onSuccess: () => { invalidate(); setModal(null); toast.success(t('admin_users_banned_toast')) },
+    onError: () => toast.error(t('admin_users_ban_error')),
+  })
+  const unbanMut = useMutation({
+    mutationFn: () => unbanUser(uid),
+    onSuccess: () => { invalidate(); setModal(null); toast.success(t('admin_users_unbanned_toast')) },
+    onError: () => toast.error(t('admin_users_unban_error')),
+  })
   const addDaysMut = useMutation({
     mutationFn: (days: number) => addDaysToUser(uid, days),
-    onSuccess: () => { invalidate(); setModal(null) },
+    onSuccess: (res) => {
+      invalidate()
+      setModal(null)
+      toast.success(t('admin_users_days_added_toast', { count: res.days_added }))
+    },
+    onError: () => toast.error(t('admin_users_add_days_error')),
   })
   const addTrafficMut = useMutation({
     mutationFn: (gb: number) => addTrafficToUser(uid, gb),
-    onSuccess: () => { invalidate(); setModal(null) },
+    onSuccess: (res) => {
+      invalidate()
+      setModal(null)
+      toast.success(t('admin_users_traffic_added_toast', { count: res.gigabytes_added }))
+    },
+    onError: () => toast.error(t('admin_users_add_traffic_error')),
   })
 
   if (isLoading) {
@@ -249,7 +275,7 @@ export function AdminUserDetailPage() {
   if (isError || !user) {
     return (
       <div className="p-8">
-        <p className="text-red-600 text-sm">Пользователь не найден</p>
+        <p className="text-red-600 text-sm">{t('admin_error')}</p>
       </div>
     )
   }
@@ -283,7 +309,7 @@ export function AdminUserDetailPage() {
             {user.is_banned && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                 <ShieldAlert size={12} />
-                Забанен
+                {t('admin_users_banned')}
               </span>
             )}
           </div>
@@ -300,7 +326,7 @@ export function AdminUserDetailPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
             >
               <ShieldCheck size={15} />
-              Разбанить
+              {t('admin_users_unban')}
             </button>
           ) : (
             <button
@@ -308,7 +334,7 @@ export function AdminUserDetailPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700"
             >
               <ShieldAlert size={15} />
-              Забанить
+              {t('admin_users_ban')}
             </button>
           )}
           {user.panel_user_uuid && (
@@ -318,14 +344,14 @@ export function AdminUserDetailPage() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
               >
                 <CalendarPlus size={15} />
-                Дни
+                {t('admin_users_add_days')}
               </button>
               <button
                 onClick={() => setModal('add-traffic')}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
               >
                 <Database size={15} />
-                Трафик
+                {t('admin_users_add_traffic')}
               </button>
             </>
           )}
@@ -335,7 +361,7 @@ export function AdminUserDetailPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[hsl(var(--border))]">
         {(['info', 'subscription', 'payments'] as const).map((tab) => {
-          const labels = { info: 'Информация', subscription: 'Подписка', payments: 'Платежи' }
+          const labels = { info: t('admin_user_detail_info'), subscription: t('admin_user_detail_subscription'), payments: t('admin_user_detail_payments') }
           return (
             <button
               key={tab}
@@ -355,15 +381,15 @@ export function AdminUserDetailPage() {
       {/* Tab: Info */}
       {activeTab === 'info' && (
         <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <InfoRow label="Имя" value={[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'} />
+          <InfoRow label={t('admin_user_detail_first_name')} value={[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'} />
           <InfoRow
-            label="Username"
+            label={t('admin_user_detail_username')}
             value={user.username ? `@${user.username}` : '—'}
           />
-          <InfoRow label="Email" value={user.email || '—'} />
-          <InfoRow label="Язык" value={user.language_code || '—'} />
+          <InfoRow label={t('admin_users_email')} value={user.email || '—'} />
+          <InfoRow label={t('admin_user_detail_language')} value={user.language_code || '—'} />
           <InfoRow
-            label="Реферальный код"
+            label="Referral code"
             value={
               user.referral_code ? (
                 <span className="font-mono">{user.referral_code}</span>
@@ -372,9 +398,9 @@ export function AdminUserDetailPage() {
               )
             }
           />
-          <InfoRow label="Дата регистрации" value={formatDate(user.registration_date)} />
+          <InfoRow label={t('admin_users_registered')} value={formatDate(user.registration_date)} />
           <InfoRow
-            label="UUID панели"
+            label={t('admin_user_detail_panel_uuid')}
             value={
               user.panel_user_uuid ? (
                 <span className="font-mono text-xs flex items-center gap-1">
@@ -392,7 +418,7 @@ export function AdminUserDetailPage() {
             }
           />
           <InfoRow
-            label="Итого оплачено"
+            label={t('admin_user_detail_total_paid')}
             value={
               <span className="font-semibold">
                 {user.total_paid.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}
@@ -407,29 +433,29 @@ export function AdminUserDetailPage() {
         <div className="space-y-4">
           {user.subscription ? (
             <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-              <InfoRow label="Статус" value={user.subscription.is_active ? 'Активна' : 'Неактивна'} />
-              <InfoRow label="Начало" value={formatDate(user.subscription.start_date)} />
-              <InfoRow label="Окончание" value={formatDate(user.subscription.end_date)} />
+              <InfoRow label={t('admin_status')} value={user.subscription.is_active ? t('admin_user_detail_subscription_active') : t('admin_user_detail_subscription_inactive')} />
+              <InfoRow label="Start" value={formatDate(user.subscription.start_date)} />
+              <InfoRow label={t('admin_user_detail_subscription_end')} value={formatDate(user.subscription.end_date)} />
               <InfoRow
-                label="Длительность"
-                value={user.subscription.duration_months ? `${user.subscription.duration_months} мес.` : '—'}
+                label={t('admin_period')}
+                value={user.subscription.duration_months ? `${user.subscription.duration_months} ${t('admin_month_short')}` : '—'}
               />
-              <InfoRow label="Провайдер" value={user.subscription.provider || '—'} />
+              <InfoRow label={t('admin_provider')} value={user.subscription.provider || '—'} />
               <InfoRow
-                label="Авто-продление"
-                value={user.subscription.auto_renew_enabled ? 'Включено' : 'Выключено'}
+                label="Auto-renew"
+                value={user.subscription.auto_renew_enabled ? t('admin_on') : t('admin_off')}
               />
               <InfoRow
-                label="Лимит трафика"
+                label="Traffic limit"
                 value={formatBytes(user.subscription.traffic_limit_bytes)}
               />
               <InfoRow
-                label="Использовано трафика"
+                label="Traffic used"
                 value={formatBytes(user.subscription.traffic_used_bytes)}
               />
             </div>
           ) : (
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Активной подписки нет</p>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_subscription_inactive')}</p>
           )}
 
           {/* Panel data */}
@@ -437,7 +463,7 @@ export function AdminUserDetailPage() {
             <div>
               <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-2 flex items-center gap-1.5">
                 <ExternalLink size={14} />
-                Данные панели
+                {t('admin_user_detail_panel')}
               </h3>
               <div className="bg-[hsl(var(--muted))] rounded-xl p-4">
                 <pre className="text-xs text-[hsl(var(--foreground))] overflow-x-auto whitespace-pre-wrap break-all">
@@ -453,17 +479,17 @@ export function AdminUserDetailPage() {
       {activeTab === 'payments' && (
         <div>
           {user.recent_payments.length === 0 ? (
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Платежей нет</p>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_no_payments')}</p>
           ) : (
             <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.5)]">
                     <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">Сумма</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">Провайдер</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">Статус</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">Дата</th>
+                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_status')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[hsl(var(--border))]">
@@ -474,7 +500,7 @@ export function AdminUserDetailPage() {
                         {p.amount.toLocaleString('ru-RU', { style: 'currency', currency: p.currency })}
                       </td>
                       <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">{p.provider || '—'}</td>
-                      <td className="px-4 py-3">{statusBadge(p.status)}</td>
+                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                       <td className="px-4 py-3 text-xs text-[hsl(var(--muted-foreground))]">
                         {formatDate(p.created_at)}
                       </td>
@@ -490,9 +516,9 @@ export function AdminUserDetailPage() {
       {/* Modals */}
       {modal === 'ban' && (
         <ConfirmModal
-          title="Забанить пользователя?"
-          description={`${displayName} не сможет использовать бота до разбана.`}
-          confirmLabel="Забанить"
+          title={t('admin_users_ban_confirm')}
+          description={t('admin_users_ban_description', { name: displayName })}
+          confirmLabel={t('admin_users_ban')}
           danger
           onConfirm={() => banMut.mutate()}
           onClose={() => setModal(null)}
@@ -501,9 +527,9 @@ export function AdminUserDetailPage() {
       )}
       {modal === 'unban' && (
         <ConfirmModal
-          title="Разбанить пользователя?"
-          description={`${displayName} снова получит доступ к боту.`}
-          confirmLabel="Разбанить"
+          title={t('admin_users_unban_confirm')}
+          description={t('admin_users_unban_description', { name: displayName })}
+          confirmLabel={t('admin_users_unban')}
           onConfirm={() => unbanMut.mutate()}
           onClose={() => setModal(null)}
           isLoading={unbanMut.isPending}

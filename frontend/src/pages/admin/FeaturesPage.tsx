@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Newspaper, Users, Monitor } from 'lucide-react'
 import { getAdminFeatures, patchFeatures } from '@/api/admin/branding'
 import { useToastContext } from '@/lib/toast-context'
+import { useTranslation } from 'react-i18next'
 
 interface ToggleRowProps {
   icon: React.ElementType
@@ -51,6 +52,7 @@ function ToggleRow({ icon: Icon, label, description, checked, onChange, disabled
 export function FeaturesPage() {
   const qc = useQueryClient()
   const { toast: showToast } = useToastContext()
+  const { t } = useTranslation()
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'features'],
@@ -62,9 +64,9 @@ export function FeaturesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'features'] })
       qc.invalidateQueries({ queryKey: ['public', 'branding'] })
-      showToast('Настройки разделов сохранены', 'success')
+      showToast(t('admin_features_saved'), 'success')
     },
-    onError: () => showToast('Ошибка сохранения', 'error'),
+    onError: () => showToast(t('admin_branding_save_error'), 'error'),
   })
 
   const [local, setLocal] = useState<{ news_enabled?: boolean; referral_enabled?: boolean; devices_enabled?: boolean }>({})
@@ -93,33 +95,33 @@ export function FeaturesPage() {
   return (
     <div className="p-8 max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Разделы сайта</h1>
+        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_features_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-          Включение и отключение разделов для всех пользователей
+          {t('admin_features_subtitle')}
         </p>
       </div>
 
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] px-5 divide-y divide-[hsl(var(--border))]">
         <ToggleRow
           icon={Newspaper}
-          label="Новости"
-          description="Лента новостей из Telegram-канала"
+          label={t('admin_features_news')}
+          description={t('admin_features_news_description')}
           checked={get('news_enabled')}
           onChange={toggle('news_enabled')}
           disabled={mutation.isPending}
         />
         <ToggleRow
           icon={Users}
-          label="Рефералы"
-          description="Реферальная программа"
+          label={t('admin_features_referrals')}
+          description={t('admin_features_referrals_description')}
           checked={get('referral_enabled')}
           onChange={toggle('referral_enabled')}
           disabled={mutation.isPending}
         />
         <ToggleRow
           icon={Monitor}
-          label="Устройства"
-          description="Управление подключёнными устройствами"
+          label={t('admin_features_devices')}
+          description={t('admin_features_devices_description')}
           checked={get('devices_enabled')}
           onChange={toggle('devices_enabled')}
           disabled={mutation.isPending}
@@ -127,7 +129,7 @@ export function FeaturesPage() {
       </div>
 
       <p className="text-xs text-[hsl(var(--muted-foreground))]">
-        Изменения применяются немедленно — раздел исчезает из навигации для всех пользователей.
+        {t('admin_features_hint')}
       </p>
     </div>
   )

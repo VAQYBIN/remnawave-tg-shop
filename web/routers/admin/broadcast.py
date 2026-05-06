@@ -3,25 +3,29 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import Account
-from web.dependencies import get_current_admin, get_redis
+from web.dependencies import get_current_admin, get_redis, get_db
 from web.schemas.admin.broadcast import (
     BroadcastRequest,
     BroadcastStartResponse,
     BroadcastStatusResponse,
 )
+from web.middleware.rate_limit import admin_broadcast_limit
+from web.routers.admin.audit import add_admin_audit_log
 
 router = APIRouter()
 
 _STATUS_TTL = 3600  # 1 hour
 
 
-@router.post("/broadcast", response_model=BroadcastStartResponse)
+@router.post("/broadcast", response_model=BroadcastStartResponse, dependencies=[Depends(admin_broadcast_limit)])
 async def start_broadcast(
     req: BroadcastRequest,
     admin: Account = Depends(get_current_admin),
     redis: Redis = Depends(get_redis),
+    db: AsyncSession = Depends(get_db),
 ):
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Broadcast text cannot be empty")
@@ -42,6 +46,18 @@ async def start_broadcast(
         "buttons": [b.model_dump() for b in req.buttons],
     }
     await redis.publish("broadcast:request", json.dumps(payload))
+
+    await add_admin_audit_log(
+        db,
+        admin,
+        "admin_broadcast",
+        details={
+            "broadcast_id": broadcast_id,
+            "filter": req.filter,
+            "text_preview": req.text[:100],
+        },
+    )
+    await db.commit()
 
     return BroadcastStartResponse(broadcast_id=broadcast_id, status="queued")
 

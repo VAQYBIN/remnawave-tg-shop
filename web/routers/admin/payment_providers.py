@@ -9,6 +9,8 @@ from web.schemas.admin.payment_providers import (
     PaymentProvidersListResponse,
 )
 from core.dal.payment_provider_config_dal import get_all_providers, update_provider
+from web.middleware.rate_limit import admin_action_limit
+from web.routers.admin.audit import add_admin_audit_log
 
 router = APIRouter()
 
@@ -24,16 +26,22 @@ async def list_payment_providers(
     )
 
 
-@router.patch("/payment-providers/{provider_id}", response_model=PaymentProviderResponse)
+@router.patch("/payment-providers/{provider_id}", response_model=PaymentProviderResponse, dependencies=[Depends(admin_action_limit)])
 async def update_payment_provider(
     provider_id: int,
     body: PaymentProviderUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
 ):
     updates = body.model_dump(exclude_none=True)
     provider = await update_provider(db, provider_id, **updates)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
+    await add_admin_audit_log(
+        db,
+        admin,
+        "admin_payment_provider_update",
+        details={"provider_id": provider_id, "updates": updates},
+    )
     await db.commit()
     return PaymentProviderResponse.model_validate(provider)

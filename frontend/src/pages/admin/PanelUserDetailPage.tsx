@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { getPanelUser } from '@/api/admin/panel'
 import { formatBytes, formatScalar, getNumber, getObject, getString } from './panel-utils'
+import { useTranslation } from 'react-i18next'
 
 function fmtDate(value: unknown) {
   if (typeof value !== 'string' || !value) return '—'
@@ -13,6 +14,7 @@ function fmtDate(value: unknown) {
 
 export function PanelUserDetailPage() {
   const { uuid } = useParams<{ uuid: string }>()
+  const { t } = useTranslation()
   const userQuery = useQuery({
     queryKey: ['admin', 'panel', 'users', uuid],
     queryFn: () => getPanelUser(uuid!),
@@ -36,14 +38,14 @@ export function PanelUserDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Статус" value={getString(user, 'status')} icon={User} />
-        <StatsCard title="Трафик" value={formatBytes(getNumber(traffic, 'usedTrafficBytes'))} subtitle={`limit ${formatBytes(user.trafficLimitBytes)}`} icon={HardDrive} />
+        <StatsCard title={t('admin_status')} value={getString(user, 'status')} icon={User} />
+        <StatsCard title={t('admin_nodes_traffic')} value={formatBytes(getNumber(traffic, 'usedTrafficBytes'))} subtitle={t('admin_panel_user_detail_limit', { limit: formatBytes(user.trafficLimitBytes) })} icon={HardDrive} />
         <StatsCard title="Lifetime" value={formatBytes(getNumber(traffic, 'lifetimeUsedTrafficBytes'))} icon={HardDrive} />
-        <StatsCard title="Онлайн" value={fmtDate(traffic.onlineAt)} icon={Wifi} />
+        <StatsCard title={t('admin_panel_online')} value={fmtDate(traffic.onlineAt)} icon={Wifi} />
       </div>
 
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-        <h2 className="text-sm font-semibold mb-4">Данные</h2>
+        <h2 className="text-sm font-semibold mb-4">{t('admin_panel_user_detail_data')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div className="flex justify-between gap-4"><span>Email</span><strong>{getString(user, 'email')}</strong></div>
           <div className="flex justify-between gap-4"><span>Telegram ID</span><strong>{formatScalar(user.telegramId)}</strong></div>

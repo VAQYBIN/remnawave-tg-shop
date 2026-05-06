@@ -23,6 +23,8 @@ from core.dal.user_dal import admin_search_users, get_user_by_id, update_user
 from core.dal.subscription_dal import get_active_subscription_by_user_id
 from core.dal.payment_dal import get_user_payments, get_user_total_paid
 from core.services.panel_client import PanelApiService
+from web.middleware.rate_limit import admin_action_limit
+from web.routers.admin.audit import add_admin_audit_log
 
 router = APIRouter()
 
@@ -188,41 +190,43 @@ async def get_admin_user_detail(
     )
 
 
-@router.post("/users/{user_id}/ban")
+@router.post("/users/{user_id}/ban", dependencies=[Depends(admin_action_limit)])
 async def ban_user(
     user_id: int,
     body: BanRequest,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
 ):
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     await update_user(db, user_id, {"is_banned": True})
+    await add_admin_audit_log(db, admin, "admin_ban", target_user_id=user_id, details={"reason": body.reason})
     await db.commit()
     return {"ok": True}
 
 
-@router.post("/users/{user_id}/unban")
+@router.post("/users/{user_id}/unban", dependencies=[Depends(admin_action_limit)])
 async def unban_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
 ):
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     await update_user(db, user_id, {"is_banned": False})
+    await add_admin_audit_log(db, admin, "admin_unban", target_user_id=user_id)
     await db.commit()
     return {"ok": True}
 
 
-@router.post("/users/{user_id}/add-days")
+@router.post("/users/{user_id}/add-days", dependencies=[Depends(admin_action_limit)])
 async def add_days_to_subscription(
     user_id: int,
     body: AddDaysRequest,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
     settings: Settings = Depends(get_settings_dep),
 ):
     if body.days <= 0:
@@ -237,15 +241,17 @@ async def add_days_to_subscription(
     success = await panel.extend_user_subscription(user.panel_user_uuid, body.days)
     if not success:
         raise HTTPException(status_code=502, detail="Panel API error")
+    await add_admin_audit_log(db, admin, "admin_add_days", target_user_id=user_id, details={"days": body.days})
+    await db.commit()
     return {"ok": True, "days_added": body.days}
 
 
-@router.post("/users/{user_id}/add-traffic")
+@router.post("/users/{user_id}/add-traffic", dependencies=[Depends(admin_action_limit)])
 async def add_traffic_to_user(
     user_id: int,
     body: AddTrafficRequest,
     db: AsyncSession = Depends(get_db),
-    _admin: Account = Depends(get_current_admin),
+    admin: Account = Depends(get_current_admin),
     settings: Settings = Depends(get_settings_dep),
 ):
     if body.gigabytes <= 0:
@@ -261,4 +267,10 @@ async def add_traffic_to_user(
     success = await panel.add_user_traffic(user.panel_user_uuid, bytes_to_add)
     if not success:
         raise HTTPException(status_code=502, detail="Panel API error")
+    await add_admin_audit_log(
+        db, admin, "admin_add_traffic",
+        target_user_id=user_id,
+        details={"gigabytes": body.gigabytes},
+    )
+    await db.commit()
     return {"ok": True, "gigabytes_added": body.gigabytes}
