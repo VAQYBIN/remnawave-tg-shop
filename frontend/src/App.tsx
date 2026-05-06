@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { ProtectedRoute } from '@/auth/ProtectedRoute'
@@ -6,35 +7,45 @@ import { ToastProvider } from '@/lib/toast-context'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { BrandingProvider } from '@/hooks/BrandingProvider'
-import { LoginPage } from '@/pages/LoginPage'
-import { RegisterPage } from '@/pages/RegisterPage'
-import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
-import { DashboardPage } from '@/pages/DashboardPage'
-import { SubscriptionPage } from '@/pages/SubscriptionPage'
-import { PaymentHistoryPage } from '@/pages/PaymentHistoryPage'
-import { PaymentCallbackPage } from '@/pages/PaymentCallbackPage'
-import { PaymentPendingPage } from '@/pages/PaymentPendingPage'
-import { TelegramCallbackPage } from '@/pages/TelegramCallbackPage'
-import { ReferralPage } from '@/pages/ReferralPage'
-import { DevicesPage } from '@/pages/DevicesPage'
-import { ProfilePage } from '@/pages/ProfilePage'
-import { NewsPage } from '@/pages/NewsPage'
-import { AdminLayout } from '@/pages/admin/AdminLayout'
-import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
-import { BrandingPage } from '@/pages/admin/BrandingPage'
-import { FeaturesPage } from '@/pages/admin/FeaturesPage'
-import { PlansPage } from '@/pages/admin/PlansPage'
-import { PaymentProvidersPage } from '@/pages/admin/PaymentProvidersPage'
-import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
-import { AdminUserDetailPage } from '@/pages/admin/AdminUserDetailPage'
-import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage'
-import { AdminPromosPage } from '@/pages/admin/AdminPromosPage'
-import { PanelStatsPage } from '@/pages/admin/PanelStatsPage'
-import { NodesPage } from '@/pages/admin/NodesPage'
-import { NodeDetailPage } from '@/pages/admin/NodeDetailPage'
-import { PanelUsersPage } from '@/pages/admin/PanelUsersPage'
-import { PanelUserDetailPage } from '@/pages/admin/PanelUserDetailPage'
-import { BroadcastPage } from '@/pages/admin/BroadcastPage'
+
+const LoginPage = lazy(() => import('@/pages/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })))
+const RegisterPage = lazy(() => import('@/pages/RegisterPage').then(({ RegisterPage }) => ({ default: RegisterPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(({ ForgotPasswordPage }) => ({ default: ForgotPasswordPage })))
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(({ DashboardPage }) => ({ default: DashboardPage })))
+const SubscriptionPage = lazy(() => import('@/pages/SubscriptionPage').then(({ SubscriptionPage }) => ({ default: SubscriptionPage })))
+const PaymentHistoryPage = lazy(() => import('@/pages/PaymentHistoryPage').then(({ PaymentHistoryPage }) => ({ default: PaymentHistoryPage })))
+const PaymentCallbackPage = lazy(() => import('@/pages/PaymentCallbackPage').then(({ PaymentCallbackPage }) => ({ default: PaymentCallbackPage })))
+const PaymentPendingPage = lazy(() => import('@/pages/PaymentPendingPage').then(({ PaymentPendingPage }) => ({ default: PaymentPendingPage })))
+const TelegramCallbackPage = lazy(() => import('@/pages/TelegramCallbackPage').then(({ TelegramCallbackPage }) => ({ default: TelegramCallbackPage })))
+const ReferralPage = lazy(() => import('@/pages/ReferralPage').then(({ ReferralPage }) => ({ default: ReferralPage })))
+const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(({ DevicesPage }) => ({ default: DevicesPage })))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage })))
+const NewsPage = lazy(() => import('@/pages/NewsPage').then(({ NewsPage }) => ({ default: NewsPage })))
+
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout').then(({ AdminLayout }) => ({ default: AdminLayout })))
+const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage').then(({ AdminDashboardPage }) => ({ default: AdminDashboardPage })))
+const BrandingPage = lazy(() => import('@/pages/admin/BrandingPage').then(({ BrandingPage }) => ({ default: BrandingPage })))
+const FeaturesPage = lazy(() => import('@/pages/admin/FeaturesPage').then(({ FeaturesPage }) => ({ default: FeaturesPage })))
+const PlansPage = lazy(() => import('@/pages/admin/PlansPage').then(({ PlansPage }) => ({ default: PlansPage })))
+const PaymentProvidersPage = lazy(() => import('@/pages/admin/PaymentProvidersPage').then(({ PaymentProvidersPage }) => ({ default: PaymentProvidersPage })))
+const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage').then(({ AdminUsersPage }) => ({ default: AdminUsersPage })))
+const AdminUserDetailPage = lazy(() => import('@/pages/admin/AdminUserDetailPage').then(({ AdminUserDetailPage }) => ({ default: AdminUserDetailPage })))
+const AdminPaymentsPage = lazy(() => import('@/pages/admin/AdminPaymentsPage').then(({ AdminPaymentsPage }) => ({ default: AdminPaymentsPage })))
+const AdminPromosPage = lazy(() => import('@/pages/admin/AdminPromosPage').then(({ AdminPromosPage }) => ({ default: AdminPromosPage })))
+const PanelStatsPage = lazy(() => import('@/pages/admin/PanelStatsPage').then(({ PanelStatsPage }) => ({ default: PanelStatsPage })))
+const NodesPage = lazy(() => import('@/pages/admin/NodesPage').then(({ NodesPage }) => ({ default: NodesPage })))
+const NodeDetailPage = lazy(() => import('@/pages/admin/NodeDetailPage').then(({ NodeDetailPage }) => ({ default: NodeDetailPage })))
+const PanelUsersPage = lazy(() => import('@/pages/admin/PanelUsersPage').then(({ PanelUsersPage }) => ({ default: PanelUsersPage })))
+const PanelUserDetailPage = lazy(() => import('@/pages/admin/PanelUserDetailPage').then(({ PanelUserDetailPage }) => ({ default: PanelUserDetailPage })))
+const BroadcastPage = lazy(() => import('@/pages/admin/BroadcastPage').then(({ BroadcastPage }) => ({ default: BroadcastPage })))
+
+function RouteLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--background))] text-sm text-[hsl(var(--muted-foreground))]">
+      Загрузка...
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -43,6 +54,7 @@ export default function App() {
         <Toaster />
         <AuthProvider>
           <BrandingProvider>
+            <Suspense fallback={<RouteLoader />}>
             <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
@@ -157,6 +169,7 @@ export default function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            </Suspense>
           </BrandingProvider>
         </AuthProvider>
       </ToastProvider>

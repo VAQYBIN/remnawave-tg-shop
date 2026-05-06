@@ -53,6 +53,47 @@ function pluralBtn(n: number, t: TFunction) {
   return n === 1 ? t('admin_broadcast_button_instr') : t('admin_broadcast_buttons_instr')
 }
 
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function sanitizePreviewHref(href: string) {
+  const decodedHref = href
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+  try {
+    const url = new URL(decodedHref)
+    if (url.protocol === 'https:' || url.protocol === 'tg:') {
+      return escapeHtml(decodedHref)
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+function formatSafePreviewHtml(text: string) {
+  return escapeHtml(text)
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+    .replace(
+      /&lt;a\s+href=(?:"([^"]*)"|'([^']*)')&gt;/gi,
+      (match, doubleQuotedHref: string | undefined, singleQuotedHref: string | undefined) => {
+        const href = sanitizePreviewHref(doubleQuotedHref ?? singleQuotedHref ?? '')
+        return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">` : match
+      },
+    )
+    .replace(/&lt;\/a&gt;/gi, '</a>')
+    .replace(/&lt;(\/?)(b|i|u|s|code|blockquote)&gt;/gi, (_match, slash: string, tag: string) => `<${slash}${tag.toLowerCase()}>`)
+    .replace(/\n/g, '<br>')
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const FILTER_OPTIONS: {
@@ -247,8 +288,7 @@ function RowEditor({
 
 function MessagePreview({ text, rows }: { text: string; rows: UIRows }) {
   const { t } = useTranslation()
-  // Convert newlines to <br> for HTML preview
-  const html = text.replace(/\n/g, '<br>')
+  const html = formatSafePreviewHtml(text)
   const hasText = text.trim().length > 0
   const hasButtons = rows.some((r) => r.some((b) => b.text.trim()))
   const isEmpty = !hasText && !hasButtons
