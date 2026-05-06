@@ -39,7 +39,7 @@ def get_plan_price(settings: Settings, months: int) -> Optional[int]:
 
 
 def get_available_providers(settings: Settings) -> List[str]:
-    """Return list of enabled, web-compatible payment provider keys (no Stars)."""
+    """Return list of enabled, web-compatible payment provider keys (no Stars) from env vars."""
     providers = []
     if settings.YOOKASSA_ENABLED and settings.YOOKASSA_SHOP_ID and settings.YOOKASSA_SECRET_KEY:
         providers.append("yookassa")
@@ -52,6 +52,28 @@ def get_available_providers(settings: Settings) -> List[str]:
     if settings.CRYPTOPAY_ENABLED and settings.CRYPTOPAY_TOKEN:
         providers.append("cryptopay")
     return providers
+
+
+async def get_available_providers_db(db: AsyncSession, settings: Settings) -> List[str]:
+    """Return enabled providers in DB order. Falls back to env vars if DB has no enabled entries."""
+    from core.dal.payment_provider_config_dal import get_enabled_providers
+    db_providers = await get_enabled_providers(db)
+    if db_providers:
+        # Filter by credentials still present in env vars (DB enables only if credentials exist)
+        env_available = set(get_available_providers(settings))
+        return [p.provider_key for p in db_providers if p.provider_key in env_available]
+    # Legacy: fall back to env vars order
+    return get_available_providers(settings)
+
+
+async def get_plan_price_db(db: AsyncSession, settings: Settings, months: int) -> Optional[float]:
+    """Return plan price from DB. Falls back to env vars if no DB plan found."""
+    from core.dal.pricing_plan_dal import get_plan_by_months
+    plan = await get_plan_by_months(db, months)
+    if plan and plan.price_rub is not None:
+        return float(plan.price_rub)
+    # Legacy: fall back to env vars
+    return get_plan_price(settings, months)
 
 
 async def _create_yookassa_payment(
@@ -312,11 +334,11 @@ async def create_web_payment(
     if not account.telegram_user_id:
         raise ValueError("Привязка Telegram обязательна для совершения платежей")
 
-    available = get_available_providers(settings)
+    available = await get_available_providers_db(db, settings)
     if provider not in available:
         raise ValueError(f"Провайдер '{provider}' недоступен")
 
-    price_rub = get_plan_price(settings, months)
+    price_rub = await get_plan_price_db(db, settings, months)
     if price_rub is None:
         raise ValueError(f"Тариф на {months} мес. недоступен")
 
@@ -379,7 +401,7 @@ async def create_web_payment(
     payment_db_id = payment.payment_id
 
     return_url = (
-        f"{settings.WEB_FRONTEND_URL.rstrip('/')}/payment/callback?payment_id={payment_db_id}"
+        f"{settings.WEB_FRONTEND_URL.rstrip('/')}/payment/{payment_db_id}"
     )
 
     try:
@@ -434,7 +456,7 @@ async def create_web_payment(
         raise
 
     await payment_dal.update_provider_payment_and_status(
-        db, payment_db_id, provider_id, "pending"
+        db, payment_db_id, provider_id, "pending", redirect_url=redirect_url
     )
 
     return payment_db_id, redirect_url

@@ -1,9 +1,35 @@
+import asyncio
+import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from config.settings import get_settings
+
+logger = logging.getLogger(__name__)
+
+_CLEANUP_INTERVAL_SECONDS = 10 * 60  # run every 10 minutes
+
+
+async def _payment_cleanup_loop(session_factory) -> None:
+    """Background task: expire stale pending payments every 10 minutes."""
+    from core.dal.payment_dal import expire_stale_pending_payments
+
+    while True:
+        try:
+            await asyncio.sleep(_CLEANUP_INTERVAL_SECONDS)
+            async with session_factory() as session:
+                count = await expire_stale_pending_payments(session)
+                await session.commit()
+                if count:
+                    logger.info("Payment cleanup: expired %d stale payment(s).", count)
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            logger.error("Payment cleanup task error: %s", exc, exc_info=True)
 
 
 @asynccontextmanager
@@ -12,8 +38,22 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.settings = settings
     app.state.redis = Redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+
+    from web.dependencies import _get_session_factory
+    cleanup_task = asyncio.create_task(
+        _payment_cleanup_loop(_get_session_factory()),
+        name="payment-cleanup",
+    )
+    app.state.cleanup_task = cleanup_task
+
     yield
+
     # Shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     await app.state.redis.aclose()
 
 
@@ -82,6 +122,17 @@ def create_app() -> FastAPI:
 
     from web.routers.news import router as news_router
     app.include_router(news_router, prefix="/api")
+
+    from web.routers.admin import admin_router
+    app.include_router(admin_router, prefix="/api")
+
+    from web.routers.config import router as config_router
+    app.include_router(config_router, prefix="/api")
+
+    # Static files (logos, favicons)
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    os.makedirs(static_dir, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return app
 

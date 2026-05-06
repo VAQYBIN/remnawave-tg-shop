@@ -7,12 +7,17 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
 import { sendResetCode, checkResetCode, resetPassword } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { resolveLogoUrl } from '@/hooks/useBranding'
 
 type Step = 'email' | 'code' | 'reset' | 'done'
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+
+  const { branding } = useBrandingContext()
+  const logoUrl = resolveLogoUrl(branding?.logo_url)
 
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
@@ -72,7 +77,12 @@ export function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
+          {logoUrl && (
+            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
+          )}
+          <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
+            {branding?.brand_name ?? 'Raccoonito'}
+          </h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 

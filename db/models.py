@@ -112,6 +112,7 @@ class Payment(Base):
     currency = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
+    redirect_url = Column(Text, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
     promo_code_id = Column(Integer,
                            ForeignKey("promo_codes.promo_code_id"),
@@ -350,3 +351,51 @@ class ChannelPost(Base):
     reply_markup_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PricingPlan(Base):
+    """Time-based subscription pricing plans managed via admin panel."""
+    __tablename__ = "pricing_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    duration_months: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class PaymentProviderConfig(Base):
+    """Payment provider enable/disable and display order managed via admin panel."""
+    __tablename__ = "payment_provider_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_key: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class SiteSettings(Base):
+    """Single-row table for site customization. Always id=1."""
+    __tablename__ = "site_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, autoincrement=False)
+    brand_name: Mapped[str] = mapped_column(String(100), nullable=False, default="Raccoonito")
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    favicon_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    primary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#2AACDF")
+    secondary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#897569")
+    background_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#F5F1ED")
+    font_family: Mapped[str] = mapped_column(String(100), nullable=False, default="Nunito")
+    custom_css: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    __table_args__ = (UniqueConstraint('id'),)

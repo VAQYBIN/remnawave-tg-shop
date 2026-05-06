@@ -38,6 +38,7 @@ from bot.services.crypto_pay_service import CryptoPayService, cryptopay_webhook_
 from bot.handlers.user import payment as user_payment_webhook_module
 from bot.handlers.admin.sync_admin import perform_sync
 from bot.utils.message_queue import init_queue_manager
+from bot.services.web_broadcast_service import WebBroadcastService
 
 
 async def register_all_routers(dp: Dispatcher, settings: Settings):
@@ -145,6 +146,15 @@ async def on_startup_configured(dispatcher: Dispatcher):
     except Exception as e:
         logging.error(f"STARTUP: Failed to initialize message queue manager: {e}", exc_info=True)
 
+    # Initialize web broadcast listener (Redis Pub/Sub from admin panel)
+    try:
+        web_broadcast_service = WebBroadcastService(bot, settings, async_session_factory)
+        await web_broadcast_service.start()
+        dispatcher["web_broadcast_service"] = web_broadcast_service
+        logging.info("STARTUP: Web broadcast service started")
+    except Exception as e:
+        logging.error(f"STARTUP: Failed to start web broadcast service: {e}", exc_info=True)
+
     # Initialize promo discount expiration worker
     try:
         promo_code_service: Optional[PromoCodeService] = dispatcher.get("promo_code_service")
@@ -202,6 +212,14 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
                     logging.info(f"{key} session closed on shutdown.")
                 except Exception as e:
                     logging.warning(f"Failed to close session for {key}: {e}")
+
+    # Stop web broadcast listener
+    web_broadcast = dispatcher.get("web_broadcast_service")
+    if web_broadcast:
+        try:
+            await web_broadcast.stop()
+        except Exception as e:
+            logging.warning(f"Failed to stop web broadcast service: {e}")
 
     for service_key in (
         "panel_service",

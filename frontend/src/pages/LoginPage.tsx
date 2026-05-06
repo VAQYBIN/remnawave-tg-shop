@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -8,14 +8,19 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/auth/useAuth'
 import { login, getTelegramClientId } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { resolveLogoUrl } from '@/hooks/useBranding'
 
 export function LoginPage() {
-  const { setAuth } = useAuth()
+  const { setAuth, user, isLoading: isAuthLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const { t } = useTranslation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+
+  const { branding } = useBrandingContext()
+  const logoUrl = resolveLogoUrl(branding?.logo_url)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,6 +32,18 @@ export function LoginPage() {
     if (errorParam === 'telegram_denied') setError(t('login_error_denied'))
     else if (errorParam) setError(t('login_error_telegram'))
   }, [searchParams, t])
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-[hsl(var(--primary))] border-t-transparent animate-spin" />
+      </div>
+    )
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -51,7 +68,12 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-[hsl(197,74%,40%)]">Raccoonito</h1>
+          {logoUrl && (
+            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
+          )}
+          <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
+            {branding?.brand_name ?? 'Raccoonito'}
+          </h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 

@@ -76,6 +76,7 @@ async def get_subscription(
 
 @router.get("/plans", response_model=SubscriptionPlansResponse)
 async def get_plans(
+    db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SubscriptionPlansResponse:
     if settings.traffic_sale_mode:
@@ -85,6 +86,19 @@ async def get_plans(
         ]
         return SubscriptionPlansResponse(mode="traffic", plans=plans)
 
+    # Try DB first — use plans configured in admin panel
+    from core.dal.pricing_plan_dal import get_enabled_plans
+    db_plans = await get_enabled_plans(db)
+    if db_plans:
+        plans = [
+            TimePlan(months=p.duration_months, price_rub=p.price_rub or 0.0, price_stars=p.price_stars)
+            for p in db_plans
+            if p.price_rub is not None
+        ]
+        if plans:
+            return SubscriptionPlansResponse(mode="time", plans=plans)
+
+    # Fallback to env vars (legacy / not yet configured in admin)
     plans = [
         TimePlan(months=months, price_rub=price)
         for months, price in sorted(settings.subscription_options.items())

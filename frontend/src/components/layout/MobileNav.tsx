@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
+import { useQuery } from '@tanstack/react-query'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage } from '@/api/profile'
+import { getAdminMe } from '@/api/admin'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
 import {
   LayoutDashboard,
   CreditCard,
@@ -16,6 +19,7 @@ import {
   LogOut,
   X,
   Globe,
+  Settings,
 } from 'lucide-react'
 
 function LangToggle() {
@@ -41,23 +45,33 @@ function LangToggle() {
 }
 
 export function MobileNav() {
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { newsEnabled, referralEnabled, devicesEnabled } = useBrandingContext()
+
+  const { data: adminData } = useQuery({
+    queryKey: ['admin', 'me'],
+    queryFn: getAdminMe,
+    enabled: !!user,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  })
+  const isAdmin = !!adminData?.is_admin
 
   const PRIMARY_ITEMS = [
     { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard') },
     { to: '/subscription', icon: CreditCard, label: t('nav_subscription') },
-    { to: '/news', icon: Newspaper, label: t('nav_news') },
+    ...(newsEnabled ? [{ to: '/news', icon: Newspaper, label: t('nav_news') }] : []),
     { to: '/profile', icon: User, label: t('nav_profile') },
   ]
 
   const MORE_ITEMS = [
     { to: '/payments', icon: History, label: t('nav_payments') },
-    { to: '/referral', icon: Users, label: t('nav_referral') },
-    { to: '/devices', icon: Monitor, label: t('nav_devices') },
+    ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral') }] : []),
+    ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices') }] : []),
   ]
 
   const handleMoreNav = (to: string) => {
@@ -142,7 +156,19 @@ export function MobileNav() {
             </button>
           ))}
 
-          <div className="h-px bg-[hsl(var(--border))] my-2" />
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleMoreNav('/admin')}
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
+              >
+                <Settings size={20} className="text-[hsl(var(--muted-foreground))]" />
+                Админка
+              </button>
+              <div className="h-px bg-[hsl(var(--border))] my-2" />
+            </>
+          )}
 
           <LangToggle />
 

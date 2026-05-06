@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import update, delete, func, and_, or_
+from sqlalchemy import update, delete, func, and_, or_, true as sa_true
 from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -18,6 +18,7 @@ from db.models import (
     UserBilling,
     UserPaymentMethod,
     AdAttribution,
+    Account,
 )
 
 REFERRAL_CODE_ALPHABET = string.ascii_uppercase + string.digits
@@ -322,6 +323,119 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> Lis
     )
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+def _build_admin_sort_expr(order_by: str, order: str):
+    """Return a SQLAlchemy order expression for admin user list."""
+    now = datetime.now(timezone.utc)
+    direction = "asc" if order == "asc" else "desc"
+
+    if order_by == "user_id":
+        col = User.user_id
+    elif order_by == "first_name":
+        col = func.lower(func.coalesce(User.first_name, User.username, ""))
+    elif order_by == "is_banned":
+        col = User.is_banned
+    elif order_by == "registration_date":
+        col = User.registration_date
+    elif order_by == "subscription_end_date":
+        # Correlated subquery: max active end_date for this user
+        col = (
+            select(func.max(Subscription.end_date))
+            .where(
+                Subscription.user_id == User.user_id,
+                Subscription.is_active == True,
+                Subscription.end_date > now,
+            )
+            .correlate(User)
+            .scalar_subquery()
+        )
+    else:
+        col = User.registration_date
+
+    if direction == "asc":
+        return col.asc().nulls_last()
+    return col.desc().nulls_last()
+
+
+async def admin_search_users(
+    session: AsyncSession,
+    *,
+    query: Optional[str] = None,
+    is_banned: Optional[bool] = None,
+    has_subscription: Optional[bool] = None,
+    page: int = 0,
+    page_size: int = 20,
+    order_by: str = "registration_date",
+    order: str = "desc",
+) -> Tuple[List[User], int]:
+    """Search users for admin panel with filters and server-side sorting.
+
+    Returns (users, total_count).
+    """
+    now = datetime.now(timezone.utc)
+
+    conditions = []
+
+    if is_banned is not None:
+        conditions.append(User.is_banned == is_banned)
+
+    if has_subscription is not None:
+        active_sub_subq = (
+            select(Subscription.user_id)
+            .where(
+                Subscription.is_active == True,
+                Subscription.end_date > now,
+            )
+        ).scalar_subquery()
+        if has_subscription:
+            conditions.append(User.user_id.in_(active_sub_subq))
+        else:
+            conditions.append(~User.user_id.in_(active_sub_subq))
+
+    if query:
+        q = f"%{query.lower()}%"
+        try:
+            user_id_val: Optional[int] = int(query)
+        except (ValueError, TypeError):
+            user_id_val = None
+
+        email_user_ids = (
+            select(Account.telegram_user_id)
+            .where(
+                Account.telegram_user_id.is_not(None),
+                func.lower(Account.email).like(q),
+            )
+        ).scalar_subquery()
+
+        search_conds: list = [
+            func.lower(User.username).like(q),
+            func.lower(User.first_name).like(q),
+            User.user_id.in_(email_user_ids),
+        ]
+        if user_id_val is not None:
+            search_conds.append(User.user_id == user_id_val)
+
+        conditions.append(or_(*search_conds))
+
+    where_clause = and_(*conditions) if conditions else sa_true()
+
+    total = (
+        await session.execute(select(func.count(User.user_id)).where(where_clause))
+    ).scalar() or 0
+
+    sort_expr = _build_admin_sort_expr(order_by, order)
+
+    stmt = (
+        select(User)
+        .options(selectinload(User.subscriptions))
+        .where(where_clause)
+        .order_by(sort_expr)
+        .offset(page * page_size)
+        .limit(page_size)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all()), total
 
 
 async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool:

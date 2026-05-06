@@ -39,7 +39,13 @@ export interface PaymentStatus {
   status: string
   provider: string
   amount: number
+  original_amount: number | null
+  discount_applied: number | null
   currency: string
+  description: string | null
+  subscription_duration_months: number | null
+  redirect_url: string | null
+  promo_code: string | null
   created_at: string
 }
 
@@ -66,6 +72,14 @@ export function createPayment(data: CreatePaymentRequest): Promise<CreatePayment
 
 export function getPaymentStatus(paymentId: number): Promise<PaymentStatus> {
   return apiRequest<PaymentStatus>(`/payments/${paymentId}/status`)
+}
+
+export function getPendingPayment(): Promise<PaymentStatus | null> {
+  return apiRequest<PaymentStatus | null>('/payments/pending/latest')
+}
+
+export function expirePayment(paymentId: number): Promise<void> {
+  return apiRequest<void>(`/payments/${paymentId}/expire`, { method: 'POST' })
 }
 
 export function applyPromo(code: string): Promise<PromoApplyResponse> {

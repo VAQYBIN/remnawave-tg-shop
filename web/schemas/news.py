@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
+from web.schemas.types import UTCDatetime
 
 
 class ChannelPostResponse(BaseModel):
@@ -13,7 +14,7 @@ class ChannelPostResponse(BaseModel):
     media_file_id: Optional[str] = None
     media_url: Optional[str] = None
     reply_markup_json: Optional[str] = None
-    posted_at: datetime
+    posted_at: UTCDatetime
 
     model_config = {"from_attributes": True}
 

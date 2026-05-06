@@ -68,7 +68,7 @@ export function SubscriptionPage() {
       })
     },
     onSuccess: (data) => {
-      window.location.href = data.redirect_url
+      navigate(`/payment/${data.payment_id}`)
     },
     onError: (err: Error) => {
       const msg = err.message || t('sub_error_select')
