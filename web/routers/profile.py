@@ -229,21 +229,29 @@ async def link_telegram(
             },
         )
 
-    merge_result = {}
+    merge_result: dict = {}
     if account.site_user_id:
-        merge_result = await merge_site_subscription_into_telegram(
+        try:
+            merge_result = await merge_site_subscription_into_telegram(
+                db,
+                settings,
+                account=account,
+                telegram_user=tg_user,
+            )
+        except Exception:
+            logger.error("Subscription merge failed for account %s", account.id, exc_info=True)
+            merge_result = {"merged": False, "reason": "internal_error"}
+
+    try:
+        panel_sync_result = await sync_telegram_panel_identity(
             db,
             settings,
             account=account,
             telegram_user=tg_user,
         )
-
-    panel_sync_result = await sync_telegram_panel_identity(
-        db,
-        settings,
-        account=account,
-        telegram_user=tg_user,
-    )
+    except Exception:
+        logger.error("Panel identity sync failed for account %s", account.id, exc_info=True)
+        panel_sync_result = {"synced": False, "reason": "internal_error"}
 
     await update_account(db, account.id, telegram_user_id=telegram_user_id)
 

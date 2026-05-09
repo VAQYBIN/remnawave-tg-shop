@@ -422,9 +422,9 @@ async def refresh_token(
 
     try:
         payload = await jwt_service.verify_refresh_token(token, settings.WEB_JWT_SECRET, redis)
-    except jwt.InvalidTokenError as e:
+    except jwt.InvalidTokenError:
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     account_id = uuid.UUID(payload["sub"])
     old_jti = payload["jti"]

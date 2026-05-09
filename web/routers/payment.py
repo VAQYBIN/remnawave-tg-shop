@@ -108,8 +108,8 @@ async def create_payment(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except RuntimeError:
+        raise HTTPException(status_code=502, detail="Payment provider error")
 
     from core.dal.payment_dal import get_payment_by_db_id
     payment = await get_payment_by_db_id(db, payment_db_id)

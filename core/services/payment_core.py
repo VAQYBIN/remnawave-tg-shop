@@ -182,7 +182,7 @@ def _create_freekassa_url(
     amount_str = f"{amount:.2f}"
 
     sign_string = f"{merchant_id}:{amount_str}:{first_secret}:{currency}:{order_id}"
-    sign = hashlib.md5(sign_string.encode("utf-8")).hexdigest()
+    sign = hashlib.md5(sign_string.encode("utf-8"), usedforsecurity=False).hexdigest()  # noqa: S324 — FreeKassa protocol requires MD5
 
     base_url = (settings.FREEKASSA_PAYMENT_URL or "https://pay.freekassa.ru/").rstrip("/")
     params: dict = {
