@@ -1,402 +1,500 @@
-# Telegram-бот для продажи подписок Remnawave
+# Remnawave TG Shop
 
-> **Публичный архив.** Этот проект больше не поддерживается — банально нет времени и сил на его поддержку. Последняя версия панели, на которой проверена работа бота — **Remnawave 2.6.4**.
->
-> Рекомендую переходить на [@rwp_shop_bot](https://t.me/rwp_shop_bot) — по промокоду **MACHKA** скидка 10%.
->
-> Позже здесь появится ссылка на самый активный форк этого проекта — используйте его, если хотите self-hosted решение.
+**Форк** [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop) с расширенными возможностями: веб-дашборд (личный кабинет) и полнофункциональная веб-панель администратора.
+
+> Проверено на **Remnawave ≥ 2.7.0**.
 
 ---
 
-Этот Telegram-бот предназначен для автоматизации продажи и управления подписками для панели **Remnawave**. Он интегрируется с API Remnawave для управления пользователями и подписками, а также использует различные платежные системы для приема платежей.
-
 ## ✨ Ключевые возможности
 
-### Для пользователей:
--   **Регистрация и выбор языка:** Поддержка русского и английского языков.
--   **Просмотр подписки:** Пользователи могут видеть статус своей подписки, дату окончания и ссылку на конфигурацию.
--   **Мои устройства:** Опциональный раздел для просмотра и отключения подключенных устройств (активируется через переменную `MY_DEVICES_SECTION_ENABLED`).
--   **Пробная подписка:** Система пробных подписок для новых пользователей (активируется вручную по кнопке).
--   **Промокоды:** Возможность применять промокоды для получения скидок или бонусных дней.
--   **Реферальная программа:** Пользователи могут приглашать друзей и получать за это бонусные дни подписки.
-    -   **Оплата:** Поддержка оплаты через YooKassa, FreeKassa (REST API), Platega, SeverPay, CryptoPay и Telegram Stars.
+### Telegram-бот (для пользователей)
+- Регистрация и выбор языка (ru / en)
+- Просмотр статуса подписки и ссылки на конфигурацию
+- Раздел «Мои устройства» — просмотр и отключение подключённых устройств
+- Пробный период
+- Промокоды (скидка / бонусные дни / бесплатный период)
+- Реферальная программа с бонусными днями
+- Оплата через YooKassa, FreeKassa, CryptoPay, Platega, SeverPay, Telegram Stars
+- Автопродление подписки (YooKassa)
+- Уведомления об истечении подписки
 
-### Для администраторов:
--   **Защищенная админ-панель:** Доступ только для администраторов, указанных в `ADMIN_IDS`.
--   **Статистика:** Просмотр статистики использования бота (общее количество пользователей, забаненные, активные подписки), недавние платежи и статус синхронизации с панелью.
--   **Управление пользователями:** Блокировка/разблокировка пользователей, просмотр списка забаненных и детальной информации о пользователе.
--   **Рассылка:** Отправка сообщений всем пользователям, пользователям с активной или истекшей подпиской.
--   **Управление промокодами:** Создание и просмотр промокодов.
--   **Синхронизация с панелью:** Ручной запуск синхронизации пользователей и подписок с панелью Remnawave.
--   **Логи действий:** Просмотр логов всех действий пользователей.
+### Telegram-бот (для администраторов)
+- Статистика, управление пользователями (бан/разбан)
+- Рассылка: всем / с активной подпиской / без подписки
+- Управление промокодами (создание, просмотр, массовая генерация)
+- Синхронизация с Remnawave Panel
+- Просмотр логов действий с CSV-экспортом
 
-## 🚀 Технологии
+### Веб-дашборд (`app.your-domain.com`)
+- Аутентификация через Telegram Widget, Email + пароль
+- Личный кабинет: подписка, история платежей, устройства, рефералы
+- Привязка Telegram-аккаунта к веб-аккаунту
+- Лента новостей из Telegram-канала (SSE real-time)
+- Покупка и продление подписки через сайт
+- i18n: русский / английский, динамическое переключение
+- Динамическая тема (бренд, цвета, логотип из БД)
 
--   **Python 3.12**
--   **Aiogram 3.x:** Асинхронный фреймворк для Telegram ботов.
--   **aiohttp:** Для запуска веб-сервера (вебхуки).
--   **SQLAlchemy 2.x & asyncpg:** Асинхронная работа с базой данных PostgreSQL.
--   **Alembic:** Миграции схемы базы данных.
--   **YooKassa, FreeKassa API, Platega, SeverPay, aiocryptopay:** Интеграции с платежными системами.
--   **Pydantic:** Для управления настройками из `.env` файла.
--   **Docker & Docker Compose:** Для контейнеризации и развертывания.
+### Веб-панель администратора (`app.your-domain.com/admin`)
+- Сводный дашборд: пользователи, доход (день/неделя/месяц), подписки
+- Управление пользователями: поиск, бан, выдача дней/трафика, детальная карточка
+- Таблица платежей с фильтрами и графиками дохода (recharts)
+- Управление промокодами (CRUD)
+- Мониторинг Remnawave: CPU/RAM, ноды, bandwidth, top-users
+- Управление нодами (enable/disable/restart, restart-all)
+- Рассылка через Redis Pub/Sub (прогресс в реальном времени)
+- Настройка бренда: название, цвета, логотип
+- Управление тарифными планами и платёжными провайдерами
+- Включение/выключение разделов (новости, рефералы, устройства)
+- Аудит-лог действий, Toast-уведомления, Confirm-диалоги
+
+---
+
+## 🚀 Технологический стек
+
+| Слой | Технология |
+|------|-----------|
+| Telegram-бот | Python 3.12, Aiogram 3.x, webhook-режим |
+| Web API | FastAPI + Uvicorn |
+| Frontend | Vite + React 19 + React Router 7 |
+| UI Kit | Shadcn/ui + Tailwind CSS 4 |
+| State Management | TanStack Query v5 |
+| i18n | react-i18next |
+| Auth | PyJWT + bcrypt, Telegram HMAC-SHA256 |
+| Email | Resend Python SDK |
+| Cache / Sessions | Redis 7 |
+| ORM | SQLAlchemy 2.x async + asyncpg |
+| Validation | Pydantic v2 |
+| HTTP Client | httpx |
+| Database | PostgreSQL 17 |
+| Container | Docker + Docker Compose |
+
+---
+
+## 🏗️ Архитектура
+
+```
+Reverse Proxy (Nginx / Caddy / Traefik)
+├── your-domain.com/webhook/*  → Bot (Aiogram)        :8080
+├── your-domain.com/api/*      → Web API (FastAPI)    :8090
+└── your-domain.com/*          → Frontend (React SPA) :3000
+                                         │
+                                  PostgreSQL 17
+                                         │
+                                    Redis 7
+```
+
+### Request Flow
+
+```
+Telegram → /webhook/telegram → bot/handlers/
+Payment Provider → /webhook/{provider} → bot/handlers/user/payment.py
+Remnawave Panel → /webhook/panel → bot/services/panel_webhook_service.py
+
+Browser → /api/* → web/routers/ → core/services/ → core/dal/ → PostgreSQL
+```
+
+---
 
 ## ⚙️ Установка и запуск
 
 ### Предварительные требования
 
--   Установленные Docker и Docker Compose.
--   Рабочая панель Remnawave.
--   Токен Telegram-бота.
--   Данные для подключения к платежным системам (YooKassa, CryptoPay и т.д.).
+- Docker и Docker Compose
+- Работающая панель Remnawave ≥ 2.7.0
+- Токен Telegram-бота
+- Данные для подключения к платёжным системам
 
 ### Шаги установки
 
-1.  **Клонируйте репозиторий:**
-    ```bash
-    git clone https://github.com/kavore/remnawave-tg-shop
-    cd remnawave-tg-shop
-    ```
+**1. Клонируйте репозиторий:**
 
-2.  **Создайте и настройте файл `.env`:**
-    Скопируйте `env.example` в `.env` и заполните своими данными.
-    ```bash
-    cp .env.example .env
-    nano .env 
-    ```
-    Ниже перечислены ключевые переменные.
+```bash
+git clone https://github.com/VAQYBIN/remnawave-tg-shop
+cd remnawave-tg-shop
+```
 
-    <details>
-    <summary><b>Основные настройки</b></summary>
+**2. Создайте файл `.env`:**
 
-    | Переменная | Описание | Пример |
-    | --- | --- | --- |
-    | `BOT_TOKEN` | **Обязательно.** Токен вашего Telegram-бота. | `1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11` |
-    | `ADMIN_IDS` | **Обязательно.** ID администраторов в Telegram через запятую. | `12345678,98765432` |
-    | `DEFAULT_LANGUAGE` | Язык по умолчанию для новых пользователей. | `ru` |
-    | `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
-    | `SUBSCRIPTION_MINI_APP_URL` | (Опционально) URL Mini App для показа подписки. | `https://t.me/your_bot/app` |
-    | `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
-    | `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE` | Включить/выключить обязательную проверку подписки на канал (`true`/`false`). | `false` |
-    | `REQUIRED_CHANNEL_ID` | ID канала для проверки подписки. Используется, только если `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE=true`. | `-1001234567890` |
-    | `REQUIRED_CHANNEL_LINK` | (Опционально) Публичная ссылка или invite на канал для кнопки «Проверить подписку». | `https://t.me/your_channel` |
-    | `REFERRAL_ENABLED` | Включить/выключить реферальную систему полностью (`true`/`false`). | `true` |
-    </details>
+```bash
+cp .env.example .env
+nano .env
+```
 
-    <details>
-    <summary><b>Настройки платежей и вебхуков</b></summary>
+Обязательные поля для заполнения:
 
-    | Переменная | Описание |
-    | --- | --- |
-    | `WEBHOOK_BASE_URL`| **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
-    | `TELEGRAM_WEBHOOK_PATH` | Относительный путь Telegram вебхука. По умолчанию `/webhook/telegram`. |
-    | `TELEGRAM_WEBHOOK_SECRET` | (Рекомендуется) Секрет для проверки заголовка `X-Telegram-Bot-Api-Secret-Token`. |
-    | `WEB_SERVER_HOST` | Хост для веб-сервера. По умолчанию `0.0.0.0`. | `0.0.0.0` |
-    | `WEB_SERVER_PORT` | Порт для веб-сервера. | `8080` |
-    | `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
-    | `YOOKASSA_ENABLED` | Включить/выключить YooKassa (`true`/`false`). |
-    | `YOOKASSA_SHOP_ID` | ID вашего магазина в YooKassa. |
-    | `YOOKASSA_SECRET_KEY`| Секретный ключ магазина YooKassa. |
-    | `YOOKASSA_TAX_SYSTEM_CODE` | (Опционально) Код СНО для чеков YooKassa (`1-6` по 54-ФЗ: ОСН, УСН доход, УСН доход-расход, ЕНВД, ЕСХН, ПСН). Передавайте только если ваша онлайн-касса требует `tax_system_code`; иначе параметр будет пропущен. |
-    | `YOOKASSA_PAYMENT_MODE` | (Опционально) Переопределяет `receipt.items[].payment_mode` для YooKassa. Если не задано, используется `full_prepayment` для обычных платежей и `full_payment` при `YOOKASSA_AUTOPAYMENTS_ENABLED=true`. |
-    | `YOOKASSA_PAYMENT_SUBJECT` | (Опционально) Переопределяет `receipt.items[].payment_subject` для YooKassa. Если не задано, используется `payment` для обычных платежей и `service` при `YOOKASSA_AUTOPAYMENTS_ENABLED=true`. |
-    | `YOOKASSA_AUTOPAYMENTS_ENABLED` | Включить автопродление (сохранение карт, автосписания, управление способами оплаты). |
-    | `YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING` | Требовать обязательную привязку карты при оплате с автосписанием. Установите `false`, чтобы пользователю показывался чекбокс «Сохранить карту». |
-    | `NALOGO_INN` | ИНН для авторизации в nalog.ru (самозанятый). |
-    | `NALOGO_PASSWORD` | Пароль для авторизации в nalog.ru (самозанятый). |
-    | `CRYPTOPAY_ENABLED` | Включить/выключить CryptoPay (`true`/`false`). |
-    | `CRYPTOPAY_TOKEN` | Токен из вашего CryptoPay App. |
-    | `FREEKASSA_ENABLED` | Включить/выключить FreeKassa (`true`/`false`). |
-    | `FREEKASSA_MERCHANT_ID` | ID вашего магазина в FreeKassa. |
-    | `FREEKASSA_API_KEY` | API-ключ для запросов к FreeKassa REST API. |
-    | `FREEKASSA_SECOND_SECRET` | Секретное слово №2 — используется для проверки уведомлений от FreeKassa. |
-    | `FREEKASSA_PAYMENT_URL` | (Опционально, legacy SCI) Базовый URL платёжной формы FreeKassa. По умолчанию `https://pay.freekassa.ru/`. |
-    | `FREEKASSA_PAYMENT_IP` | Внешний IP вашего сервера, который будет передаваться в запрос оплаты. |
-    | `FREEKASSA_PAYMENT_METHOD_ID` | ID метода оплаты через магазин FreeKassa. По умолчанию `44`. |
-    | `STARS_ENABLED` | Включить/выключить Telegram Stars (`true`/`false`). |
-    | `STARS_PROVIDER_TOKEN` | Токен провайдера Telegram invoice. Для Stars (XTR) оставить пустым. |
-    | `PLATEGA_ENABLED` | Включить/выключить Platega (`true`/`false`). |
-    | `PLATEGA_MERCHANT_ID` | MerchantId из личного кабинета Platega. |
-    | `PLATEGA_SECRET` | API секрет для запросов Platega. |
-    | `PLATEGA_PAYMENT_METHOD` | ID способа оплаты (2 — SBP QR, 10 — РФ карты, 12 — международные карты, 13 — crypto). |
-    | `PLATEGA_RETURN_URL` | (Опционально) URL редиректа после успешной оплаты. По умолчанию ссылка на бота. |
-    | `PLATEGA_FAILED_URL` | (Опционально) URL редиректа при ошибке/отмене. По умолчанию как `PLATEGA_RETURN_URL`. |
-    | `SEVERPAY_ENABLED` | Включить/выключить SeverPay (`true`/`false`). |
-    | `SEVERPAY_MID` | MID магазина в SeverPay. |
-    | `SEVERPAY_TOKEN` | Секрет/токен для подписи запросов SeverPay. |
-    | `SEVERPAY_BASE_URL` | (Опционально) Базовый URL API SeverPay. По умолчанию `https://severpay.io/api/merchant`. |
-    | `SEVERPAY_RETURN_URL` | (Опционально) URL редиректа после оплаты (по умолчанию ссылка на бота). |
-    | `SEVERPAY_LIFETIME_MINUTES` | (Опционально) Время жизни платежной ссылки в минутах (30–4320). |
-    </details>
+| Переменная | Описание |
+|-----------|---------|
+| `BOT_TOKEN` | Токен вашего Telegram-бота |
+| `ADMIN_IDS` | Telegram ID администраторов (через запятую) |
+| `WEBHOOK_BASE_URL` | Базовый URL для всех вебхуков |
+| `PANEL_API_URL` | URL API Remnawave (например, `http://remnawave:3000/api`) |
+| `PANEL_API_KEY` | API-ключ из UI панели Remnawave |
+| `PANEL_WEBHOOK_SECRET` | Секрет для проверки вебхуков от панели |
+| `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
+| `WEB_JWT_SECRET` | Секрет для подписи JWT (придумайте длинную строку) |
+| `REDIS_URL` | `redis://remnawave-tg-shop-redis:6379/0` |
+| `WEB_FRONTEND_URL` | URL фронтенда, например `https://app.your-domain.com` |
+| `WEB_API_URL` | URL Web API, например `https://your-domain.com` |
+| `WEB_CORS_ORIGINS` | Разрешённые origins для CORS |
+| `BOT_USERNAME` | Username бота без `@` |
 
-    <details>
-    <summary><b>Настройки логирования</b></summary>
+**3. Запустите сервисы:**
 
-    | Переменная | Описание | Пример |
-    | --- | --- | --- |
-    | `LOGS_PAGE_SIZE` | Количество записей на странице в разделе админ-логов. | `10` |
-    | `LOG_STORE_MESSAGE_CONTENT` | Сохранять ли содержимое сообщений/колбэков в БД логов (`true`/`false`). | `false` |
-    | `LOG_STORE_RAW_UPDATES` | Сохранять ли превью сырого Telegram update в БД логов (`true`/`false`). | `false` |
-    | `LOG_EXPORT_INCLUDE_SENSITIVE` | Добавлять ли в CSV экспорт чувствительные поля (`content`, `raw_update_preview`). | `false` |
-    | `LOG_ADMIN_HIDE` | Скрывать админские события (`ADMIN_IDS`) в интерфейсе «Все логи сообщений» и в CSV экспорте (`true`/`false`). Логи продолжают записываться в БД. | `true` |
-    </details>
+```bash
+# Production (готовые образы с GHCR)
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 
-    <details>
-    <summary><b>Настройки подписок</b></summary>
+# Разработка (локальная сборка)
+docker compose up -d
+```
 
-    Для каждого периода (1, 3, 6, 12 месяцев) можно настроить доступность и цены:
-    - `1_MONTH_ENABLED`: `true` или `false`
-    - `RUB_PRICE_1_MONTH`: Цена в рублях
-    - `STARS_PRICE_1_MONTH`: Цена в Telegram Stars
-    Аналогичные переменные есть для `3_MONTHS`, `6_MONTHS`, `12_MONTHS`.
-    </details>
+**4. Настройте обратный прокси (Nginx):**
 
-    <details>
-    <summary><b>Настройки панели Remnawave</b></summary>
-    
-    | Переменная | Описание |
-    | --- | --- |
-    | `PANEL_API_URL` | URL API вашей панели Remnawave. |
-    | `PANEL_API_KEY` | API ключ для доступа к панели. |
-    | `PANEL_WEBHOOK_SECRET`| Секретный ключ для проверки вебхуков от панели. |
-    | `USER_SQUAD_UUIDS` | ID отрядов для новых пользователей. |
-    | `USER_EXTERNAL_SQUAD_UUID` | Опционально. UUID внешнего отряда (External Squad) из [документации Remnawave](https://docs.rw/api), куда автоматически добавляются новые пользователи. |
-    | `USER_TRAFFIC_LIMIT_GB`| Лимит трафика в ГБ (0 - безлимит). |
-    | `USER_HWID_DEVICE_LIMIT`| Лимит устройств (HWID) для новых пользователей (0 - безлимит). |
+В репозитории есть готовый `nginx/nginx.conf`, который обслуживает все три сервиса на одном домене.
 
-    > Раздел "Мои устройства" становится доступен пользователям только при включении `MY_DEVICES_SECTION_ENABLED`. Значение лимита устройств при создании записей в панели берётся из `USER_HWID_DEVICE_LIMIT`.
-    </details>
+```nginx
+upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
+upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
+upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
 
-    <details>
-    <summary><b>Настройки пробного периода</b></summary>
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
 
-    | Переменная | Описание |
-    | --- | --- |
-    | `TRIAL_ENABLED` | Включить/выключить пробный период (`true`/`false`). |
-    | `TRIAL_DURATION_DAYS`| Длительность пробного периода в днях. |
-    | `TRIAL_TRAFFIC_LIMIT_GB`| Лимит трафика для пробного периода в ГБ. |
-    </details>
+    # SSE (лента новостей) — без буферизации
+    location = /api/news/stream {
+        proxy_pass http://remnawave-tg-shop-web-api;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
 
-3.  **Запустите контейнеры:**
-    ```bash
-    docker compose up -d
-    ```
-    Эта команда скачает образ и запустит сервис в фоновом режиме.
+    location /api/ { proxy_pass http://remnawave-tg-shop-web-api; }
+    location /webhook/ { proxy_pass http://remnawave-tg-shop; }
+    location / { proxy_pass http://remnawave-tg-shop-web-frontend; }
+}
+```
 
-4.  **Настройка вебхуков (Обязательно):**
-    Вебхуки являются **обязательным** компонентом для работы бота, так как они используются для получения уведомлений от платежных систем (YooKassa, FreeKassa, CryptoPay, Platega, SeverPay) и панели Remnawave.
+**5. Просмотр логов:**
 
-    Вам понадобится обратный прокси (например, Nginx) для обработки HTTPS-трафика и перенаправления запросов на контейнер с ботом.
+```bash
+docker compose logs -f remnawave-tg-shop
+docker compose logs -f remnawave-tg-shop-web-api
+```
 
-    **Пути для перенаправления:**
-    -   `https://<ваш_домен>/webhook/yookassa` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/yookassa`
-    -   `https://<ваш_домен>/webhook/freekassa` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/freekassa`
-    -   `https://<ваш_домен>/webhook/platega` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/platega`
-    -   `https://<ваш_домен>/webhook/severpay` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/severpay`
-    -   `https://<ваш_домен>/webhook/cryptopay` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/cryptopay`
-    -   `https://<ваш_домен>/webhook/panel` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/panel`
-    -   **Для Telegram:** Бот автоматически установит вебхук, если в `.env` указан `WEBHOOK_BASE_URL`. Путь берётся из `TELEGRAM_WEBHOOK_PATH` (по умолчанию `https://<ваш_домен>/webhook/telegram`).
+### Миграции БД
 
-    Где `remnawave-tg-shop` — это имя сервиса из `docker-compose.yml`, а `<WEB_SERVER_PORT>` — порт, указанный в `.env`.
-
-5.  **Просмотр логов:**
-    ```bash
-    docker compose logs -f remnawave-tg-shop
-    ```
-
-    > 💡 Если включена проверка подписки (`REQUIRED_CHANNEL_SUBSCRIBE_TO_USE=true`), добавьте бота администратором в канал из `REQUIRED_CHANNEL_ID`. Пользователь увидит кнопку «Проверить подписку», и после успешного подтверждения доступ продолжится.
-
-### Миграции БД (Alembic)
-
-- При запуске `python main.py` миграции применяются автоматически до `head`.
-- Для ручного запуска используйте:
+Миграции применяются автоматически при каждом запуске. Для ручного запуска:
 
 ```bash
 alembic upgrade head
 ```
 
-## Подробная инструкция для развертывания на сервере с панелью Remnawave
+---
 
-### 1. Клонирование репозитория
+## 📋 Переменные окружения
 
-```bash
-git clone https://github.com/kavore/remnawave-tg-shop && cd remnawave-tg-shop
+<details>
+<summary><b>Основные настройки бота</b></summary>
+
+| Переменная | Описание | Пример |
+|-----------|---------|--------|
+| `BOT_TOKEN` | Токен Telegram-бота | `1234567890:ABC-DEF...` |
+| `ADMIN_IDS` | ID администраторов (через запятую) | `12345678,98765432` |
+| `DEFAULT_LANGUAGE` | Язык по умолчанию | `ru` |
+| `SUPPORT_LINK` | Ссылка на поддержку | `https://t.me/your_support` |
+| `SUBSCRIPTION_MINI_APP_URL` | URL Mini App | `https://t.me/your_bot/app` |
+| `MY_DEVICES_SECTION_ENABLED` | Раздел «Мои устройства» | `false` |
+| `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE` | Обязательная подписка на канал | `false` |
+| `REFERRAL_ENABLED` | Реферальная система | `true` |
+| `TRIAL_ENABLED` | Пробный период | `true` |
+| `TRIAL_DURATION_DAYS` | Длительность пробного периода (дней) | `5` |
+
+</details>
+
+<details>
+<summary><b>Webhook и сеть</b></summary>
+
+| Переменная | Описание |
+|-----------|---------|
+| `WEBHOOK_BASE_URL` | Базовый URL для вебхуков (`https://your-domain.com`) |
+| `TELEGRAM_WEBHOOK_PATH` | Путь Telegram-вебхука (по умолчанию `/webhook/telegram`) |
+| `TELEGRAM_WEBHOOK_SECRET` | Секрет заголовка `X-Telegram-Bot-Api-Secret-Token` |
+| `WEB_SERVER_HOST` | Хост веб-сервера бота (по умолчанию `0.0.0.0`) |
+| `WEB_SERVER_PORT` | Порт веб-сервера бота (по умолчанию `8080`) |
+
+</details>
+
+<details>
+<summary><b>Платёжные системы</b></summary>
+
+| Переменная | Описание |
+|-----------|---------|
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты (через запятую): `severpay,yookassa,cryptopay,freekassa,platega,stars` |
+| `YOOKASSA_ENABLED` | Включить YooKassa |
+| `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` | Данные магазина YooKassa |
+| `YOOKASSA_AUTOPAYMENTS_ENABLED` | Автопродление через YooKassa |
+| `YOOKASSA_TAX_SYSTEM_CODE` | Код СНО для чеков (1–6) |
+| `FREEKASSA_ENABLED` | Включить FreeKassa |
+| `FREEKASSA_MERCHANT_ID` / `FREEKASSA_API_KEY` / `FREEKASSA_SECOND_SECRET` | Данные магазина FreeKassa |
+| `CRYPTOPAY_ENABLED` | Включить CryptoPay |
+| `CRYPTOPAY_TOKEN` | API-токен CryptoPay |
+| `PLATEGA_ENABLED` | Включить Platega |
+| `PLATEGA_MERCHANT_ID` / `PLATEGA_SECRET` | Данные магазина Platega |
+| `SEVERPAY_ENABLED` | Включить SeverPay |
+| `SEVERPAY_MID` / `SEVERPAY_TOKEN` | Данные магазина SeverPay |
+| `STARS_ENABLED` | Включить Telegram Stars |
+| `NALOGO_INN` / `NALOGO_PASSWORD` | Самозанятый: интеграция с nalog.ru |
+
+</details>
+
+<details>
+<summary><b>Тарифные планы</b></summary>
+
+```env
+1_MONTH_ENABLED=true
+RUB_PRICE_1_MONTH=150
+STARS_PRICE_1_MONTH=0
+
+3_MONTHS_ENABLED=true
+RUB_PRICE_3_MONTHS=300
+
+6_MONTHS_ENABLED=true
+RUB_PRICE_6_MONTHS=500
+
+12_MONTHS_ENABLED=true
+RUB_PRICE_12_MONTHS=900
+
+# Пакеты трафика (опционально)
+TRAFFIC_PACKAGES=10:199,50:799
 ```
 
-### 2. Настройка переменных окружения
+> Цены и планы можно управлять через веб-панель администратора — настройки из БД имеют приоритет над `.env`.
 
-```bash
-cp .env.example .env && nano .env
-```
+</details>
 
-**Обязательные поля для заполнения:**
-- `BOT_TOKEN` - токен телеграмм бота, например, `234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`
-- `ADMIN_IDS` - TG ID администраторов, например, `12345678,98765432` и т.д. (через запятую без пробелов)
-- `WEBHOOK_BASE_URL` - Обязательно. Базовый URL для вебхуков, например `https://webhook.domain.com`
-- `PANEL_API_URL` - URL API вашей панели Remnawave (например, `http://remnawave:3000/api` или `https://panel.domain.com/api`)
-- `PANEL_API_KEY` - API ключ для доступа к панели (генерируется из UI-интерфейса панели)
-- `PANEL_WEBHOOK_SECRET` - Секретный ключ для проверки вебхуков от панели (берётся из `.env` самой панели)
-- `USER_SQUAD_UUIDS` - ID отрядов для новых пользователей
+<details>
+<summary><b>Remnawave Panel</b></summary>
 
-### 3. Настройка Reverse Proxy (Nginx)
+| Переменная | Описание |
+|-----------|---------|
+| `PANEL_API_URL` | URL API панели (`http://remnawave:3000/api`) |
+| `PANEL_API_KEY` | API-ключ из UI панели |
+| `PANEL_WEBHOOK_SECRET` | Секрет для проверки вебхуков |
+| `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
+| `USER_EXTERNAL_SQUAD_UUID` | UUID External Squad (опционально) |
+| `USER_TRAFFIC_LIMIT_GB` | Лимит трафика (0 = безлимит) |
+| `USER_HWID_DEVICE_LIMIT` | Лимит устройств HWID (0 = безлимит) |
 
-Перейдите в директорию конфигурации Nginx панели Remnawave:
+</details>
 
-```bash
-cd /opt/remnawave/nginx && nano nginx.conf
-```
+<details>
+<summary><b>Веб-дашборд</b></summary>
 
-Добавьте в `nginx.conf` следующую конфигурацию:
+| Переменная | Описание |
+|-----------|---------|
+| `WEB_JWT_SECRET` | Секрет для JWT (обязательно, длинная случайная строка) |
+| `WEB_JWT_ACCESS_EXPIRE_MINUTES` | Время жизни access-токена (по умолчанию `15`) |
+| `WEB_JWT_REFRESH_EXPIRE_DAYS` | Время жизни refresh-токена (по умолчанию `7`) |
+| `REDIS_URL` | URL Redis (`redis://remnawave-tg-shop-redis:6379/0`) |
+| `RESEND_API_KEY` | API-ключ Resend для отправки email |
+| `RESEND_FROM_EMAIL` | Email отправителя |
+| `WEB_FRONTEND_URL` | URL фронтенда (`https://app.your-domain.com`) |
+| `WEB_API_URL` | URL Web API (`https://your-domain.com`) |
+| `WEB_CORS_ORIGINS` | Разрешённые CORS origins |
+| `NEWS_CHANNEL_ID` | ID Telegram-канала для ленты новостей |
+| `BOT_USERNAME` | Username бота без `@` |
+| `WEB_DOCS_ENABLED` | Включить Swagger/ReDoc (только для разработки) |
 
-```nginx
-upstream remnawave-tg-shop {
-    server remnawave-tg-shop:8080;
-}
+</details>
 
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    "" close;
-}
+<details>
+<summary><b>Логирование и уведомления</b></summary>
 
-server {
-    server_name webhook.domain.com; # Домен для отправки Webhook'ов
-    listen 443 ssl;
-    http2 on;
+| Переменная | Описание |
+|-----------|---------|
+| `LOG_CHAT_ID` | ID чата для уведомлений администратора |
+| `LOG_THREAD_ID` | ID топика в супергруппе |
+| `LOG_NEW_USERS` | Логировать новых пользователей |
+| `LOG_PAYMENTS` | Логировать платежи |
+| `LOG_PROMO_ACTIVATIONS` | Логировать активации промокодов |
+| `LOG_TRIAL_ACTIVATIONS` | Логировать пробные периоды |
+| `LOG_STORE_MESSAGE_CONTENT` | Сохранять тексты сообщений в БД |
+| `LOG_ADMIN_HIDE` | Скрывать действия админов в UI логов |
+| `LOGS_PAGE_SIZE` | Записей на странице логов |
 
-    ssl_certificate "/etc/nginx/ssl/webhook_fullchain.pem";
-    ssl_certificate_key "/etc/nginx/ssl/webhook_privkey.key";
-    ssl_trusted_certificate "/etc/nginx/ssl/webhook_fullchain.pem";
+</details>
 
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header X-Forwarded-Port $server_port;
-    proxy_send_timeout 60s;
-    proxy_read_timeout 60s;
-    proxy_intercept_errors on;
-    error_page 400 404 500 502 @redirect;
-
-    location / {
-        proxy_pass http://remnawave-tg-shop$request_uri;
-    }
-
-    location @redirect {
-        return 404;
-    }
-}
-```
-
-### 4. Выпуск SSL-сертификата для домена webhook
-
-Убедитесь, что установлены необходимые компоненты, а также откройте 80 порт:
-
-```bash
-sudo apt-get install cron socat
-curl https://get.acme.sh | sh -s email=EMAIL && source ~/.bashrc
-ufw allow 80/tcp && ufw reload
-```
-
-Выпустите сертификат:
-
-```bash
-acme.sh --set-default-ca --server letsencrypt
-acme.sh --issue --standalone -d 'webhook.domain.com' \
-  --key-file /opt/remnawave/nginx/webhook_privkey.key \
-  --fullchain-file /opt/remnawave/nginx/webhook_fullchain.pem
-```
-
-### 5. Добавление сертификатов в Docker Compose Nginx
-
-Отредактируйте `docker-compose.yml` панели Nginx:
-
-```bash
-cd /opt/remnawave/nginx && nano docker-compose.yml
-```
-
-Добавьте две строки в секцию `volumes`:
-
-```yaml
-services:
-    remnawave-nginx:
-        image: nginx:1.26
-        container_name: remnawave-nginx
-        hostname: remnawave-nginx
-        volumes:
-            - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-            - ./fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
-            - ./privkey.key:/etc/nginx/ssl/privkey.key:ro
-            - ./subdomain_fullchain.pem:/etc/nginx/ssl/subdomain_fullchain.pem:ro
-            - ./subdomain_privkey.key:/etc/nginx/ssl/subdomain_privkey.key:ro
-            - ./webhook_fullchain.pem:/etc/nginx/ssl/webhook_fullchain.pem:ro     # Добавьте эту строку
-            - ./webhook_privkey.key:/etc/nginx/ssl/webhook_privkey.key:ro         # Добавьте эту строку
-        restart: always
-        ports:
-            - '0.0.0.0:443:443'
-        networks:
-            - remnawave-network
-
-networks:
-    remnawave-network:
-        name: remnawave-network
-        driver: bridge
-        external: true
-```
-
-### 6. Запуск бота и перезапуск Nginx
-
-Запустите бота:
-
-```bash
-cd /root/remnawave-tg-shop && docker compose up -d && docker compose logs -f -t
-```
-
-Перезапустите Nginx:
-
-```bash
-cd /opt/remnawave/nginx && docker compose down && docker compose up -d && docker compose logs -f -t
-```
-
-## 🐳 Docker
-
-Файлы `Dockerfile` и `docker-compose.yml` уже настроены для сборки и запуска проекта. `docker-compose.yml` использует готовый образ с GitHub Container Registry, но вы можете раскомментировать `build: .` для локальной сборки.
-
-Для автоматической публикации образов настроены GitHub Actions (`.github/workflows`). По умолчанию образы пушатся в GitHub Container Registry и Docker Hub. Добавьте в Secrets репозитория значения `DOCKERHUB_USERNAME` и `DOCKERHUB_TOKEN` (персональный access token или пароль для Docker Hub), чтобы загрузка в Docker Hub работала корректно.
+---
 
 ## 📁 Структура проекта
 
 ```
-.
-├── bot/
-│   ├── filters/          # Пользовательские фильтры Aiogram
-│   ├── handlers/         # Обработчики сообщений и колбэков
-│   ├── keyboards/        # Клавиатуры
-│   ├── middlewares/      # Промежуточные слои (i18n, проверка бана)
-│   ├── services/         # Бизнес-логика (платежи, API панели)
-│   ├── states/           # Состояния FSM
-│   └── main_bot.py       # Основная логика бота
-├── config/
-│   └── settings.py       # Настройки Pydantic
+remnawave-tg-shop/
+├── bot/                        # Telegram-бот (Aiogram)
+│   ├── handlers/               # Хендлеры сообщений и callback
+│   │   ├── user/               # Пользовательские хендлеры
+│   │   ├── admin/              # Административные хендлеры
+│   │   └── channel_posts.py    # Захват постов канала → Redis
+│   ├── services/               # Платёжные сервисы и интеграции
+│   ├── middlewares/            # i18n, db_session, ban_check, profile_sync
+│   └── main_bot.py
+│
+├── core/                       # Общая бизнес-логика (бот + веб)
+│   ├── dal/                    # Data Access Layer
+│   └── services/               # Core Services (panel_client, payment_core, ...)
+│
+├── web/                        # FastAPI Web API
+│   ├── auth/                   # JWT, Telegram HMAC, bcrypt, email
+│   ├── routers/                # Эндпоинты
+│   │   ├── admin/              # /api/admin/* (13 роутеров)
+│   │   └── ...                 # subscription, payment, profile, news, ...
+│   └── schemas/                # Pydantic v2 схемы
+│
+├── frontend/                   # React SPA (Vite)
+│   └── src/
+│       ├── pages/              # Страницы дашборда и админки
+│       ├── components/         # UI-компоненты
+│       ├── api/                # HTTP-клиент с JWT auto-refresh
+│       └── i18n/               # ru.json, en.json
+│
 ├── db/
-│   ├── dal/              # Слой доступа к данным (DAL)
-│   ├── database_setup.py # Настройка БД
-│   └── models.py         # Модели SQLAlchemy
-├── locales/              # Файлы локализации (ru, en)
-├── .env.example          # Пример файла с переменными окружения
-├── Dockerfile            # Инструкции для сборки Docker-образа
-├── docker-compose.yml    # Файл для оркестрации контейнеров
-├── requirements.txt      # Зависимости Python
-└── main.py               # Точка входа в приложение
+│   ├── models.py               # SQLAlchemy ORM-модели
+│   └── dal/                    # Re-export из core/dal/ (обратная совместимость)
+│
+├── config/settings.py          # Pydantic Settings (единый источник конфига)
+├── nginx/nginx.conf            # Готовый конфиг Nginx для single-domain деплоя
+├── docker-compose.yml          # Локальная разработка (с локальной сборкой)
+├── docker-compose.prod.yml     # Production (готовые образы с GHCR)
+└── .env.example
 ```
 
-## 🔮 Планы на будущее
+---
 
--   Расширенные типы промокодов (например, скидки в процентах).
+## 🐳 Docker-образы
 
-## ❤️ Поддержка
-- Карты РФ и зарубежные: [Tribute](https://t.me/tribute/app?startapp=dqdg)
-- Crypto: `USDT TRC-20 TT3SqBbfU4vYm6SUwUVNZsy278m2xbM4GE`
+Production-образы публикуются в GitHub Container Registry автоматически при пуше в `main`:
+
+| Образ | Описание |
+|-------|---------|
+| `ghcr.io/vaqybin/remnawave-tg-shop:latest` | Telegram-бот |
+| `ghcr.io/vaqybin/remnawave-tg-shop-web-api:latest` | FastAPI Web API |
+| `ghcr.io/vaqybin/remnawave-tg-shop-web-frontend:latest` | React SPA (nginx) |
+
+---
+
+## 🔗 API-эндпоинты (краткий справочник)
+
+<details>
+<summary><b>Auth /api/auth/</b></summary>
+
+| Метод | Путь | Описание |
+|-------|------|---------|
+| POST | `/auth/telegram` | Вход через Telegram Widget |
+| POST | `/auth/register/send-code` | Регистрация: отправить код на email |
+| POST | `/auth/register/verify` | Регистрация: подтвердить код |
+| POST | `/auth/login` | Вход по email + пароль |
+| POST | `/auth/password/send-reset-code` | Сброс пароля: отправить код |
+| POST | `/auth/password/reset` | Сброс пароля: подтвердить |
+| POST | `/auth/refresh` | Обновить access-токен |
+| POST | `/auth/logout` | Выход |
+
+</details>
+
+<details>
+<summary><b>Пользовательские эндпоинты</b></summary>
+
+| Метод | Путь | Описание |
+|-------|------|---------|
+| GET/PATCH | `/api/profile` | Профиль |
+| GET | `/api/subscription` | Активная подписка |
+| GET | `/api/subscription/plans` | Доступные тарифы |
+| GET | `/api/subscription/connection` | Ссылка на конфиг |
+| PATCH | `/api/subscription/auto-renew` | Автопродление |
+| GET | `/api/payments` | История платежей |
+| POST | `/api/payments/create` | Создать платёж |
+| GET | `/api/payments/{id}/status` | Статус платежа |
+| POST | `/api/promo/apply` | Применить промокод |
+| GET | `/api/referral` | Реферальная статистика |
+| GET/DELETE | `/api/devices` | Список устройств / отключить |
+| GET | `/api/news` | Лента новостей |
+| GET | `/api/news/stream` | SSE real-time поток |
+
+</details>
+
+<details>
+<summary><b>Admin /api/admin/</b></summary>
+
+| Метод | Путь | Описание |
+|-------|------|---------|
+| GET | `/admin/me` | Проверка прав |
+| GET | `/admin/dashboard` | Сводная статистика |
+| GET/PATCH | `/admin/branding` | Настройки бренда |
+| POST | `/admin/branding/logo` | Загрузка логотипа |
+| GET/PATCH | `/admin/features` | Вкл/выкл разделов |
+| GET/POST/PATCH/DELETE | `/admin/plans` | Тарифные планы |
+| GET/PATCH | `/admin/payment-providers` | Платёжные провайдеры |
+| GET | `/admin/users` | Список пользователей |
+| GET | `/admin/users/{id}` | Детали пользователя |
+| POST | `/admin/users/{id}/ban` | Забанить |
+| POST | `/admin/users/{id}/unban` | Разбанить |
+| POST | `/admin/users/{id}/add-days` | Добавить дни |
+| POST | `/admin/users/{id}/add-traffic` | Добавить трафик |
+| GET | `/admin/payments` | Список платежей |
+| GET | `/admin/payments/stats` | Статистика дохода |
+| GET/POST/PATCH/DELETE | `/admin/promos` | Промокоды |
+| POST | `/admin/broadcast` | Рассылка |
+| GET | `/admin/broadcast/status/{id}` | Статус рассылки |
+| GET | `/admin/panel/stats` | CPU/RAM/users Remnawave |
+| GET | `/admin/panel/nodes` | Список нод |
+| POST | `/admin/panel/nodes/{uuid}/enable\|disable\|restart` | Управление нодой |
+| POST | `/admin/panel/nodes/restart-all` | Рестарт всех нод |
+| GET | `/admin/panel/users` | Пользователи панели |
+
+</details>
+
+---
+
+## 🔧 Разработка
+
+```bash
+# Установка зависимостей бота
+pip install -r requirements.txt
+
+# Установка зависимостей Web API
+pip install -r web/requirements.txt
+
+# Фронтенд
+cd frontend
+npm install
+npm run dev      # разработка → localhost:5173
+npm run build    # production build
+
+# Миграции
+alembic upgrade head
+alembic revision --autogenerate -m "описание"
+
+# Запуск бота без Docker
+python main.py
+```
+
+---
+
+## 📜 Вебхуки платёжных систем
+
+| Путь | Провайдер |
+|------|---------|
+| `/webhook/telegram` | Telegram |
+| `/webhook/yookassa` | YooKassa |
+| `/webhook/freekassa` | FreeKassa |
+| `/webhook/cryptopay` | CryptoPay |
+| `/webhook/platega` | Platega |
+| `/webhook/severpay` | SeverPay |
+| `/webhook/panel` | Remnawave Panel |
+
+---
+
+## ❤️ Благодарности
+
+Проект основан на [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop).
