@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List, Tuple
 from aiogram import Bot
 from bot.middlewares.i18n import JsonI18n
 
-from db.dal import user_dal, subscription_dal, promo_code_dal, payment_dal, user_billing_dal, active_discount_dal
+from db.dal import user_dal, subscription_dal, promo_code_dal, user_billing_dal, payment_dal
 from bot.utils.date_utils import add_months
 from bot.utils.config_link import prepare_config_links
 from db.models import User, Subscription
@@ -82,24 +82,50 @@ class SubscriptionService:
             return None, None, None, False
 
         current_local_panel_uuid = db_user.panel_user_uuid
-        panel_username_on_panel_standard = f"tg_{user_id}"
+        is_site_user = user_id < 0
+        panel_username_on_panel_standard = f"web_{abs(user_id)}" if is_site_user else f"tg_{user_id}"
+        site_email = None
+        if is_site_user:
+            try:
+                from core.dal.account_dal import get_account_by_site_user_id
+
+                site_account = await get_account_by_site_user_id(session, user_id)
+                site_email = site_account.email if site_account else None
+            except Exception:
+                logging.exception("Failed to resolve site account for web-only user %s", user_id)
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
 
-        panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
-            telegram_id=user_id
-        )
-        if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
-            panel_user_obj_from_api = panel_users_by_tg_id_list[0]
-            logging.info(
-                f"Found panel user by telegramId {user_id}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+        if is_site_user and site_email:
+            panel_users_by_email_list = await self.panel_service.get_users_by_filter(
+                email=site_email
             )
-        elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
-            logging.error(
-                f"CRITICAL: Multiple panel users found for telegramId {user_id}. Manual intervention needed."
+            if panel_users_by_email_list and len(panel_users_by_email_list) == 1:
+                panel_user_obj_from_api = panel_users_by_email_list[0]
+                logging.info(
+                    f"Found panel user by email for web-only user {user_id}: UUID {panel_user_obj_from_api.get('uuid')}"
+                )
+            elif panel_users_by_email_list and len(panel_users_by_email_list) > 1:
+                logging.error(
+                    f"CRITICAL: Multiple panel users found for web-only email of user {user_id}. Manual intervention needed."
+                )
+                return None, None, None, False
+
+        if not is_site_user:
+            panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
+                telegram_id=user_id
             )
-            return None, None, None, False
+            if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
+                panel_user_obj_from_api = panel_users_by_tg_id_list[0]
+                logging.info(
+                    f"Found panel user by telegramId {user_id}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+                )
+            elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
+                logging.error(
+                    f"CRITICAL: Multiple panel users found for telegramId {user_id}. Manual intervention needed."
+                )
+                return None, None, None, False
 
         if not panel_user_obj_from_api:
             if current_local_panel_uuid:
@@ -119,7 +145,8 @@ class SubscriptionService:
                     )
                     creation_response = await self.panel_service.create_panel_user(
                         username_on_panel=panel_username_on_panel_standard,
-                        telegram_id=user_id,
+                        telegram_id=None if is_site_user else user_id,
+                        email=site_email if is_site_user else None,
                         description="\n".join([
                             (db_user.username or "") if db_user else "",
                             (db_user.first_name or "") if db_user else "",
@@ -148,7 +175,8 @@ class SubscriptionService:
                 )
                 creation_response = await self.panel_service.create_panel_user(
                     username_on_panel=panel_username_on_panel_standard,
-                    telegram_id=user_id,
+                    telegram_id=None if is_site_user else user_id,
+                    email=site_email if is_site_user else None,
                     description="\n".join([
                         (db_user.username or "") if db_user else "",
                         (db_user.first_name or "") if db_user else "",
@@ -266,6 +294,7 @@ class SubscriptionService:
         if (
             panel_user_obj_from_api
             and current_local_panel_uuid
+            and not is_site_user
             and panel_telegram_id_int != user_id
         ):
             logging.info(
@@ -604,7 +633,7 @@ class SubscriptionService:
                 and promo_model.is_active
                 and promo_model.current_activations < promo_model.max_activations
             ):
-                applied_promo_bonus_days = promo_model.bonus_days
+                applied_promo_bonus_days = promo_model.bonus_days or 0
                 duration_days_total += applied_promo_bonus_days
 
                 activation = await promo_code_dal.record_promo_activation(
@@ -615,7 +644,7 @@ class SubscriptionService:
                 )
                 if activation:
                     await promo_code_dal.increment_promo_code_usage(
-                        session, promo_code_id_from_payment
+                        session, promo_code_id_from_payment, allow_overflow=True
                     )
                 else:
                     logging.warning(
@@ -649,7 +678,7 @@ class SubscriptionService:
             "status_from_panel": "ACTIVE",
             "traffic_limit_bytes": self.settings.user_traffic_limit_bytes,
             "provider": provider,
-            "skip_notifications": False,
+            "skip_notifications": user_id < 0,
             "auto_renew_enabled": auto_renew_should_enable,
         }
         try:
@@ -691,33 +720,20 @@ class SubscriptionService:
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
         final_panel_short_uuid = updated_panel_user.get("shortUuid", panel_short_uuid)
 
-        # NEW: Consume discount promo code if payment had one
+        # Consume discount promo code if payment had one
         try:
-            payment_record = await payment_dal.get_payment_by_db_id(session, payment_db_id)
-            if payment_record and payment_record.discount_applied:
-                # This payment had a discount applied - consume it
-                active_discount = await active_discount_dal.get_active_discount(session, user_id)
-                if active_discount:
-                    # Record promo activation
-                    await promo_code_dal.record_promo_activation(
-                        session,
-                        active_discount.promo_code_id,
-                        user_id,
-                        payment_id=payment_db_id
-                    )
-                    # Increment usage
-                    await promo_code_dal.increment_promo_code_usage(
-                        session,
-                        active_discount.promo_code_id
-                    )
-                    # Clear active discount
-                    await active_discount_dal.clear_active_discount(session, user_id)
-                    logging.info(
-                        f"Discount consumed for user {user_id}, promo {active_discount.promo_code_id}, "
-                        f"payment {payment_db_id}"
-                    )
+            promo_code_service = getattr(self, "promo_code_service", None)
+            if not promo_code_service:
+                from .promo_code_service import PromoCodeService
+
+                promo_code_service = PromoCodeService(
+                    self.settings, self, self.bot, self.i18n
+                )
+            await promo_code_service.consume_discount(session, user_id, payment_db_id)
         except Exception as e:
-            logging.error(f"Failed to consume discount for user {user_id}, payment {payment_db_id}: {e}")
+            logging.error(
+                f"Failed to consume discount for user {user_id}, payment {payment_db_id}: {e}"
+            )
             # Don't fail the subscription activation if discount consumption fails
 
         return {
@@ -1020,15 +1036,30 @@ class SubscriptionService:
             logging.error(f"Auto-renew price missing for {months} months")
             return False
 
+        payment_description = f"Auto-renewal for {months} months"
+        payment_record = await payment_dal.create_payment_record(
+            session,
+            {
+                "user_id": sub.user_id,
+                "amount": float(amount),
+                "currency": "RUB",
+                "status": "pending_yookassa",
+                "description": payment_description,
+                "subscription_duration_months": int(months),
+                "provider": "yookassa",
+            },
+        )
+
         metadata = {
             "user_id": str(sub.user_id),
             "auto_renew_for_subscription_id": str(sub.subscription_id),
             "subscription_months": str(months),
+            "payment_db_id": str(payment_record.payment_id),
         }
         resp = await yk.create_payment(
             amount=float(amount),
             currency="RUB",
-            description=f"Auto-renewal for {months} months",
+            description=payment_description,
             metadata=metadata,
             payment_method_id=default_pm.provider_payment_method_id,
             save_payment_method=False,
@@ -1037,6 +1068,14 @@ class SubscriptionService:
         if not resp or resp.get("status") not in {"pending", "waiting_for_capture", "succeeded"}:
             logging.error(f"Auto-renew create_payment failed: {resp}")
             return False
+        provider_payment_id = resp.get("id")
+        if provider_payment_id:
+            await payment_dal.update_provider_payment_and_status(
+                session,
+                payment_db_id=payment_record.payment_id,
+                provider_payment_id=provider_payment_id,
+                new_status="pending_yookassa",
+            )
         logging.info(f"Auto-renew initiated for user {sub.user_id} payment_id={resp.get('id')}")
         return True
 

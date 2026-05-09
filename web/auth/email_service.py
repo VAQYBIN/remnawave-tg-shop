@@ -1,0 +1,95 @@
+import logging
+from typing import Optional
+
+import resend
+
+logger = logging.getLogger(__name__)
+
+PURPOSE_SUBJECTS = {
+    "register": "Код подтверждения регистрации — Raccoonito",
+    "reset_password": "Код сброса пароля — Raccoonito",
+    "change_email": "Код подтверждения смены email — Raccoonito",
+    "link_email": "Код привязки email — Raccoonito",
+}
+
+PURPOSE_BODIES = {
+    "register": "Ваш код для завершения регистрации",
+    "reset_password": "Ваш код для сброса пароля",
+    "change_email": "Ваш код для подтверждения смены email",
+    "link_email": "Ваш код для привязки email к аккаунту Raccoonito",
+}
+
+
+def _build_html(purpose: str, code: str) -> str:
+    body_text = PURPOSE_BODIES.get(purpose, "Ваш код подтверждения")
+    return f"""
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#F5F1ED;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F5F1ED;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background-color:#2AACDF;padding:24px 32px;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Raccoonito</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;color:#2B2B2B;font-size:16px;">{body_text}:</p>
+              <div style="background:#F5F1ED;border-radius:8px;padding:20px;text-align:center;margin:0 0 24px;">
+                <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#2AACDF;">{code}</span>
+              </div>
+              <p style="margin:0;color:#897569;font-size:14px;">Код действителен 10 минут. Не передавайте его никому.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px;border-top:1px solid #EDE9E5;">
+              <p style="margin:0;color:#897569;font-size:12px;text-align:center;">
+                Если вы не запрашивали этот код, проигнорируйте письмо.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+
+async def send_verification_code(
+    email: str,
+    code: str,
+    purpose: str,
+    api_key: str,
+    from_email: str,
+) -> bool:
+    """
+    Send verification code via Resend.
+    Returns True on success, False on failure.
+    """
+    try:
+        resend.api_key = api_key
+        subject = PURPOSE_SUBJECTS.get(purpose, "Код подтверждения — Raccoonito")
+        html = _build_html(purpose, code)
+
+        params: resend.Emails.SendParams = {
+            "from": from_email,
+            "to": [email],
+            "subject": subject,
+            "html": html,
+        }
+        resend.Emails.send(params)
+        logger.info("Verification email sent to %s for purpose=%s", email, purpose)
+        return True
+    except Exception as exc:
+        logger.error("Failed to send email to %s: %s", email, exc)
+        return False

@@ -1,5 +1,13 @@
 # Telegram-бот для продажи подписок Remnawave
 
+> **Публичный архив.** Этот проект больше не поддерживается — банально нет времени и сил на его поддержку. Последняя версия панели, на которой проверена работа бота — **Remnawave 2.6.4**.
+>
+> Рекомендую переходить на [@rwp_shop_bot](https://t.me/rwp_shop_bot) — по промокоду **MACHKA** скидка 10%.
+>
+> Позже здесь появится ссылка на самый активный форк этого проекта — используйте его, если хотите self-hosted решение.
+
+---
+
 Этот Telegram-бот предназначен для автоматизации продажи и управления подписками для панели **Remnawave**. Он интегрируется с API Remnawave для управления пользователями и подписками, а также использует различные платежные системы для приема платежей.
 
 ## ✨ Ключевые возможности
@@ -28,6 +36,7 @@
 -   **Aiogram 3.x:** Асинхронный фреймворк для Telegram ботов.
 -   **aiohttp:** Для запуска веб-сервера (вебхуки).
 -   **SQLAlchemy 2.x & asyncpg:** Асинхронная работа с базой данных PostgreSQL.
+-   **Alembic:** Миграции схемы базы данных.
 -   **YooKassa, FreeKassa API, Platega, SeverPay, aiocryptopay:** Интеграции с платежными системами.
 -   **Pydantic:** Для управления настройками из `.env` файла.
 -   **Docker & Docker Compose:** Для контейнеризации и развертывания.
@@ -68,8 +77,10 @@
     | `SUPPORT_LINK` | (Опционально) Ссылка на поддержку. | `https://t.me/your_support` |
     | `SUBSCRIPTION_MINI_APP_URL` | (Опционально) URL Mini App для показа подписки. | `https://t.me/your_bot/app` |
     | `MY_DEVICES_SECTION_ENABLED` | Включить раздел «Мои устройства» в меню подписки (`true`/`false`). | `false` |
-    | `REQUIRED_CHANNEL_ID` | (Опционально) ID канала, на который пользователь должен подписаться перед использованием. Оставьте пустым, если проверка не нужна. | `-1001234567890` |
+    | `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE` | Включить/выключить обязательную проверку подписки на канал (`true`/`false`). | `false` |
+    | `REQUIRED_CHANNEL_ID` | ID канала для проверки подписки. Используется, только если `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE=true`. | `-1001234567890` |
     | `REQUIRED_CHANNEL_LINK` | (Опционально) Публичная ссылка или invite на канал для кнопки «Проверить подписку». | `https://t.me/your_channel` |
+    | `REFERRAL_ENABLED` | Включить/выключить реферальную систему полностью (`true`/`false`). | `true` |
     </details>
 
     <details>
@@ -78,12 +89,17 @@
     | Переменная | Описание |
     | --- | --- |
     | `WEBHOOK_BASE_URL`| **Обязательно.** Базовый URL для вебхуков, например `https://your.domain.com`. |
-    | `WEB_SERVER_HOST` | Хост для веб-сервера. | `0.0.0.0` |
+    | `TELEGRAM_WEBHOOK_PATH` | Относительный путь Telegram вебхука. По умолчанию `/webhook/telegram`. |
+    | `TELEGRAM_WEBHOOK_SECRET` | (Рекомендуется) Секрет для проверки заголовка `X-Telegram-Bot-Api-Secret-Token`. |
+    | `WEB_SERVER_HOST` | Хост для веб-сервера. По умолчанию `0.0.0.0`. | `0.0.0.0` |
     | `WEB_SERVER_PORT` | Порт для веб-сервера. | `8080` |
     | `PAYMENT_METHODS_ORDER` | (Опционально) Порядок отображения кнопок оплаты через запятую. Поддерживаемые ключи: `severpay`, `freekassa`, `platega`, `yookassa`, `stars`, `cryptopay`. Первый будет сверху. |
     | `YOOKASSA_ENABLED` | Включить/выключить YooKassa (`true`/`false`). |
     | `YOOKASSA_SHOP_ID` | ID вашего магазина в YooKassa. |
     | `YOOKASSA_SECRET_KEY`| Секретный ключ магазина YooKassa. |
+    | `YOOKASSA_TAX_SYSTEM_CODE` | (Опционально) Код СНО для чеков YooKassa (`1-6` по 54-ФЗ: ОСН, УСН доход, УСН доход-расход, ЕНВД, ЕСХН, ПСН). Передавайте только если ваша онлайн-касса требует `tax_system_code`; иначе параметр будет пропущен. |
+    | `YOOKASSA_PAYMENT_MODE` | (Опционально) Переопределяет `receipt.items[].payment_mode` для YooKassa. Если не задано, используется `full_prepayment` для обычных платежей и `full_payment` при `YOOKASSA_AUTOPAYMENTS_ENABLED=true`. |
+    | `YOOKASSA_PAYMENT_SUBJECT` | (Опционально) Переопределяет `receipt.items[].payment_subject` для YooKassa. Если не задано, используется `payment` для обычных платежей и `service` при `YOOKASSA_AUTOPAYMENTS_ENABLED=true`. |
     | `YOOKASSA_AUTOPAYMENTS_ENABLED` | Включить автопродление (сохранение карт, автосписания, управление способами оплаты). |
     | `YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING` | Требовать обязательную привязку карты при оплате с автосписанием. Установите `false`, чтобы пользователю показывался чекбокс «Сохранить карту». |
     | `NALOGO_INN` | ИНН для авторизации в nalog.ru (самозанятый). |
@@ -98,18 +114,31 @@
     | `FREEKASSA_PAYMENT_IP` | Внешний IP вашего сервера, который будет передаваться в запрос оплаты. |
     | `FREEKASSA_PAYMENT_METHOD_ID` | ID метода оплаты через магазин FreeKassa. По умолчанию `44`. |
     | `STARS_ENABLED` | Включить/выключить Telegram Stars (`true`/`false`). |
-    | `PLATEGA_ENABLED`| Включить/выключить Platega (`true`/`false`). |
-    | `PLATEGA_MERCHANT_ID`| MerchantId из личного кабинета Platega. |
-    | `PLATEGA_SECRET`| API секрет для запросов Platega. |
-    | `PLATEGA_PAYMENT_METHOD`| ID способа оплаты (2 — SBP QR, 10 — РФ карты, 12 — международные карты, 13 — crypto). |
-    | `PLATEGA_RETURN_URL`| (Опционально) URL редиректа после успешной оплаты. По умолчанию ссылка на бота. |
-    | `PLATEGA_FAILED_URL`| (Опционально) URL редиректа при ошибке/отмене. По умолчанию как `PLATEGA_RETURN_URL`. |
+    | `STARS_PROVIDER_TOKEN` | Токен провайдера Telegram invoice. Для Stars (XTR) оставить пустым. |
+    | `PLATEGA_ENABLED` | Включить/выключить Platega (`true`/`false`). |
+    | `PLATEGA_MERCHANT_ID` | MerchantId из личного кабинета Platega. |
+    | `PLATEGA_SECRET` | API секрет для запросов Platega. |
+    | `PLATEGA_PAYMENT_METHOD` | ID способа оплаты (2 — SBP QR, 10 — РФ карты, 12 — международные карты, 13 — crypto). |
+    | `PLATEGA_RETURN_URL` | (Опционально) URL редиректа после успешной оплаты. По умолчанию ссылка на бота. |
+    | `PLATEGA_FAILED_URL` | (Опционально) URL редиректа при ошибке/отмене. По умолчанию как `PLATEGA_RETURN_URL`. |
     | `SEVERPAY_ENABLED` | Включить/выключить SeverPay (`true`/`false`). |
     | `SEVERPAY_MID` | MID магазина в SeverPay. |
     | `SEVERPAY_TOKEN` | Секрет/токен для подписи запросов SeverPay. |
     | `SEVERPAY_BASE_URL` | (Опционально) Базовый URL API SeverPay. По умолчанию `https://severpay.io/api/merchant`. |
     | `SEVERPAY_RETURN_URL` | (Опционально) URL редиректа после оплаты (по умолчанию ссылка на бота). |
     | `SEVERPAY_LIFETIME_MINUTES` | (Опционально) Время жизни платежной ссылки в минутах (30–4320). |
+    </details>
+
+    <details>
+    <summary><b>Настройки логирования</b></summary>
+
+    | Переменная | Описание | Пример |
+    | --- | --- | --- |
+    | `LOGS_PAGE_SIZE` | Количество записей на странице в разделе админ-логов. | `10` |
+    | `LOG_STORE_MESSAGE_CONTENT` | Сохранять ли содержимое сообщений/колбэков в БД логов (`true`/`false`). | `false` |
+    | `LOG_STORE_RAW_UPDATES` | Сохранять ли превью сырого Telegram update в БД логов (`true`/`false`). | `false` |
+    | `LOG_EXPORT_INCLUDE_SENSITIVE` | Добавлять ли в CSV экспорт чувствительные поля (`content`, `raw_update_preview`). | `false` |
+    | `LOG_ADMIN_HIDE` | Скрывать админские события (`ADMIN_IDS`) в интерфейсе «Все логи сообщений» и в CSV экспорте (`true`/`false`). Логи продолжают записываться в БД. | `true` |
     </details>
 
     <details>
@@ -166,7 +195,7 @@
     -   `https://<ваш_домен>/webhook/severpay` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/severpay`
     -   `https://<ваш_домен>/webhook/cryptopay` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/cryptopay`
     -   `https://<ваш_домен>/webhook/panel` → `http://remnawave-tg-shop:<WEB_SERVER_PORT>/webhook/panel`
-    -   **Для Telegram:** Бот автоматически установит вебхук, если в `.env` указан `WEBHOOK_BASE_URL`. Путь будет `https://<ваш_домен>/<BOT_TOKEN>`.
+    -   **Для Telegram:** Бот автоматически установит вебхук, если в `.env` указан `WEBHOOK_BASE_URL`. Путь берётся из `TELEGRAM_WEBHOOK_PATH` (по умолчанию `https://<ваш_домен>/webhook/telegram`).
 
     Где `remnawave-tg-shop` — это имя сервиса из `docker-compose.yml`, а `<WEB_SERVER_PORT>` — порт, указанный в `.env`.
 
@@ -175,7 +204,16 @@
     docker compose logs -f remnawave-tg-shop
     ```
 
-    > 💡 Если включена проверка подписки на канал (`REQUIRED_CHANNEL_ID`), добавьте бота администратором в этот канал. Пользователь увидит кнопку «Проверить подписку», и, после первого успешного подтверждения, дальнейшие действия блокироваться не будут.
+    > 💡 Если включена проверка подписки (`REQUIRED_CHANNEL_SUBSCRIBE_TO_USE=true`), добавьте бота администратором в канал из `REQUIRED_CHANNEL_ID`. Пользователь увидит кнопку «Проверить подписку», и после успешного подтверждения доступ продолжится.
+
+### Миграции БД (Alembic)
+
+- При запуске `python main.py` миграции применяются автоматически до `head`.
+- Для ручного запуска используйте:
+
+```bash
+alembic upgrade head
+```
 
 ## Подробная инструкция для развертывания на сервере с панелью Remnawave
 

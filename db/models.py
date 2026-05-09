@@ -1,8 +1,11 @@
+import uuid as _uuid
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger
-from sqlalchemy.orm import relationship, DeclarativeBase
+from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column, backref
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
+from typing import Optional
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -109,6 +112,7 @@ class Payment(Base):
     currency = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True)
     description = Column(String, nullable=True)
+    redirect_url = Column(Text, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
     promo_code_id = Column(Integer,
                            ForeignKey("promo_codes.promo_code_id"),
@@ -207,13 +211,22 @@ class PromoCodeActivation(Base):
 
 
 class ActiveDiscount(Base):
-    """Tracks pending discount promo codes awaiting payment (permanent until used)"""
+    """Tracks pending discount promo code reservations awaiting payment."""
     __tablename__ = "active_discounts"
 
-    user_id = Column(BigInteger, ForeignKey("users.user_id"), primary_key=True)
-    promo_code_id = Column(Integer, ForeignKey("promo_codes.promo_code_id"), nullable=False)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    promo_code_id = Column(
+        Integer,
+        ForeignKey("promo_codes.promo_code_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     discount_percentage = Column(Integer, nullable=False)
     activated_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
 
     promo_code = relationship("PromoCode")
     user = relationship("User")
@@ -292,3 +305,110 @@ class AdAttribution(Base):
 
     user = relationship("User")
     campaign = relationship("AdCampaign", back_populates="attributions")
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[_uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid.uuid4)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    telegram_user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
+    )
+    site_user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
+    )
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    language_code: Mapped[str] = mapped_column(String(10), default="ru")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    telegram_user = relationship(
+        "User",
+        foreign_keys=[telegram_user_id],
+        backref=backref("account", uselist=False),
+        lazy="selectin",
+    )
+    site_user = relationship("User", foreign_keys=[site_user_id], lazy="selectin")
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[Optional[_uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChannelPost(Base):
+    __tablename__ = "channel_posts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telegram_message_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    entities_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    media_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    media_file_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    media_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reply_markup_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PricingPlan(Base):
+    """Time-based subscription pricing plans managed via admin panel."""
+    __tablename__ = "pricing_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    duration_months: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class PaymentProviderConfig(Base):
+    """Payment provider enable/disable and display order managed via admin panel."""
+    __tablename__ = "payment_provider_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_key: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class SiteSettings(Base):
+    """Single-row table for site customization. Always id=1."""
+    __tablename__ = "site_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, autoincrement=False)
+    brand_name: Mapped[str] = mapped_column(String(100), nullable=False, default="Raccoonito")
+    logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    favicon_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    primary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#2AACDF")
+    secondary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#897569")
+    background_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#F5F1ED")
+    font_family: Mapped[str] = mapped_column(String(100), nullable=False, default="Nunito")
+    custom_css: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    privacy_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    refund_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    __table_args__ = (UniqueConstraint('id'),)

@@ -1,7 +1,7 @@
 services:
   remnawave-tg-shop:
-    image: kavore/remnawave-tg-shop:latest
-#    build: .
+    image: vaqybin/remnawave-tg-shop:latest
+    build: .
     container_name: remnawave-tg-shop
     hostname: remnawave-tg-shop
     env_file:
@@ -23,6 +23,8 @@ services:
       - .env
     volumes:
       - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
     networks:
       - remnawave-network
     restart: unless-stopped
@@ -32,10 +34,67 @@ services:
       timeout: 5s
       retries: 20
 
+  remnawave-tg-shop-redis:
+    image: redis:7-alpine
+    container_name: remnawave-tg-shop-redis
+    hostname: remnawave-tg-shop-redis
+    command: redis-server --save 60 1
+    volumes:
+      - remnawave-tg-shop-redis-data:/data
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  remnawave-tg-shop-web-api:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: remnawave-tg-shop-web-api
+    hostname: remnawave-tg-shop-web-api
+    env_file:
+      - .env
+    ports:
+      - "8090:8090"
+    networks:
+      - remnawave-network
+    volumes:
+      - remnawave-tg-shop-web-static:/app/web/static
+    restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-db:
+        condition: service_healthy
+      remnawave-tg-shop-redis:
+        condition: service_healthy
+
+  remnawave-tg-shop-web-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      API_URL: ${WEB_API_URL:-http://localhost:8090}/api
+    container_name: remnawave-tg-shop-web-frontend
+    hostname: remnawave-tg-shop-web-frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+
 networks:
   remnawave-network:
-    external: true
+    name: remnawave-network
+    driver: bridge
+    external: false
 
 volumes:
   remnawave-tg-shop-db-data:
     name: remnawave-tg-shop-db-data
+  remnawave-tg-shop-redis-data:
+    name: remnawave-tg-shop-redis-data
+  remnawave-tg-shop-web-static:
+    name: remnawave-tg-shop-web-static

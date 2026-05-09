@@ -1,0 +1,123 @@
+version: "3.9"
+
+# Production docker-compose — pulls pre-built images from GHCR, no local build required.
+# Usage:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Required env vars (via .env):
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#   BOT_TOKEN, WEBHOOK_HOST, ...  (see .env.example)
+#   WEB_JWT_SECRET, REDIS_URL, RESEND_API_KEY, WEB_FRONTEND_URL, WEB_API_URL, WEB_CORS_ORIGINS
+#
+# Images on GHCR:
+#   ghcr.io/vaqybin/remnawave-tg-shop:latest          — Telegram bot
+#   ghcr.io/vaqybin/remnawave-tg-shop-web-api:latest  — FastAPI web backend
+#   ghcr.io/vaqybin/remnawave-tg-shop-web-frontend:latest — React SPA (served via nginx)
+
+services:
+  remnawave-tg-shop:
+    image: ghcr.io/vaqybin/remnawave-tg-shop:latest
+    container_name: remnawave-tg-shop
+    hostname: remnawave-tg-shop
+    env_file:
+      - .env
+    networks:
+      - remnawave-network
+    volumes:
+      - ./locales:/app/locales
+    restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-db:
+        condition: service_healthy
+      remnawave-tg-shop-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  remnawave-tg-shop-db:
+    image: postgres:17
+    container_name: remnawave-tg-shop-db
+    hostname: remnawave-tg-shop-db
+    env_file:
+      - .env
+    volumes:
+      - remnawave-tg-shop-db-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    # No ports exposed — DB accessible only within the Docker network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  remnawave-tg-shop-redis:
+    image: redis:7-alpine
+    container_name: remnawave-tg-shop-redis
+    hostname: remnawave-tg-shop-redis
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - remnawave-tg-shop-redis-data:/data
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    # No ports exposed — Redis accessible only within the Docker network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  remnawave-tg-shop-web-api:
+    image: ghcr.io/vaqybin/remnawave-tg-shop-web-api:latest
+    container_name: remnawave-tg-shop-web-api
+    hostname: remnawave-tg-shop-web-api
+    env_file:
+      - .env
+    # No ports exposed — accessed via reverse proxy on api.domain.com → :8090
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-db:
+        condition: service_healthy
+      remnawave-tg-shop-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8090/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  remnawave-tg-shop-web-frontend:
+    image: ghcr.io/vaqybin/remnawave-tg-shop-web-frontend:latest
+    environment:
+      API_URL: ${WEB_API_URL}/api
+    container_name: remnawave-tg-shop-web-frontend
+    hostname: remnawave-tg-shop-web-frontend
+    # No ports exposed — accessed via reverse proxy on app.domain.com → :3000
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+networks:
+  remnawave-network:
+    external: false
+
+volumes:
+  remnawave-tg-shop-db-data:
+    name: remnawave-tg-shop-db-data
+  remnawave-tg-shop-redis-data:
+    name: remnawave-tg-shop-redis-data

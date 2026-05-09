@@ -6,6 +6,7 @@ from .subscription import router as subscription_router
 from . import referral
 from . import promo_user
 from . import trial_handler
+from . import link_email
 
 user_router_aggregate = Router(name="user_router_aggregate")
 
@@ -14,3 +15,4 @@ user_router_aggregate.include_router(trial_handler.router)
 user_router_aggregate.include_router(start.router)
 user_router_aggregate.include_router(subscription_router)
 user_router_aggregate.include_router(referral.router)
+user_router_aggregate.include_router(link_email.router)
