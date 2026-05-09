@@ -10,8 +10,52 @@ import { registerSendCode, registerCheckCode, registerVerify } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
+import type { PublicBrandingResponse } from '@/api/admin/branding'
 
 type Step = 'email' | 'code' | 'password'
+
+function ConsentText({ branding }: { branding: PublicBrandingResponse | undefined }) {
+  const { t } = useTranslation()
+
+  const hasTerms = !!branding?.terms_of_service_url
+  const hasPrivacy = !!branding?.privacy_policy_url
+  const hasPersonal = !!branding?.personal_data_url
+  const hasReadDocs = hasTerms || hasPrivacy
+
+  if (!hasTerms && !hasPrivacy && !hasPersonal) return null
+
+  const docLink = (href: string, label: string) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--primary))] hover:underline">
+      {label}
+    </a>
+  )
+
+  const readParts = [
+    hasTerms && docLink('/legal/terms', t('register_consent_terms')),
+    hasPrivacy && docLink('/legal/privacy', t('register_consent_privacy')),
+  ].filter(Boolean) as React.ReactNode[]
+
+  const joinedRead =
+    readParts.length === 2
+      ? <>{readParts[0]}{' '}{t('register_consent_and')}{' '}{readParts[1]}</>
+      : readParts[0]
+
+  return (
+    <p className="text-xs text-[hsl(var(--muted-foreground))] leading-relaxed">
+      {t('register_consent_prefix')}{' '}
+      {hasReadDocs && <>{t('register_consent_read')}{' '}{joinedRead}</>}
+      {hasPersonal && (
+        <>
+          {hasReadDocs
+            ? t('register_consent_also_personal')
+            : t('register_consent_only_personal')}
+          {' '}{docLink('/legal/personal-data', t('register_consent_personal_data'))}
+        </>
+      )}
+      {'.'}
+    </p>
+  )
+}
 
 export function RegisterPage() {
   const { setAuth } = useAuth()
@@ -197,6 +241,7 @@ export function RegisterPage() {
                   required
                   autoComplete="new-password"
                 />
+                <ConsentText branding={branding} />
                 <Button type="submit" isLoading={isLoading} className="w-full">
                   {t('register_create')}
                 </Button>

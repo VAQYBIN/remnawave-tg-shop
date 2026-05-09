@@ -53,6 +53,10 @@ export function BrandingPage() {
     background_color: '',
     font_family: '',
     custom_css: '',
+    privacy_policy_url: '',
+    terms_of_service_url: '',
+    personal_data_url: '',
+    refund_policy_url: '',
   })
   const [initialized, setInitialized] = useState(false)
 
@@ -64,6 +68,10 @@ export function BrandingPage() {
       background_color: data.background_color,
       font_family: data.font_family,
       custom_css: data.custom_css ?? '',
+      privacy_policy_url: data.privacy_policy_url ?? '',
+      terms_of_service_url: data.terms_of_service_url ?? '',
+      personal_data_url: data.personal_data_url ?? '',
+      refund_policy_url: data.refund_policy_url ?? '',
     })
     setInitialized(true)
   }
@@ -98,6 +106,10 @@ export function BrandingPage() {
       background_color: form.background_color || undefined,
       font_family: form.font_family || undefined,
       custom_css: form.custom_css || undefined,
+      privacy_policy_url: form.privacy_policy_url || undefined,
+      terms_of_service_url: form.terms_of_service_url || undefined,
+      personal_data_url: form.personal_data_url || undefined,
+      refund_policy_url: form.refund_policy_url || undefined,
     })
   }
 
@@ -220,6 +232,33 @@ export function BrandingPage() {
           className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm font-mono resize-y"
           placeholder={t('admin_branding_custom_css_placeholder')}
         />
+      </div>
+
+      {/* Legal documents */}
+      <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_legal_title')}</h2>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_legal_hint')}</p>
+        </div>
+        {(
+          [
+            ['privacy_policy_url', 'admin_branding_legal_privacy'] as const,
+            ['terms_of_service_url', 'admin_branding_legal_terms'] as const,
+            ['personal_data_url', 'admin_branding_legal_personal_data'] as const,
+            ['refund_policy_url', 'admin_branding_legal_refund'] as const,
+          ] as const
+        ).map(([field, labelKey]) => (
+          <div key={field} className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[hsl(var(--foreground))]">{t(labelKey)}</label>
+            <input
+              type="url"
+              value={form[field]}
+              onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+              className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm"
+              placeholder="https://telegra.ph/..."
+            />
+          </div>
+        ))}
       </div>
 
       <button

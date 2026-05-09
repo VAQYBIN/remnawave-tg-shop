@@ -405,6 +405,10 @@ class SiteSettings(Base):
     news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    privacy_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    refund_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     __table_args__ = (UniqueConstraint('id'),)

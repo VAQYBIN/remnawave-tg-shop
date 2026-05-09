@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { BrandingProvider } from '@/hooks/BrandingProvider'
 
+const LegalPage = lazy(() => import('@/pages/LegalPage').then(({ LegalPage }) => ({ default: LegalPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage').then(({ RegisterPage }) => ({ default: RegisterPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(({ ForgotPasswordPage }) => ({ default: ForgotPasswordPage })))
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/auth/telegram/callback" element={<TelegramCallbackPage />} />
+            <Route path="/legal/:type" element={<LegalPage />} />
 
             {/* Protected */}
             <Route

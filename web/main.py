@@ -129,6 +129,9 @@ def create_app() -> FastAPI:
     from web.routers.config import router as config_router
     app.include_router(config_router, prefix="/api")
 
+    from web.routers.legal import router as legal_router
+    app.include_router(legal_router, prefix="/api")
+
     # Static files (logos, favicons)
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     os.makedirs(static_dir, exist_ok=True)

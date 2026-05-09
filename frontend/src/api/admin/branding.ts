@@ -9,6 +9,10 @@ export interface BrandingResponse {
   background_color: string
   font_family: string
   custom_css: string | null
+  privacy_policy_url: string | null
+  terms_of_service_url: string | null
+  personal_data_url: string | null
+  refund_policy_url: string | null
 }
 
 export interface PublicBrandingResponse extends BrandingResponse {
@@ -26,6 +30,17 @@ export interface BrandingUpdateRequest {
   background_color?: string
   font_family?: string
   custom_css?: string
+  privacy_policy_url?: string
+  terms_of_service_url?: string
+  personal_data_url?: string
+  refund_policy_url?: string
+}
+
+export function getLegalContent(url: string): Promise<{ content: string }> {
+  return fetch(`${API_BASE}/legal/content?url=${encodeURIComponent(url)}`).then(r => {
+    if (!r.ok) throw new Error('Failed to load document')
+    return r.json()
+  })
 }
 
 export interface FeaturesResponse {

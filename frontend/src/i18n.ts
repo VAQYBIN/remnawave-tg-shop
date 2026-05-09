@@ -431,6 +431,26 @@ const ru = {
   admin_promos_activate_title: 'Включить',
   admin_promos_deactivate_title: 'Отключить',
 
+  // Legal pages
+  legal_document: 'Документ',
+  legal_privacy_title: 'Политика конфиденциальности',
+  legal_terms_title: 'Условия пользования',
+  legal_personal_data_title: 'Политика обработки персональных данных',
+  legal_refund_title: 'Политика возврата средств',
+  legal_back: 'Назад',
+  legal_not_configured: 'Документ не настроен. Обратитесь к администратору.',
+  legal_load_error: 'Не удалось загрузить документ. Попробуйте позже.',
+
+  // Register consent text (fragments for dynamic assembly)
+  register_consent_prefix: 'Нажимая «Создать аккаунт», я',
+  register_consent_read: 'подтверждаю ознакомление с',
+  register_consent_and: 'и',
+  register_consent_also_personal: ', а также даю согласие на обработку персональных данных согласно',
+  register_consent_only_personal: 'даю согласие на обработку персональных данных согласно',
+  register_consent_terms: 'Условиями пользования',
+  register_consent_privacy: 'Политикой конфиденциальности',
+  register_consent_personal_data: 'Политикой обработки ПДн',
+
   // Admin panel — branding/features
   admin_branding_title: 'Кастомизация бренда',
   admin_branding_subtitle: 'Название, цвета и логотип сайта',
@@ -451,6 +471,12 @@ const ru = {
   admin_branding_save_error: 'Ошибка сохранения',
   admin_branding_logo_uploaded: 'Логотип загружен',
   admin_branding_logo_error: 'Ошибка загрузки',
+  admin_branding_legal_title: 'Юридические документы',
+  admin_branding_legal_hint: 'Укажите ссылки на telegra.ph или любые другие URL. Пустое поле — документ скрыт.',
+  admin_branding_legal_privacy: 'Политика конфиденциальности',
+  admin_branding_legal_terms: 'Условия пользования',
+  admin_branding_legal_personal_data: 'Политика обработки персональных данных',
+  admin_branding_legal_refund: 'Политика возврата средств',
   admin_features_title: 'Разделы сайта',
   admin_features_subtitle: 'Включение и отключение разделов для всех пользователей',
   admin_features_news: 'Новости',
@@ -1007,6 +1033,26 @@ const en: typeof ru = {
   admin_promos_activate_title: 'Enable',
   admin_promos_deactivate_title: 'Disable',
 
+  // Legal pages
+  legal_document: 'Document',
+  legal_privacy_title: 'Privacy Policy',
+  legal_terms_title: 'Terms of Service',
+  legal_personal_data_title: 'Personal Data Processing Policy',
+  legal_refund_title: 'Refund Policy',
+  legal_back: 'Back',
+  legal_not_configured: 'Document not configured. Please contact the administrator.',
+  legal_load_error: 'Failed to load document. Please try again later.',
+
+  // Register consent text (fragments for dynamic assembly)
+  register_consent_prefix: 'By clicking "Create Account", I',
+  register_consent_read: 'confirm I have read the',
+  register_consent_and: 'and',
+  register_consent_also_personal: 'and consent to the processing of personal data in accordance with the',
+  register_consent_only_personal: 'consent to the processing of personal data in accordance with the',
+  register_consent_terms: 'Terms of Service',
+  register_consent_privacy: 'Privacy Policy',
+  register_consent_personal_data: 'Personal Data Policy',
+
   // Admin panel — branding/features
   admin_branding_title: 'Brand customization',
   admin_branding_subtitle: 'Site name, colors, and logo',
@@ -1027,6 +1073,12 @@ const en: typeof ru = {
   admin_branding_save_error: 'Save failed',
   admin_branding_logo_uploaded: 'Logo uploaded',
   admin_branding_logo_error: 'Upload failed',
+  admin_branding_legal_title: 'Legal documents',
+  admin_branding_legal_hint: 'Provide links to telegra.ph or any other URLs. Empty field — document is hidden.',
+  admin_branding_legal_privacy: 'Privacy Policy',
+  admin_branding_legal_terms: 'Terms of Service',
+  admin_branding_legal_personal_data: 'Personal Data Processing Policy',
+  admin_branding_legal_refund: 'Refund Policy',
   admin_features_title: 'Site sections',
   admin_features_subtitle: 'Enable or disable sections for all users',
   admin_features_news: 'News',

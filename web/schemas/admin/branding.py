@@ -11,6 +11,10 @@ class BrandingResponse(BaseModel):
     background_color: str
     font_family: str
     custom_css: Optional[str]
+    privacy_policy_url: Optional[str] = None
+    terms_of_service_url: Optional[str] = None
+    personal_data_url: Optional[str] = None
+    refund_policy_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -24,6 +28,10 @@ class BrandingUpdateRequest(BaseModel):
     background_color: Optional[str] = None
     font_family: Optional[str] = None
     custom_css: Optional[str] = None
+    privacy_policy_url: Optional[str] = None
+    terms_of_service_url: Optional[str] = None
+    personal_data_url: Optional[str] = None
+    refund_policy_url: Optional[str] = None
 
 
 class PublicBrandingResponse(BrandingResponse):
