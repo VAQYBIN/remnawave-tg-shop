@@ -331,9 +331,6 @@ async def create_web_payment(
     from core.dal import payment_dal, active_discount_dal, promo_code_dal
     from core.services.promo_core import validate_discount_promo_code, calculate_discounted_price
 
-    if not account.telegram_user_id:
-        raise ValueError("Привязка Telegram обязательна для совершения платежей")
-
     available = await get_available_providers_db(db, settings)
     if provider not in available:
         raise ValueError(f"Провайдер '{provider}' недоступен")
@@ -342,7 +339,8 @@ async def create_web_payment(
     if price_rub is None:
         raise ValueError(f"Тариф на {months} мес. недоступен")
 
-    user_id: int = account.telegram_user_id
+    from core.dal.account_dal import get_effective_payment_user_id
+    user_id = await get_effective_payment_user_id(db, account)
     original_amount = float(price_rub)
     final_amount = original_amount
     discount_amount: Optional[float] = None

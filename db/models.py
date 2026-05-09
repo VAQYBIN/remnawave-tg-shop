@@ -316,12 +316,21 @@ class Account(Base):
     telegram_user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
     )
+    site_user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
+    )
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     language_code: Mapped[str] = mapped_column(String(10), default="ru")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
-    telegram_user = relationship("User", backref=backref("account", uselist=False), lazy="selectin")
+    telegram_user = relationship(
+        "User",
+        foreign_keys=[telegram_user_id],
+        backref=backref("account", uselist=False),
+        lazy="selectin",
+    )
+    site_user = relationship("User", foreign_keys=[site_user_id], lazy="selectin")
 
 
 class EmailVerificationCode(Base):

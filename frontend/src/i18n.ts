@@ -194,8 +194,16 @@ const ru = {
   profile_error_send: 'Ошибка отправки кода',
   profile_error_code: 'Неверный или истёкший код',
   profile_telegram_not_linked:
-    'Telegram не привязан. Используйте команду /link_email в боте для привязки email к вашему Telegram-аккаунту.',
+    'Telegram не привязан. Можно привязать аккаунт Telegram к этому web-аккаунту.',
   profile_telegram_linked: 'Привязан',
+  profile_telegram_link: 'Привязать Telegram',
+  profile_telegram_unlink: 'Отвязать',
+  profile_telegram_linked_success: 'Telegram привязан',
+  profile_telegram_unlinked: 'Telegram отвязан',
+  profile_telegram_already_linked:
+    'Этот Telegram уже привязан к другому web-аккаунту. Сначала отвяжите Telegram в старом аккаунте.',
+  profile_telegram_link_error: 'Не удалось привязать Telegram',
+  profile_telegram_unlink_error: 'Не удалось отвязать Telegram',
   profile_sending: 'Отправка...',
   profile_checking: 'Проверка...',
 
@@ -762,8 +770,16 @@ const en: typeof ru = {
   profile_error_send: 'Error sending code',
   profile_error_code: 'Invalid or expired code',
   profile_telegram_not_linked:
-    'Telegram not linked. Use /link_email command in the bot to link your email to your Telegram account.',
+    'Telegram is not linked. You can link your Telegram account to this web account.',
   profile_telegram_linked: 'Linked',
+  profile_telegram_link: 'Link Telegram',
+  profile_telegram_unlink: 'Unlink',
+  profile_telegram_linked_success: 'Telegram linked',
+  profile_telegram_unlinked: 'Telegram unlinked',
+  profile_telegram_already_linked:
+    'This Telegram account is already linked to another web account. Unlink it from the old account first.',
+  profile_telegram_link_error: 'Failed to link Telegram',
+  profile_telegram_unlink_error: 'Failed to unlink Telegram',
   profile_sending: 'Sending...',
   profile_checking: 'Checking...',
 

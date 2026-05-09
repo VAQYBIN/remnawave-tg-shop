@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getProfile, patchLanguage, sendEmailChangeCode, verifyEmailChange } from '@/api/profile'
+import { getProfile, patchLanguage, sendEmailChangeCode, verifyEmailChange, unlinkTelegram } from '@/api/profile'
+import { getTelegramClientId } from '@/api/auth'
+import { TELEGRAM_OAUTH_URL, TG_MODE_KEY, TG_PKCE_KEY, TG_STATE_KEY, generatePKCE, generateState } from '@/pages/LoginPage'
 import { useToast } from '@/hooks/useToast'
 import { User, Mail, Globe, MessageCircle, Check, AlertCircle } from 'lucide-react'
 
@@ -180,10 +183,49 @@ function EmailSection() {
 // ─── Telegram Section ─────────────────────────────────────────────────────────
 
 function TelegramSection() {
+  const queryClient = useQueryClient()
   const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: getProfile })
   const { t } = useTranslation()
+  const toast = useToast()
 
   const isLinked = Boolean(profile?.telegram_user_id)
+
+  const unlinkMutation = useMutation({
+    mutationFn: unlinkTelegram,
+    onSuccess: () => {
+      toast.success(t('profile_telegram_unlinked'))
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+      queryClient.invalidateQueries({ queryKey: ['subscription'] })
+    },
+    onError: (err: Error) => toast.error(err.message || t('profile_telegram_unlink_error')),
+  })
+
+  async function handleLink() {
+    try {
+      const resp = await getTelegramClientId()
+      const { verifier, challenge } = await generatePKCE()
+      const state = generateState()
+      const redirectUri = `${window.location.origin}/auth/telegram/callback`
+
+      sessionStorage.setItem(TG_PKCE_KEY, verifier)
+      sessionStorage.setItem(TG_STATE_KEY, state)
+      sessionStorage.setItem(TG_MODE_KEY, 'link')
+
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: String(resp.client_id),
+        redirect_uri: redirectUri,
+        scope: 'openid profile',
+        state,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      })
+
+      window.location.href = `${TELEGRAM_OAUTH_URL}/auth?${params}`
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('profile_telegram_link_error'))
+    }
+  }
 
   return (
     <Card>
@@ -210,12 +252,23 @@ function TelegramSection() {
             <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
               <Check size={12} /> {t('profile_telegram_linked')}
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => unlinkMutation.mutate()}
+              disabled={unlinkMutation.isPending}
+            >
+              {t('profile_telegram_unlink')}
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-[hsl(var(--muted-foreground))]">
               {t('profile_telegram_not_linked')}
             </p>
+            <Button size="sm" onClick={handleLink}>
+              {t('profile_telegram_link')}
+            </Button>
           </div>
         )}
       </CardContent>
@@ -231,6 +284,25 @@ export function ProfilePage() {
     queryFn: getProfile,
   })
   const { t } = useTranslation()
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handledProfileNotice = useRef(false)
+
+  useEffect(() => {
+    if (handledProfileNotice.current) return
+    const hasNotice = searchParams.has('telegram_linked') || searchParams.has('error')
+    if (!hasNotice) return
+    handledProfileNotice.current = true
+
+    if (searchParams.get('telegram_linked')) {
+      toast.success(t('profile_telegram_linked_success'))
+    } else if (searchParams.get('error') === 'already_linked') {
+      toast.error(t('profile_telegram_already_linked'))
+    } else if (searchParams.get('error') === 'telegram_link_failed') {
+      toast.error(t('profile_telegram_link_error'))
+    }
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams, t, toast])
 
   return (
     <AppShell>

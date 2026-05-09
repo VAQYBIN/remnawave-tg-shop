@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import Account
 from web.dependencies import get_current_account, get_db
 from web.schemas.promo import ApplyPromoRequest, PromoApplyResponse, ActiveDiscountResponse
+from core.dal.account_dal import get_effective_payment_user_id, get_account_user_ids
 
 router = APIRouter(prefix="/promo", tags=["promo"])
 
@@ -14,17 +15,13 @@ async def apply_promo(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> PromoApplyResponse:
-    if not account.telegram_user_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Привязка Telegram обязательна для применения промокода",
-        )
+    user_id = await get_effective_payment_user_id(db, account)
 
     from core.services.promo_core import validate_discount_promo_code
     from core.dal.active_discount_dal import get_active_discount
 
     is_valid, discount_pct, error = await validate_discount_promo_code(
-        db, account.telegram_user_id, body.code
+        db, user_id, body.code
     )
 
     if not is_valid:
@@ -39,7 +36,7 @@ async def apply_promo(
         raise HTTPException(status_code=400, detail=detail)
 
     # Fetch the reserved discount to get expires_at
-    active_disc = await get_active_discount(db, account.telegram_user_id)
+    active_disc = await get_active_discount(db, user_id)
     if not active_disc:
         raise HTTPException(status_code=500, detail="Ошибка резервирования скидки")
 
@@ -60,13 +57,14 @@ async def remove_active_discount(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    if not account.telegram_user_id:
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
         return
 
     from core.dal.active_discount_dal import get_active_discount, clear_active_discount
     from core.dal.promo_code_dal import decrement_promo_code_usage
 
-    active_disc = await get_active_discount(db, account.telegram_user_id)
+    active_disc = await get_active_discount(db, user_ids[0])
     if active_disc:
         await decrement_promo_code_usage(db, active_disc.promo_code_id)
-        await clear_active_discount(db, account.telegram_user_id)
+        await clear_active_discount(db, user_ids[0])

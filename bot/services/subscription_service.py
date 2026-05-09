@@ -82,24 +82,50 @@ class SubscriptionService:
             return None, None, None, False
 
         current_local_panel_uuid = db_user.panel_user_uuid
-        panel_username_on_panel_standard = f"tg_{user_id}"
+        is_site_user = user_id < 0
+        panel_username_on_panel_standard = f"web_{abs(user_id)}" if is_site_user else f"tg_{user_id}"
+        site_email = None
+        if is_site_user:
+            try:
+                from core.dal.account_dal import get_account_by_site_user_id
+
+                site_account = await get_account_by_site_user_id(session, user_id)
+                site_email = site_account.email if site_account else None
+            except Exception:
+                logging.exception("Failed to resolve site account for web-only user %s", user_id)
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
 
-        panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
-            telegram_id=user_id
-        )
-        if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
-            panel_user_obj_from_api = panel_users_by_tg_id_list[0]
-            logging.info(
-                f"Found panel user by telegramId {user_id}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+        if is_site_user and site_email:
+            panel_users_by_email_list = await self.panel_service.get_users_by_filter(
+                email=site_email
             )
-        elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
-            logging.error(
-                f"CRITICAL: Multiple panel users found for telegramId {user_id}. Manual intervention needed."
+            if panel_users_by_email_list and len(panel_users_by_email_list) == 1:
+                panel_user_obj_from_api = panel_users_by_email_list[0]
+                logging.info(
+                    f"Found panel user by email for web-only user {user_id}: UUID {panel_user_obj_from_api.get('uuid')}"
+                )
+            elif panel_users_by_email_list and len(panel_users_by_email_list) > 1:
+                logging.error(
+                    f"CRITICAL: Multiple panel users found for web-only email of user {user_id}. Manual intervention needed."
+                )
+                return None, None, None, False
+
+        if not is_site_user:
+            panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
+                telegram_id=user_id
             )
-            return None, None, None, False
+            if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
+                panel_user_obj_from_api = panel_users_by_tg_id_list[0]
+                logging.info(
+                    f"Found panel user by telegramId {user_id}: UUID {panel_user_obj_from_api.get('uuid')}, Username: {panel_user_obj_from_api.get('username')}"
+                )
+            elif panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) > 1:
+                logging.error(
+                    f"CRITICAL: Multiple panel users found for telegramId {user_id}. Manual intervention needed."
+                )
+                return None, None, None, False
 
         if not panel_user_obj_from_api:
             if current_local_panel_uuid:
@@ -119,7 +145,8 @@ class SubscriptionService:
                     )
                     creation_response = await self.panel_service.create_panel_user(
                         username_on_panel=panel_username_on_panel_standard,
-                        telegram_id=user_id,
+                        telegram_id=None if is_site_user else user_id,
+                        email=site_email if is_site_user else None,
                         description="\n".join([
                             (db_user.username or "") if db_user else "",
                             (db_user.first_name or "") if db_user else "",
@@ -148,7 +175,8 @@ class SubscriptionService:
                 )
                 creation_response = await self.panel_service.create_panel_user(
                     username_on_panel=panel_username_on_panel_standard,
-                    telegram_id=user_id,
+                    telegram_id=None if is_site_user else user_id,
+                    email=site_email if is_site_user else None,
                     description="\n".join([
                         (db_user.username or "") if db_user else "",
                         (db_user.first_name or "") if db_user else "",
@@ -266,6 +294,7 @@ class SubscriptionService:
         if (
             panel_user_obj_from_api
             and current_local_panel_uuid
+            and not is_site_user
             and panel_telegram_id_int != user_id
         ):
             logging.info(
@@ -649,7 +678,7 @@ class SubscriptionService:
             "status_from_panel": "ACTIVE",
             "traffic_limit_bytes": self.settings.user_traffic_limit_bytes,
             "provider": provider,
-            "skip_notifications": False,
+            "skip_notifications": user_id < 0,
             "auto_renew_enabled": auto_renew_should_enable,
         }
         try:

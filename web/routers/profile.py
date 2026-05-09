@@ -155,6 +155,11 @@ async def link_telegram(
     """Link a Telegram account to the current web account via OIDC PKCE flow."""
     from web.auth.telegram_auth import exchange_code_for_tokens, verify_id_token, extract_telegram_user_id
     from core.dal.account_dal import get_account_by_telegram_id, update_account
+    from core.dal.user_dal import get_user_by_id, create_user, update_user
+    from core.services.account_linking import (
+        merge_site_subscription_into_telegram,
+        sync_telegram_panel_identity,
+    )
 
     if not settings.TELEGRAM_OIDC_CLIENT_SECRET or not settings.telegram_client_id:
         raise HTTPException(status_code=503, detail="Telegram OIDC not configured")
@@ -188,9 +193,81 @@ async def link_telegram(
     # Check if another account already has this Telegram linked
     existing = await get_account_by_telegram_id(db, telegram_user_id)
     if existing and existing.id != account.id:
-        # Another account already linked — unlink it from there, then link here
-        await update_account(db, existing.id, telegram_user_id=None)
+        is_empty_telegram_only_account = (
+            existing.email is None
+            and existing.password_hash is None
+            and existing.site_user_id is None
+        )
+        if is_empty_telegram_only_account:
+            await update_account(db, existing.id, telegram_user_id=None)
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail="Этот Telegram уже привязан к другому web-аккаунту. Сначала отвяжите Telegram в старом аккаунте.",
+            )
+
+    tg_user = await get_user_by_id(db, telegram_user_id)
+    language_code = claims.get("language_code") or account.language_code or "ru"
+    user_payload = {
+        "user_id": telegram_user_id,
+        "username": claims.get("username"),
+        "first_name": claims.get("first_name"),
+        "last_name": claims.get("last_name"),
+        "language_code": language_code,
+    }
+    if not tg_user:
+        tg_user, _ = await create_user(db, user_payload)
+    else:
+        tg_user = await update_user(
+            db,
+            telegram_user_id,
+            {
+                "username": user_payload["username"],
+                "first_name": user_payload["first_name"],
+                "last_name": user_payload["last_name"],
+                "language_code": language_code,
+            },
+        )
+
+    merge_result = {}
+    if account.site_user_id:
+        merge_result = await merge_site_subscription_into_telegram(
+            db,
+            settings,
+            account=account,
+            telegram_user=tg_user,
+        )
+
+    panel_sync_result = await sync_telegram_panel_identity(
+        db,
+        settings,
+        account=account,
+        telegram_user=tg_user,
+    )
 
     await update_account(db, account.id, telegram_user_id=telegram_user_id)
 
-    return {"message": "Telegram account linked", "telegram_user_id": telegram_user_id}
+    return {
+        "message": "Telegram account linked",
+        "telegram_user_id": telegram_user_id,
+        "merge": merge_result,
+        "panel_sync": panel_sync_result,
+    }
+
+
+@router.post("/unlink-telegram")
+async def unlink_telegram(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    from core.services.account_linking import unlink_telegram_from_account
+
+    unlinked = await unlink_telegram_from_account(
+        db,
+        settings,
+        account=account,
+    )
+    if not unlinked:
+        raise HTTPException(status_code=400, detail="Telegram account is not linked")
+    return {"message": "Telegram account unlinked"}

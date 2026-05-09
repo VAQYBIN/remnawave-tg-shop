@@ -198,7 +198,7 @@ async def count_all_users(session: AsyncSession) -> int:
 
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
-    stmt = select(User.user_id).where(User.is_banned == False)
+    stmt = select(User.user_id).where(User.is_banned == False, User.user_id > 0)
     result = await session.execute(stmt)
     return result.scalars().all()
 

@@ -48,3 +48,9 @@ export function linkTelegram(
     body: JSON.stringify({ code, code_verifier, redirect_uri }),
   })
 }
+
+export function unlinkTelegram(): Promise<{ message: string }> {
+  return apiRequest('/profile/unlink-telegram', {
+    method: 'POST',
+  })
+}

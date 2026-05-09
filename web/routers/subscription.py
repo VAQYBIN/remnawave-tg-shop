@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 from config.settings import Settings, get_settings
 from db.models import Account
 from web.dependencies import get_current_account, get_db
+from core.dal.account_dal import get_account_user_ids
 from web.schemas.subscription import (
     AutoRenewRequest,
     AutoRenewResponse,
@@ -20,17 +21,33 @@ from web.schemas.subscription import (
 router = APIRouter(prefix="/subscription", tags=["subscription"])
 
 
+async def _get_account_active_subscription(db: AsyncSession, account: Account):
+    from core.dal.subscription_dal import get_active_subscription_by_user_id
+    from core.dal.user_dal import get_user_by_id
+
+    user_ids = get_account_user_ids(account)
+    for user_id in user_ids:
+        user = await get_user_by_id(db, user_id)
+        sub = await get_active_subscription_by_user_id(
+            db,
+            user_id,
+            user.panel_user_uuid if user else None,
+        )
+        if sub:
+            return sub
+    return None
+
+
 @router.get("", response_model=SubscriptionResponse)
 async def get_subscription(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SubscriptionResponse:
-    if not account.telegram_user_id:
+    if not get_account_user_ids(account):
         raise HTTPException(status_code=404, detail="No subscription found")
 
-    from core.dal.subscription_dal import get_active_subscription_by_user_id
-    sub = await get_active_subscription_by_user_id(db, account.telegram_user_id)
+    sub = await _get_account_active_subscription(db, account)
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")
 
@@ -112,11 +129,10 @@ async def get_connection(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> ConnectionResponse:
-    if not account.telegram_user_id:
+    if not get_account_user_ids(account):
         raise HTTPException(status_code=404, detail="No subscription found")
 
-    from core.dal.subscription_dal import get_active_subscription_by_user_id
-    sub = await get_active_subscription_by_user_id(db, account.telegram_user_id)
+    sub = await _get_account_active_subscription(db, account)
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")
 
@@ -156,11 +172,11 @@ async def toggle_auto_renew(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> AutoRenewResponse:
-    if not account.telegram_user_id:
+    if not get_account_user_ids(account):
         raise HTTPException(status_code=404, detail="No subscription found")
 
-    from core.dal.subscription_dal import get_active_subscription_by_user_id, set_auto_renew
-    sub = await get_active_subscription_by_user_id(db, account.telegram_user_id)
+    from core.dal.subscription_dal import set_auto_renew
+    sub = await _get_account_active_subscription(db, account)
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")
 

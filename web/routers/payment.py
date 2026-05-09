@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from config.settings import Settings, get_settings
 from db.models import Account, Payment
@@ -15,6 +16,7 @@ from web.schemas.payment import (
     PaymentStatusResponse,
 )
 from core.services.telegram_notify import send_payment_reminder_after_delay
+from core.dal.account_dal import get_account_user_ids
 
 _REMINDER_DELAY_SECONDS = 15 * 60  # 15 minutes
 
@@ -28,17 +30,26 @@ async def get_payments(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> PaymentsListResponse:
-    if not account.telegram_user_id:
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
         return PaymentsListResponse(items=[], total=0, page=page, limit=limit)
 
     offset = (page - 1) * limit
-    user_id = account.telegram_user_id
 
     from core.dal.payment_dal import get_user_payments
-    payments = await get_user_payments(db, user_id, limit=limit, offset=offset)
+    payments = await get_user_payments(db, user_ids[0], limit=limit, offset=offset)
+    if len(user_ids) > 1:
+        result = await db.execute(
+            select(Payment)
+            .where(Payment.user_id.in_(user_ids))
+            .order_by(Payment.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        payments = result.scalars().all()
 
     count_result = await db.execute(
-        select(func.count()).select_from(Payment).where(Payment.user_id == user_id)
+        select(func.count()).select_from(Payment).where(Payment.user_id.in_(user_ids))
     )
     total = count_result.scalar() or 0
 
@@ -66,11 +77,12 @@ async def get_payments_count(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> PaymentsCountResponse:
-    if not account.telegram_user_id:
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
         return PaymentsCountResponse(total=0)
 
     count_result = await db.execute(
-        select(func.count()).select_from(Payment).where(Payment.user_id == account.telegram_user_id)
+        select(func.count()).select_from(Payment).where(Payment.user_id.in_(user_ids))
     )
     total = count_result.scalar() or 0
     return PaymentsCountResponse(total=total)
@@ -145,11 +157,21 @@ async def get_pending_payment(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
 ) -> PaymentStatusResponse | None:
-    if not account.telegram_user_id:
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
         return None
 
     from core.dal.payment_dal import get_latest_pending_payment_by_user
-    payment = await get_latest_pending_payment_by_user(db, account.telegram_user_id)
+    payment = await get_latest_pending_payment_by_user(db, user_ids[0])
+    if len(user_ids) > 1:
+        result = await db.execute(
+            select(Payment)
+            .where(Payment.user_id.in_(user_ids), Payment.status == "pending")
+            .options(selectinload(Payment.promo_code_used))
+            .order_by(Payment.created_at.desc())
+            .limit(1)
+        )
+        payment = result.scalar_one_or_none()
     if not payment:
         return None
 
@@ -172,7 +194,7 @@ async def expire_payment(
     payment = await get_payment_by_db_id(db, payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
-    if payment.user_id != account.telegram_user_id:
+    if payment.user_id not in get_account_user_ids(account):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     await expire_payment_if_stale(db, payment_id)
@@ -191,7 +213,7 @@ async def get_payment_status(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    if payment.user_id != account.telegram_user_id:
+    if payment.user_id not in get_account_user_ids(account):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     return _payment_to_status_response(payment)

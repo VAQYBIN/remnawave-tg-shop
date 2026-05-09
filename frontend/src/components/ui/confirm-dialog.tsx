@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+
 interface ConfirmDialogProps {
   open: boolean
   title: string
@@ -21,13 +23,13 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   if (!open) return null
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center px-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="absolute inset-0 z-0 bg-black/50" onClick={onCancel} />
 
       {/* Dialog */}
-      <div className="relative bg-[hsl(var(--card))] rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div className="relative z-10 bg-[hsl(var(--card))] rounded-2xl shadow-xl w-full max-w-sm p-6">
         <h2 className="text-base font-semibold text-[hsl(var(--foreground))]">{title}</h2>
 
         {description && (
@@ -56,6 +58,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

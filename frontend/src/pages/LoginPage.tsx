@@ -147,6 +147,7 @@ export function LoginPage() {
 const TELEGRAM_OAUTH_URL = 'https://oauth.telegram.org'
 const TG_PKCE_KEY = 'tg_pkce_verifier'
 const TG_STATE_KEY = 'tg_oauth_state'
+const TG_MODE_KEY = 'tg_oauth_mode'
 
 function base64urlEncode(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -189,6 +190,7 @@ function TelegramLoginButton({ setError }: { setError: (msg: string) => void }) 
 
     sessionStorage.setItem(TG_PKCE_KEY, verifier)
     sessionStorage.setItem(TG_STATE_KEY, state)
+    sessionStorage.setItem(TG_MODE_KEY, 'login')
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -220,4 +222,4 @@ function TelegramLoginButton({ setError }: { setError: (msg: string) => void }) 
   )
 }
 
-export { TG_PKCE_KEY, TG_STATE_KEY }
+export { TELEGRAM_OAUTH_URL, TG_PKCE_KEY, TG_STATE_KEY, TG_MODE_KEY, generatePKCE, generateState }

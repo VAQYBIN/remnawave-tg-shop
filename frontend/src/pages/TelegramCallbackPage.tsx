@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { authTelegram } from '@/api/auth'
-import { TG_PKCE_KEY, TG_STATE_KEY } from '@/pages/LoginPage'
+import { linkTelegram } from '@/api/profile'
+import { TG_MODE_KEY, TG_PKCE_KEY, TG_STATE_KEY } from '@/pages/LoginPage'
 
 /**
  * Handles the redirect from Telegram after OpenID Connect Authorization Code flow.
@@ -34,9 +35,11 @@ export function TelegramCallbackPage() {
 
     const storedState = sessionStorage.getItem(TG_STATE_KEY)
     const codeVerifier = sessionStorage.getItem(TG_PKCE_KEY)
+    const mode = sessionStorage.getItem(TG_MODE_KEY)
 
     sessionStorage.removeItem(TG_STATE_KEY)
     sessionStorage.removeItem(TG_PKCE_KEY)
+    sessionStorage.removeItem(TG_MODE_KEY)
 
     if (!storedState || state !== storedState) {
       navigate('/login?error=telegram_state_mismatch', { replace: true })
@@ -49,6 +52,18 @@ export function TelegramCallbackPage() {
     }
 
     const redirectUri = `${window.location.origin}/auth/telegram/callback`
+
+    if (mode === 'link') {
+      linkTelegram(code, codeVerifier, redirectUri)
+        .then(() => {
+          navigate('/profile?telegram_linked=1', { replace: true })
+        })
+        .catch((err) => {
+          const reason = err?.status === 409 ? 'already_linked' : 'telegram_link_failed'
+          navigate(`/profile?error=${reason}`, { replace: true })
+        })
+      return
+    }
 
     authTelegram({ code, code_verifier: codeVerifier, redirect_uri: redirectUri })
       .then((resp) => {
