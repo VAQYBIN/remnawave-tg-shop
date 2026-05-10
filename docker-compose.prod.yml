@@ -59,6 +59,8 @@ services:
       - .env
     networks:
       - remnawave-network
+    volumes:
+      - remnawave-tg-shop-web-static:/app/web/static
     restart: unless-stopped
     depends_on:
       remnawave-tg-shop-db:
@@ -105,3 +107,5 @@ volumes:
     name: remnawave-tg-shop-db-data
   remnawave-tg-shop-redis-data:
     name: remnawave-tg-shop-redis-data
+  remnawave-tg-shop-web-static:
+    name: remnawave-tg-shop-web-static
