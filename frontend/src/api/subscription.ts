@@ -34,6 +34,13 @@ export interface SubscriptionPlans {
   plans: Plan[]
 }
 
+export interface TrialEligibility {
+  eligible: boolean
+  trial_days: number
+  trial_traffic_gb: number | null
+  reason: 'disabled' | 'already_used' | 'has_subscription' | null
+}
+
 export interface ConnectionInfo {
   link: string
 }
@@ -47,6 +54,16 @@ export function getSubscription(): Promise<Subscription | null> {
 
 export function getPlans(): Promise<SubscriptionPlans> {
   return apiRequest<SubscriptionPlans>('/subscription/plans')
+}
+
+export function getTrialEligibility(): Promise<TrialEligibility> {
+  return apiRequest<TrialEligibility>('/subscription/trial-eligibility')
+}
+
+export function activateTrial(): Promise<Subscription> {
+  return apiRequest<Subscription>('/subscription/trial', {
+    method: 'POST',
+  })
 }
 
 export function getConnection(): Promise<ConnectionInfo> {

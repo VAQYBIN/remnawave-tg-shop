@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
+import { TrialBanner } from '@/components/subscription/TrialBanner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/auth/useAuth'
 import { getSubscription } from '@/api/subscription'
@@ -105,6 +106,8 @@ export function DashboardPage() {
             </div>
           </div>
         )}
+
+        <TrialBanner />
 
         {subLoading ? (
           <Card>

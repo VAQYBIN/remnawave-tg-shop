@@ -41,6 +41,13 @@ class ConnectionResponse(BaseModel):
     link: str
 
 
+class TrialEligibilityResponse(BaseModel):
+    eligible: bool
+    trial_days: int
+    trial_traffic_gb: Optional[float]
+    reason: Optional[Literal["disabled", "already_used", "has_subscription"]] = None
+
+
 class AutoRenewRequest(BaseModel):
     enabled: bool
 

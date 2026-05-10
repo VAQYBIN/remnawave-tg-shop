@@ -221,6 +221,51 @@ async def unban_user(
     return {"ok": True}
 
 
+@router.post("/users/{user_id}/reset-trial", dependencies=[Depends(admin_action_limit)])
+async def reset_user_trial(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+    settings: Settings = Depends(get_settings_dep),
+):
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from core.services.trial_core import reset_trial_for_user_identity
+
+    reset_user_ids = await reset_trial_for_user_identity(
+        db,
+        user_id=user_id,
+        reset_by_admin_id=admin.telegram_user_id,
+    )
+    from core.services.trial_core import check_trial_eligibility
+
+    eligibility = await check_trial_eligibility(
+        db,
+        settings,
+        telegram_user_id=user_id,
+    )
+    await add_admin_audit_log(
+        db,
+        admin,
+        "admin_reset_trial",
+        target_user_id=user_id,
+        details={
+            "reset_user_ids": reset_user_ids,
+            "trial_eligible_after_reset": eligibility.eligible,
+            "trial_block_reason": eligibility.reason,
+        },
+    )
+    await db.commit()
+    return {
+        "ok": True,
+        "reset_user_ids": reset_user_ids,
+        "trial_eligible": eligibility.eligible,
+        "trial_block_reason": eligibility.reason,
+    }
+
+
 @router.post("/users/{user_id}/add-days", dependencies=[Depends(admin_action_limit)])
 async def add_days_to_subscription(
     user_id: int,

@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   CalendarPlus,
   Database,
+  RotateCcw,
   X,
   Copy,
   ExternalLink,
@@ -15,6 +16,7 @@ import {
   getAdminUserDetail,
   banUser,
   unbanUser,
+  resetUserTrial,
   addDaysToUser,
   addTrafficToUser,
 } from '@/api/admin/users'
@@ -209,7 +211,7 @@ function AddTrafficModal({
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-type Modal = 'ban' | 'unban' | 'add-days' | 'add-traffic' | null
+type Modal = 'ban' | 'unban' | 'reset-trial' | 'add-days' | 'add-traffic' | null
 
 export function AdminUserDetailPage() {
   const { userId } = useParams<{ userId: string }>()
@@ -242,6 +244,23 @@ export function AdminUserDetailPage() {
     mutationFn: () => unbanUser(uid),
     onSuccess: () => { invalidate(); setModal(null); toast.success(t('admin_users_unbanned_toast')) },
     onError: () => toast.error(t('admin_users_unban_error')),
+  })
+  const resetTrialMut = useMutation({
+    mutationFn: () => resetUserTrial(uid),
+    onSuccess: (res) => {
+      invalidate()
+      setModal(null)
+      if (res.trial_eligible) {
+        toast.success(t('admin_users_trial_reset_toast'))
+      } else if (res.trial_block_reason === 'has_subscription') {
+        toast.success(t('admin_users_trial_reset_has_subscription_toast'))
+      } else if (res.trial_block_reason === 'disabled') {
+        toast.success(t('admin_users_trial_reset_disabled_toast'))
+      } else {
+        toast.success(t('admin_users_trial_reset_blocked_toast'))
+      }
+    },
+    onError: () => toast.error(t('admin_users_trial_reset_error')),
   })
   const addDaysMut = useMutation({
     mutationFn: (days: number) => addDaysToUser(uid, days),
@@ -355,6 +374,13 @@ export function AdminUserDetailPage() {
               </button>
             </>
           )}
+          <button
+            onClick={() => setModal('reset-trial')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
+          >
+            <RotateCcw size={15} />
+            {t('admin_users_reset_trial')}
+          </button>
         </div>
       </div>
 
@@ -533,6 +559,16 @@ export function AdminUserDetailPage() {
           onConfirm={() => unbanMut.mutate()}
           onClose={() => setModal(null)}
           isLoading={unbanMut.isPending}
+        />
+      )}
+      {modal === 'reset-trial' && (
+        <ConfirmModal
+          title={t('admin_users_reset_trial_confirm')}
+          description={t('admin_users_reset_trial_description', { name: displayName })}
+          confirmLabel={t('admin_users_reset_trial')}
+          onConfirm={() => resetTrialMut.mutate()}
+          onClose={() => setModal(null)}
+          isLoading={resetTrialMut.isPending}
         />
       )}
       {modal === 'add-days' && (

@@ -253,6 +253,17 @@ async def link_telegram(
         logger.error("Panel identity sync failed for account %s", account.id, exc_info=True)
         panel_sync_result = {"synced": False, "reason": "internal_error"}
 
+    try:
+        from core.services.trial_core import sync_trial_identity_on_telegram_link
+
+        await sync_trial_identity_on_telegram_link(
+            db,
+            account=account,
+            telegram_user_id=telegram_user_id,
+        )
+    except Exception:
+        logger.error("Trial identity sync failed for account %s", account.id, exc_info=True)
+
     await update_account(db, account.id, telegram_user_id=telegram_user_id)
 
     return {
