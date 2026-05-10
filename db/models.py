@@ -1,5 +1,5 @@
 import uuid as _uuid
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column, backref
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
@@ -305,6 +305,93 @@ class AdAttribution(Base):
 
     user = relationship("User")
     campaign = relationship("AdCampaign", back_populates="attributions")
+
+
+class TrialActivation(Base):
+    __tablename__ = "trial_activations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    telegram_user_id = Column(BigInteger, nullable=True, index=True)
+    site_user_id = Column(BigInteger, nullable=True, index=True)
+    source = Column(String(20), nullable=False, index=True)
+    activated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    reset_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    reset_by_admin_id = Column(BigInteger, nullable=True)
+
+    user = relationship("User")
+    account = relationship("Account")
+
+    __table_args__ = (
+        Index(
+            "uq_trial_active_user_id",
+            "user_id",
+            unique=True,
+            postgresql_where=reset_at.is_(None),
+        ),
+        Index(
+            "uq_trial_active_telegram_user_id",
+            "telegram_user_id",
+            unique=True,
+            postgresql_where=telegram_user_id.is_not(None) & reset_at.is_(None),
+        ),
+        Index(
+            "uq_trial_active_site_user_id",
+            "site_user_id",
+            unique=True,
+            postgresql_where=site_user_id.is_not(None) & reset_at.is_(None),
+        ),
+        Index(
+            "uq_trial_active_account_id",
+            "account_id",
+            unique=True,
+            postgresql_where=account_id.is_not(None) & reset_at.is_(None),
+        ),
+    )
+
+
+class TrialResetGrant(Base):
+    __tablename__ = "trial_reset_grants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
+    telegram_user_id = Column(BigInteger, nullable=True, index=True)
+    site_user_id = Column(BigInteger, nullable=True, index=True)
+    granted_by_admin_id = Column(BigInteger, nullable=True)
+    granted_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    user = relationship("User")
+    account = relationship("Account")
+
+    __table_args__ = (
+        Index(
+            "uq_trial_reset_grant_unused_user_id",
+            "user_id",
+            unique=True,
+            postgresql_where=used_at.is_(None),
+        ),
+        Index(
+            "uq_trial_reset_grant_unused_telegram_user_id",
+            "telegram_user_id",
+            unique=True,
+            postgresql_where=telegram_user_id.is_not(None) & used_at.is_(None),
+        ),
+        Index(
+            "uq_trial_reset_grant_unused_site_user_id",
+            "site_user_id",
+            unique=True,
+            postgresql_where=site_user_id.is_not(None) & used_at.is_(None),
+        ),
+        Index(
+            "uq_trial_reset_grant_unused_account_id",
+            "account_id",
+            unique=True,
+            postgresql_where=account_id.is_not(None) & used_at.is_(None),
+        ),
+    )
 
 
 class Account(Base):

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from config.settings import Settings
-from db.dal import user_dal, subscription_dal, message_log_dal
+from db.dal import user_dal, message_log_dal
 from db.models import User
 from bot.states.admin_states import AdminStates
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
@@ -435,8 +435,9 @@ async def handle_reset_trial(callback: types.CallbackQuery, user: User,
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     
     try:
-        # Delete all user subscriptions to reset trial eligibility
-        await subscription_dal.delete_all_user_subscriptions(session, user.user_id)
+        from core.services.trial_core import reset_trial_for_user_identity
+
+        await reset_trial_for_user_identity(session, user_id=user.user_id)
         await session.commit()
         
         await callback.answer(_(

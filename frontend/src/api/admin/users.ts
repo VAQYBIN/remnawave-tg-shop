@@ -101,6 +101,20 @@ export function unbanUser(userId: number): Promise<{ ok: boolean }> {
   })
 }
 
+export interface ResetUserTrialResponse {
+  ok: boolean
+  reset_user_ids: number[]
+  trial_eligible: boolean
+  trial_block_reason: 'disabled' | 'already_used' | 'has_subscription' | null
+}
+
+export function resetUserTrial(userId: number): Promise<ResetUserTrialResponse> {
+  return apiRequest<ResetUserTrialResponse>(`/admin/users/${userId}/reset-trial`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
 export function addDaysToUser(userId: number, days: number): Promise<{ ok: boolean; days_added: number }> {
   return apiRequest<{ ok: boolean; days_added: number }>(`/admin/users/${userId}/add-days`, {
     method: 'POST',

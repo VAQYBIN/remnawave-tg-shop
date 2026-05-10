@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
+import { TrialBanner } from '@/components/subscription/TrialBanner'
 import { PlanSelector } from '@/components/subscription/PlanSelector'
 import { PaymentMethodGrid } from '@/components/payment/PaymentMethodGrid'
 import { PromoInput } from '@/components/payment/PromoInput'
@@ -106,6 +107,8 @@ export function SubscriptionPage() {
     <AppShell>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">{t('sub_title')}</h1>
+
+        <TrialBanner />
 
         {subLoading ? (
           <Card>
