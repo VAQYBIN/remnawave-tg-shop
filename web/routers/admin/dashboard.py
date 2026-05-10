@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, and_
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone, timedelta
 
 from db.models import Account, User, Subscription, Payment
@@ -125,6 +126,7 @@ async def admin_dashboard(
             .where(Payment.status == "succeeded")
             .order_by(Payment.created_at.desc())
             .limit(5)
+            .options(selectinload(Payment.user))
         )
     ).scalars().all()
 
