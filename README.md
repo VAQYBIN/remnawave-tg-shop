@@ -107,17 +107,24 @@ Browser → /api/* → web/routers/ → core/services/ → core/dal/ → Postgre
 
 ### Шаги установки
 
-**1. Клонируйте репозиторий:**
+**1. Создайте директорию проекта и скачайте production-файлы:**
 
 ```bash
-git clone https://github.com/VAQYBIN/remnawave-tg-shop
-cd remnawave-tg-shop
+mkdir -p remnawave-tg-shop && cd remnawave-tg-shop
+
+curl -fsSLo docker-compose.yml \
+  https://raw.githubusercontent.com/VAQYBIN/remnawave-tg-shop/main/docker-compose.prod.yml
+
+curl -fsSLo .env \
+  https://raw.githubusercontent.com/VAQYBIN/remnawave-tg-shop/main/.env.example
+
+curl -fsSL https://github.com/VAQYBIN/remnawave-tg-shop/archive/refs/heads/main.tar.gz \
+  | tar -xz --strip-components=1 remnawave-tg-shop-main/locales
 ```
 
-**2. Создайте файл `.env`:**
+**2. Заполните файл `.env`:**
 
 ```bash
-cp .env.example .env
 nano .env
 ```
 
@@ -142,17 +149,28 @@ nano .env
 **3. Запустите сервисы:**
 
 ```bash
-# Production (готовые образы с GHCR)
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-
-# Разработка (локальная сборка)
-docker compose up -d
+docker compose up -d && docker compose logs -f
 ```
 
 **4. Настройте обратный прокси (Nginx):**
 
-В репозитории есть готовый `nginx/nginx.conf`, который обслуживает все три сервиса на одном домене.
+Проект можно проксировать двумя способами:
+
+- **один домен**: `/api/*`, `/webhook/*` и frontend обслуживаются на одном домене;
+- **три поддомена**: отдельные домены для frontend, API и webhook'ов.
+
+### Вариант 1: один домен
+
+Подходит, если хотите обслуживать весь проект на одном домене, например `https://your-domain.com`.
+
+Рекомендуемые значения `.env`:
+
+```env
+WEB_FRONTEND_URL=https://your-domain.com
+WEB_API_URL=https://your-domain.com
+WEBHOOK_BASE_URL=https://your-domain.com
+WEB_CORS_ORIGINS=https://your-domain.com
+```
 
 ```nginx
 upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
@@ -176,6 +194,90 @@ server {
 }
 ```
 
+### Вариант 2: три поддомена
+
+Подходит, если на production уже есть отдельный nginx-контейнер в общей Docker-сети и вы хотите разделить публичные точки входа:
+
+- `https://app.your-domain.com` — frontend;
+- `https://api.your-domain.com` — Web API;
+- `https://webhook.your-domain.com` — Telegram, платежные и panel webhooks.
+
+Рекомендуемые значения `.env`:
+
+```env
+WEB_FRONTEND_URL=https://app.your-domain.com
+WEB_API_URL=https://api.your-domain.com
+WEBHOOK_BASE_URL=https://webhook.your-domain.com
+WEB_CORS_ORIGINS=https://app.your-domain.com
+```
+
+Nginx должен быть подключен к той же Docker-сети, что и контейнеры проекта, например к `remnawave-network`.
+
+```nginx
+upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
+upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
+upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name webhook.your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.key;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port $server_port;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+
+    location / {
+        proxy_pass http://remnawave-tg-shop;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name api.your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.key;
+
+    location / {
+        proxy_http_version 1.1;
+        proxy_pass http://remnawave-tg-shop-web-api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name app.your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.key;
+
+    location / {
+        proxy_http_version 1.1;
+        proxy_pass http://remnawave-tg-shop-web-frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
 **5. Просмотр логов:**
 
 ```bash
@@ -183,12 +285,43 @@ docker compose logs -f remnawave-tg-shop
 docker compose logs -f remnawave-tg-shop-web-api
 ```
 
+### Обновление
+
+Если проект установлен через скачивание `docker-compose.yml` и папки `locales`, обновление выполняется без клонирования репозитория.
+
+**1. Обновите `locales`:**
+
+Перед обновлением сохраните текущую папку `locales`. Это полезно, если вы вручную меняли тексты.
+
+```bash
+cp -a locales "locales.backup.$(date +%Y%m%d-%H%M%S)"
+rm -rf locales
+
+curl -fsSL https://github.com/VAQYBIN/remnawave-tg-shop/archive/refs/heads/main.tar.gz \
+  | tar -xz --strip-components=1 remnawave-tg-shop-main/locales
+```
+
+Если вы редактировали локализации вручную, после обновления сравните `locales` с созданным backup и перенесите свои изменения.
+
+**2. Скачайте новые образы и перезапустите сервисы:**
+
+```bash
+docker compose pull && docker compose down && docker compose up -d && docker compose logs -f
+```
+
+**3. Проверьте состояние контейнеров и логи:**
+
+```bash
+docker compose ps
+docker compose logs -f --tail=100
+```
+
 ### Миграции БД
 
 Миграции применяются автоматически при каждом запуске. Для ручного запуска:
 
 ```bash
-alembic upgrade head
+docker compose exec remnawave-tg-shop alembic upgrade head
 ```
 
 ---
