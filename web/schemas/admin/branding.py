@@ -9,6 +9,9 @@ class BrandingResponse(BaseModel):
     primary_color: str
     secondary_color: str
     background_color: str
+    foreground_color: str
+    card_color: str
+    border_color: str
     font_family: str
     custom_css: Optional[str]
     privacy_policy_url: Optional[str] = None
@@ -26,6 +29,9 @@ class BrandingUpdateRequest(BaseModel):
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
     background_color: Optional[str] = None
+    foreground_color: Optional[str] = None
+    card_color: Optional[str] = None
+    border_color: Optional[str] = None
     font_family: Optional[str] = None
     custom_css: Optional[str] = None
     privacy_policy_url: Optional[str] = None
