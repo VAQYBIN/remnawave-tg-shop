@@ -63,10 +63,10 @@ function escapeHtml(text: string) {
 }
 
 function sanitizePreviewHref(href: string) {
-  const decodedHref = href
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+  // Use browser's HTML parser to decode entities — avoids double-unescaping bugs
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = href
+  const decodedHref = textarea.value
   try {
     const url = new URL(decodedHref)
     if (url.protocol === 'https:' || url.protocol === 'tg:') {
