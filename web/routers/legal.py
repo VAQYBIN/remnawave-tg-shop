@@ -1,5 +1,7 @@
 """Legal document proxy — fetches content from external URLs (telegra.ph or plain Markdown)."""
+import ipaddress
 import re
+import socket
 from typing import Any, Union
 from urllib.parse import urlparse
 
@@ -11,6 +13,34 @@ router = APIRouter()
 
 _TELEGRAPH_HOSTS = {"telegra.ph", "te.legra.ph", "graph.org"}
 _TELEGRAPH_API = "https://api.telegra.ph/getPage/{}?return_content=true"
+
+
+def _validate_external_url(url: str) -> None:
+    """Reject URLs that could be used for SSRF attacks."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Только HTTPS-ссылки допустимы")
+    host = parsed.hostname or ""
+    if not host:
+        raise HTTPException(status_code=400, detail="Некорректная ссылка")
+    # Block loopback and link-local hostnames
+    _blocked_names = {"localhost", "0.0.0.0", "metadata", "169.254.169.254"}
+    if host.lower() in _blocked_names:
+        raise HTTPException(status_code=400, detail="Недопустимый хост")
+    # If host looks like an IP address, reject private/loopback ranges
+    try:
+        addr = ipaddress.ip_address(host)
+        if not addr.is_global:
+            raise HTTPException(status_code=400, detail="Недопустимый хост")
+    except ValueError:
+        # Not an IP — hostname. Resolve and check the resulting address.
+        try:
+            resolved_ip = socket.gethostbyname(host)
+            addr = ipaddress.ip_address(resolved_ip)
+            if not addr.is_global:
+                raise HTTPException(status_code=400, detail="Недопустимый хост")
+        except socket.gaierror:
+            raise HTTPException(status_code=400, detail="Не удалось разрешить хост")
 
 
 class LegalContentResponse(BaseModel):
@@ -101,7 +131,8 @@ async def _fetch_telegraph(path: str) -> str:
 
 
 async def _fetch_raw(url: str) -> str:
-    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+    _validate_external_url(url)
+    async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
         resp = await client.get(url)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail="Не удалось загрузить документ")

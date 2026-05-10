@@ -196,8 +196,14 @@ async def get_media(
     return await _stream_telegram_file(download_url)
 
 
+_TELEGRAM_FILE_URL_PREFIX = "https://api.telegram.org/file/bot"
+
+
 async def _stream_telegram_file(url: str) -> StreamingResponse:
     """Proxy-stream a file from Telegram servers to the client."""
+    if not url.startswith(_TELEGRAM_FILE_URL_PREFIX):
+        raise HTTPException(status_code=400, detail="Invalid media URL")
+
     async def _iter_content():
         async with httpx.AsyncClient(timeout=30) as client:
             async with client.stream("GET", url) as response:
