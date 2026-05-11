@@ -63,7 +63,7 @@ def create_app() -> FastAPI:
     docs_enabled = settings.WEB_DOCS_ENABLED
 
     app = FastAPI(
-        title="Raccoonito Web API",
+        title="Remnawave TG Shop Web API",
         version="1.0.0",
         docs_url="/docs" if docs_enabled else None,
         redoc_url="/redoc" if docs_enabled else None,

@@ -82,7 +82,7 @@ const ru = {
 
   // Dashboard
   dashboard_greeting: 'Добро пожаловать, {{name}}!',
-  dashboard_subtitle: 'Личный кабинет',
+  dashboard_subtitle: '{{brand}} — Личный кабинет',
   dashboard_no_subscription: 'У вас нет активной подписки',
   dashboard_buy: 'Купить подписку',
   dashboard_manage: 'Управление подпиской',
@@ -725,7 +725,7 @@ const en: typeof ru = {
   forgot_repeat_password: 'Repeat password',
 
   dashboard_greeting: 'Welcome, {{name}}!',
-  dashboard_subtitle: 'Personal account',
+  dashboard_subtitle: '{{brand}} — Personal account',
   dashboard_no_subscription: "You don't have an active subscription",
   dashboard_buy: 'Buy Subscription',
   dashboard_manage: 'Manage Subscription',

@@ -481,7 +481,7 @@ class SiteSettings(Base):
     __tablename__ = "site_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1, autoincrement=False)
-    brand_name: Mapped[str] = mapped_column(String(100), nullable=False, default="Raccoonito")
+    brand_name: Mapped[str] = mapped_column(String(100), nullable=False, default="VPN")
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     favicon_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     primary_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#2AACDF")
