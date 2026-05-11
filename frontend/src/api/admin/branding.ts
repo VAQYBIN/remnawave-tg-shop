@@ -7,6 +7,9 @@ export interface BrandingResponse {
   primary_color: string
   secondary_color: string
   background_color: string
+  foreground_color: string
+  card_color: string
+  border_color: string
   font_family: string
   custom_css: string | null
   privacy_policy_url: string | null
@@ -28,6 +31,9 @@ export interface BrandingUpdateRequest {
   primary_color?: string
   secondary_color?: string
   background_color?: string
+  foreground_color?: string
+  card_color?: string
+  border_color?: string
   font_family?: string
   custom_css?: string
   privacy_policy_url?: string
@@ -68,6 +74,24 @@ export function patchBranding(body: BrandingUpdateRequest): Promise<BrandingResp
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+}
+
+export async function uploadFavicon(file: File): Promise<BrandingResponse> {
+  const form = new FormData()
+  form.append('file', file)
+  const resp = await fetch(`${API_BASE}/admin/branding/favicon`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getAccessToken()}`,
+    },
+    credentials: 'include',
+    body: form,
+  })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(body.detail ?? 'Upload failed')
+  }
+  return resp.json()
 }
 
 export async function uploadLogo(file: File): Promise<BrandingResponse> {

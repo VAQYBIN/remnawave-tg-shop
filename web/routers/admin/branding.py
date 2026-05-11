@@ -40,6 +40,42 @@ async def patch_branding(
     return BrandingResponse.model_validate(settings)
 
 
+@router.post("/branding/favicon", response_model=BrandingResponse, dependencies=[Depends(admin_action_limit)])
+async def upload_favicon(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+    settings: Settings = Depends(get_settings_dep),
+):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Недопустимый тип файла")
+
+    content = await file.read()
+    if len(content) > MAX_LOGO_SIZE:
+        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 2 МБ)")
+
+    os.makedirs(STATIC_DIR, exist_ok=True)
+
+    ext = os.path.splitext(file.filename or "favicon.ico")[1] or ".ico"
+    filename = f"favicon_{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(STATIC_DIR, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    api_base = settings.WEB_API_URL.rstrip("/")
+    favicon_url = f"{api_base}/static/{filename}"
+    site_settings = await update_site_settings(db, favicon_url=favicon_url)
+    await add_admin_audit_log(
+        db,
+        admin,
+        "admin_branding_favicon_upload",
+        details={"filename": filename, "content_type": file.content_type, "size": len(content)},
+    )
+    await db.commit()
+    return BrandingResponse.model_validate(site_settings)
+
+
 @router.post("/branding/logo", response_model=BrandingResponse, dependencies=[Depends(admin_action_limit)])
 async def upload_logo(
     file: UploadFile = File(...),

@@ -75,7 +75,7 @@ frontend/src/
 class SiteSettings(Base):
     __tablename__ = "site_settings"
     id: int (PK, единственная строка)
-    brand_name: str               # "Raccoonito"
+    brand_name: str               # "VPN"
     logo_url: Optional[str]       # URL или путь к логотипу
     favicon_url: Optional[str]
     primary_color: str            # "#2AACDF"

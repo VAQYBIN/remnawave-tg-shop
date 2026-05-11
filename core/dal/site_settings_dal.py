@@ -9,10 +9,13 @@ async def get_site_settings(db: AsyncSession) -> SiteSettings:
     if settings is None:
         settings = SiteSettings(
             id=1,
-            brand_name="Raccoonito",
+            brand_name="VPN",
             primary_color="#2AACDF",
             secondary_color="#897569",
             background_color="#F5F1ED",
+            foreground_color="#2B2B2B",
+            card_color="#FFFFFF",
+            border_color="#DDD8D3",
             font_family="Nunito",
             news_enabled=True,
             referral_enabled=True,

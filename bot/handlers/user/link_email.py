@@ -48,9 +48,10 @@ async def cmd_link_email(
         )
         return
 
+    site = settings.WEB_FRONTEND_URL.replace("https://", "").replace("http://", "").rstrip("/")
     await state.set_state(LinkEmailStates.waiting_for_email)
     await message.answer(
-        _("link_email_prompt"),
+        _("link_email_prompt", site=site),
         reply_markup=get_back_to_main_menu_markup(current_lang, i18n),
     )
 
@@ -106,6 +107,8 @@ async def process_email_input(
 
     if settings.RESEND_API_KEY:
         from web.auth.email_service import send_verification_code
+        from core.dal.site_settings_dal import get_site_settings
+        site_settings = await get_site_settings(session)
         try:
             await send_verification_code(
                 email=email,
@@ -113,6 +116,7 @@ async def process_email_input(
                 purpose="link_email",
                 api_key=settings.RESEND_API_KEY,
                 from_email=settings.RESEND_FROM_EMAIL,
+                brand=site_settings.brand_name,
             )
         except Exception as exc:
             logger.error("Failed to send link_email verification code: %s", exc)

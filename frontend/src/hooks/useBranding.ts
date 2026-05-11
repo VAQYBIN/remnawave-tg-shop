@@ -42,10 +42,22 @@ function applyBrandingCss(branding: PublicBrandingResponse) {
   root.style.setProperty('--primary', hexToHsl(branding.primary_color))
   root.style.setProperty('--secondary', hexToHsl(branding.secondary_color))
   root.style.setProperty('--background', hexToHsl(branding.background_color))
+  root.style.setProperty('--foreground', hexToHsl(branding.foreground_color))
+  root.style.setProperty('--card', hexToHsl(branding.card_color))
+  root.style.setProperty('--border', hexToHsl(branding.border_color))
 
   if (branding.font_family) {
     root.style.setProperty('--font-family', branding.font_family)
     document.body.style.fontFamily = `'${branding.font_family}', sans-serif`
+    // Dynamically load Google Font if not already injected
+    const fontId = `gfont-${branding.font_family.replace(/\s+/g, '-').toLowerCase()}`
+    if (!document.getElementById(fontId)) {
+      const link = document.createElement('link')
+      link.id = fontId
+      link.rel = 'stylesheet'
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(branding.font_family)}:wght@400;500;600;700&display=swap`
+      document.head.appendChild(link)
+    }
   }
 
   // Apply custom CSS

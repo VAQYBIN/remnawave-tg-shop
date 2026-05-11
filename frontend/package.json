@@ -1,5 +1,5 @@
 {
-  "name": "raccoonito-web",
+  "name": "vpn-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -20,6 +20,7 @@
     "i18next": "^25.1.2",
     "lucide-react": "^1.7.0",
     "react": "^19.1.0",
+    "react-colorful": "^5.7.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^15.5.1",
     "react-markdown": "^10.1.0",

@@ -107,12 +107,15 @@ async def send_email_change_code(
 
     if settings.RESEND_API_KEY:
         try:
+            from core.dal.site_settings_dal import get_site_settings
+            site_settings = await get_site_settings(db)
             await send_verification_code(
                 email=body.new_email,
                 code=code_record.code,
                 purpose="change_email",
                 api_key=settings.RESEND_API_KEY,
                 from_email=settings.RESEND_FROM_EMAIL,
+                brand=site_settings.brand_name,
             )
         except Exception as exc:
             logger.error("Failed to send email change code: %s", exc)

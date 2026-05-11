@@ -5,23 +5,25 @@ import resend
 
 logger = logging.getLogger(__name__)
 
-PURPOSE_SUBJECTS = {
-    "register": "Код подтверждения регистрации — Raccoonito",
-    "reset_password": "Код сброса пароля — Raccoonito",
-    "change_email": "Код подтверждения смены email — Raccoonito",
-    "link_email": "Код привязки email — Raccoonito",
+DEFAULT_BRAND = "VPN"
+
+PURPOSE_SUBJECT_TEMPLATES = {
+    "register": "Код подтверждения регистрации — {brand}",
+    "reset_password": "Код сброса пароля — {brand}",
+    "change_email": "Код подтверждения смены email — {brand}",
+    "link_email": "Код привязки email — {brand}",
 }
 
-PURPOSE_BODIES = {
+PURPOSE_BODY_TEMPLATES = {
     "register": "Ваш код для завершения регистрации",
     "reset_password": "Ваш код для сброса пароля",
     "change_email": "Ваш код для подтверждения смены email",
-    "link_email": "Ваш код для привязки email к аккаунту Raccoonito",
+    "link_email": "Ваш код для привязки email к аккаунту {brand}",
 }
 
 
-def _build_html(purpose: str, code: str) -> str:
-    body_text = PURPOSE_BODIES.get(purpose, "Ваш код подтверждения")
+def _build_html(purpose: str, code: str, brand: str) -> str:
+    body_text = PURPOSE_BODY_TEMPLATES.get(purpose, "Ваш код подтверждения").format(brand=brand)
     return f"""
 <!DOCTYPE html>
 <html lang="ru">
@@ -37,7 +39,7 @@ def _build_html(purpose: str, code: str) -> str:
                style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
             <td style="background-color:#2AACDF;padding:24px 32px;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Raccoonito</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">{brand}</h1>
             </td>
           </tr>
           <tr>
@@ -71,15 +73,19 @@ async def send_verification_code(
     purpose: str,
     api_key: str,
     from_email: str,
+    brand: Optional[str] = None,
 ) -> bool:
     """
     Send verification code via Resend.
+    `brand` is the brand name shown in subject and email body. Defaults to DEFAULT_BRAND.
     Returns True on success, False on failure.
     """
+    brand_name = brand or DEFAULT_BRAND
     try:
         resend.api_key = api_key
-        subject = PURPOSE_SUBJECTS.get(purpose, "Код подтверждения — Raccoonito")
-        html = _build_html(purpose, code)
+        subject_template = PURPOSE_SUBJECT_TEMPLATES.get(purpose, "Код подтверждения — {brand}")
+        subject = subject_template.format(brand=brand_name)
+        html = _build_html(purpose, code, brand_name)
 
         params: resend.Emails.SendParams = {
             "from": from_email,

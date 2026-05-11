@@ -9,7 +9,7 @@ export function AdminLayout() {
   const { t } = useTranslation()
 
   return (
-    <div className="flex min-h-screen bg-[hsl(var(--background))]">
+    <div className="flex h-screen bg-[hsl(var(--background))]">
       <AdminSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
