@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/useAuth'
 import { getSubscription } from '@/api/subscription'
 import { getProfile } from '@/api/profile'
 import { getPaymentsCount, getPendingPayment, type PaymentStatus } from '@/api/payment'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { CreditCard, Receipt, ArrowRight, AlertCircle, X } from 'lucide-react'
 
 const PAYMENT_EXPIRY_MS = 65 * 60 * 1000
@@ -28,6 +29,7 @@ function isPendingPaymentExpired(payment: PaymentStatus): boolean {
 export function DashboardPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
+  const { branding } = useBrandingContext()
   const navigate = useNavigate()
   const [bannerDismissed, setBannerDismissed] = useState(
     () => sessionStorage.getItem('pending_payment_banner_dismissed') === '1'
@@ -72,7 +74,7 @@ export function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">{t('dashboard_greeting', { name: displayName })}</h1>
           <p className="text-[hsl(var(--muted-foreground))] text-sm mt-1">
-            {t('dashboard_subtitle')}
+            {t('dashboard_subtitle', { brand: branding?.brand_name ?? 'VPN' })}
           </p>
         </div>
 

@@ -205,12 +205,15 @@ async def register_send_code(
     code_record = await create_verification_code(db, email=body.email, purpose="register")
 
     if settings.RESEND_API_KEY:
+        from core.dal.site_settings_dal import get_site_settings
+        site_settings = await get_site_settings(db)
         await send_verification_code(
             email=body.email,
             code=code_record.code,
             purpose="register",
             api_key=settings.RESEND_API_KEY,
             from_email=settings.RESEND_FROM_EMAIL,
+            brand=site_settings.brand_name,
         )
     else:
         logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)
@@ -339,12 +342,15 @@ async def password_send_reset_code(
             db, email=body.email, purpose="reset_password", account_id=account.id
         )
         if settings.RESEND_API_KEY:
+            from core.dal.site_settings_dal import get_site_settings
+            site_settings = await get_site_settings(db)
             await send_verification_code(
                 email=body.email,
                 code=code_record.code,
                 purpose="reset_password",
                 api_key=settings.RESEND_API_KEY,
                 from_email=settings.RESEND_FROM_EMAIL,
+                brand=site_settings.brand_name,
             )
         else:
             logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)

@@ -72,7 +72,7 @@ export function LoginPage() {
             <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
           )}
           <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
-            {branding?.brand_name ?? 'Raccoonito'}
+            {branding?.brand_name ?? 'VPN'}
           </h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>

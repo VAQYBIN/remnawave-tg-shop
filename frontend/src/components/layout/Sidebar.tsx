@@ -101,7 +101,7 @@ export function Sidebar() {
             <img src={resolveLogoUrl(branding?.logo_url)!} alt={branding?.brand_name} className="h-8 w-8 object-contain flex-shrink-0" />
           )}
           <div className="min-w-0 flex-1">
-            <FitText text={branding?.brand_name ?? 'Raccoonito'} />
+            <FitText text={branding?.brand_name ?? 'VPN'} />
           </div>
         </div>
       </div>

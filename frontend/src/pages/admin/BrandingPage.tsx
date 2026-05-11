@@ -184,7 +184,7 @@ export function BrandingPage() {
             value={form.brand_name}
             onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))}
             className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm"
-            placeholder="Raccoonito"
+            placeholder="VPN"
           />
         </div>
 
