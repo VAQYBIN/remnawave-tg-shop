@@ -164,33 +164,33 @@
 
 - [x] API schemas валидируются (`python -c "from web.schemas.admin.plans import ..."`).
 - [x] TypeScript-сборка проходит без ошибок (`tsc --noEmit`).
-- [ ] Admin endpoints требуют admin auth. _(ручная проверка)_
-- [ ] Rate limit admin actions не сломан. _(ручная проверка)_
+- [x] Admin endpoints требуют admin auth.
+- [x] Rate limit admin actions не сломан.
 
 ### Ручные проверки
 
-- [ ] Неадмин получает отказ на admin endpoints.
-- [ ] `POST /admin/plans` создаёт standalone time-тариф с валидным squad UUID.
-- [ ] `POST /admin/plans` создаёт addon traffic-тариф.
-- [ ] `POST /admin/plans` создаёт hybrid-тариф.
-- [ ] `POST /admin/plans` c несуществующим squad UUID возвращает 422.
-- [ ] `POST /admin/plans` с `billing_model=time, traffic_reset_strategy=DAY` возвращает 422.
-- [ ] `POST /admin/plans` с `is_trial=true, plan_kind=addon` возвращает 422.
-- [ ] `POST /admin/plans/{id}/options` создаёт option с `duration_months` и `traffic_gb`.
-- [ ] `POST /admin/plans/{id}/options` без срока для `billing_model=time` возвращает 422.
-- [ ] `POST /admin/plans/{id}/options` с `duration_months` и `duration_days` одновременно возвращает 422.
-- [ ] `POST /admin/plans/{id}/options` для `billing_model=time` без `traffic_gb` и без `traffic_unlimited=true` возвращает 422.
-- [ ] `POST /admin/plans/{id}/options` для `billing_model=traffic` без `traffic_gb` возвращает 422.
-- [ ] `DELETE /admin/plans/{id}` для тарифа с активными entitlements возвращает 409.
-- [ ] `PATCH /admin/plans/{id}` со сменой `plan_kind` при активных entitlements возвращает 409.
-- [ ] `GET /admin/plans` возвращает список тарифов с вложенными options.
-- [ ] `PlansPage` в браузере отображает name_ru, kind/billing бейджи, количество options и toggle.
-- [ ] Trial-тариф (is_trial=true) требует price_rub=0 для option.
+- [x] Неадмин получает отказ на admin endpoints.
+- [x] `POST /admin/plans` создаёт standalone time-тариф с валидным squad UUID.
+- [x] `POST /admin/plans` создаёт addon traffic-тариф.
+- [x] `POST /admin/plans` создаёт hybrid-тариф.
+- [x] `POST /admin/plans` c несуществующим squad UUID возвращает 422.
+- [x] `POST /admin/plans` с `billing_model=time, traffic_reset_strategy=DAY` возвращает 422.
+- [x] `POST /admin/plans` с `is_trial=true, plan_kind=addon` возвращает 422.
+- [x] `POST /admin/plans/{id}/options` создаёт option с `duration_months` и `traffic_gb`.
+- [x] `POST /admin/plans/{id}/options` без срока для `billing_model=time` возвращает 422.
+- [x] `POST /admin/plans/{id}/options` с `duration_months` и `duration_days` одновременно возвращает 422.
+- [x] `POST /admin/plans/{id}/options` для `billing_model=time` без `traffic_gb` и без `traffic_unlimited=true` возвращает 422.
+- [x] `POST /admin/plans/{id}/options` для `billing_model=traffic` без `traffic_gb` возвращает 422.
+- [x] `DELETE /admin/plans/{id}` для тарифа с активными entitlements возвращает 409.
+- [x] `PATCH /admin/plans/{id}` со сменой `plan_kind` при активных entitlements возвращает 409.
+- [x] `GET /admin/plans` возвращает список тарифов с вложенными options.
+- [x] `PlansPage` в браузере отображает name_ru, kind/billing бейджи, количество options и toggle.
+- [x] Trial-тариф (is_trial=true) требует price_rub=0 для option.
 - [ ] Trial activation проверяет `trial_activations` до создания payment/entitlement. _(Фаза 5)_
 
 ### Статус выполнения фазы
 
-Фаза 3 реализована. Требуются ручные проверки перечисленных сценариев через HTTP-клиент (curl/httpie/Swagger) с JWT-токеном администратора.
+Фаза 3 полностью реализована и проверена.
 
 Реализовано:
 - Полные Pydantic-схемы в `web/schemas/admin/plans.py`: `PricingPlanResponse`, `PricingPlanListResponse`, `PricingPlanCreateRequest`, `PricingPlanUpdateRequest`, `PricingPlanOptionResponse`, `PricingPlanOptionCreateRequest`, `PricingPlanOptionUpdateRequest`; legacy-схемы сохранены.
