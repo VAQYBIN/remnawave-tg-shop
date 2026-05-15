@@ -234,8 +234,21 @@ async def get_plan_by_months(db: AsyncSession, duration_months: int) -> Optional
     return _option_to_legacy_view(option) if option else None
 
 
+def _validate_legacy_enable(plan: PricingPlan, price_rub: object, price_stars: object) -> None:
+    if not plan.remnawave_squad_uuid:
+        raise ValueError(
+            "Невозможно включить тариф: USER_SQUAD_UUIDS не настроен (нет squad UUID)."
+        )
+    if not price_rub and not price_stars:
+        raise ValueError(
+            "Невозможно включить тариф: не указана цена (price_rub или price_stars)."
+        )
+
+
 async def create_legacy_time_option(db: AsyncSession, **kwargs) -> LegacyTimePlanView:
     plan = await ensure_legacy_default_plan(db)
+    if kwargs.get("is_enabled"):
+        _validate_legacy_enable(plan, kwargs.get("price_rub"), kwargs.get("price_stars"))
     plan.is_enabled = bool(kwargs.get("is_enabled", False) or plan.is_enabled)
     option = await create_plan_option(
         db,
@@ -260,6 +273,10 @@ async def update_legacy_time_option(
     if option is None or option.plan.slug != LEGACY_DEFAULT_SLUG:
         return None
     allowed = {"duration_months", "price_rub", "price_stars", "is_enabled", "sort_order"}
+    if "is_enabled" in kwargs and kwargs["is_enabled"]:
+        price_rub = kwargs.get("price_rub", option.price_rub)
+        price_stars = kwargs.get("price_stars", option.price_stars)
+        _validate_legacy_enable(option.plan, price_rub, price_stars)
     for key, value in kwargs.items():
         if key in allowed:
             setattr(option, key, value)

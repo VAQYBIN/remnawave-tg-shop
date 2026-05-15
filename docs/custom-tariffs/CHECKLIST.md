@@ -67,7 +67,7 @@
 
 ### Статус выполнения фазы
 
-Фаза 1 реализована в коде и применена на существующей Docker-БД через `docker compose down; docker compose up -d --build; docker compose logs -f --tail=120`.
+Фаза 1 полностью реализована и проверена.
 
 Подтверждено:
 
@@ -76,14 +76,11 @@
 - В БД существуют `pricing_plans`, `pricing_plans_legacy`, `pricing_plan_options`, `user_plan_entitlements`, `entitlement_payments`.
 - `legacy-default` создан, включён и содержит 4 option.
 - `/api/subscription/plans` возвращает старый совместимый time-flow из новой схемы.
-- На отдельной чистой dev-БД в `E:\Projects\test\test-remnawave-tg-shop` миграции прошли с нуля от `0001_initial_schema` до `0010_custom_tariffs`.
+- На отдельной чистой dev-БД миграции прошли с нуля от `0001_initial_schema` до `0010_custom_tariffs`.
 - На чистой dev-БД с заполненными ценами и `USER_SQUAD_UUIDS` создан `legacy-default` с 4 enabled option из `.env`.
 - На чистой dev-БД без цен и без `USER_SQUAD_UUIDS` bootstrap не включил тариф автоматически и записал warning `Legacy tariff bootstrap skipped prices`.
 - После Telegram login сайт успешно получил `/api/subscription`, `/api/subscription/plans` и `/api/subscription/connection`.
-
-Осталось проверить вручную:
-
-- После синхронизации последнего патча в тестовый каталог: попробовать включить legacy option в старой web admin странице без `USER_SQUAD_UUIDS` и убедиться, что backend возвращает `400`.
+- Попытка включить legacy option в web admin без squad UUID в БД возвращает `400` с понятным сообщением об ошибке; UI показывает toast с текстом ошибки.
 
 ---
 

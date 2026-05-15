@@ -22,6 +22,7 @@ import { getAdminPlans, createPlan, updatePlan, deletePlan } from '@/api/admin/p
 import type { PlanResponse, PlanCreateRequest, PlanUpdateRequest } from '@/api/admin/plans'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { useToastContext } from '@/lib/toast-context'
 
 function monthLabel(months: number, t: TFunction): string {
   const abs = Math.abs(months) % 100
@@ -352,6 +353,7 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: S
 export function PlansPage() {
   const qc = useQueryClient()
   const { t } = useTranslation()
+  const { toast } = useToastContext()
   const [modalPlan, setModalPlan] = useState<PlanResponse | null | 'new'>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [mutError, setMutError] = useState<string | null>(null)
@@ -380,6 +382,12 @@ export function PlansPage() {
       setModalPlan(null)
     },
     onError: (e: Error) => setMutError(e.message),
+  })
+
+  const toggleMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: PlanUpdateRequest }) => updatePlan(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'plans'] }),
+    onError: (e: Error) => toast(e.message, 'error'),
   })
 
   const deleteMut = useMutation({
@@ -495,8 +503,8 @@ export function PlansPage() {
                       index={idx}
                       onEdit={(p) => { setMutError(null); setModalPlan(p) }}
                       onDelete={setDeleteId}
-                      onToggle={(p) => updateMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
-                      disabled={updateMut.isPending}
+                      onToggle={(p) => toggleMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
+                      disabled={toggleMut.isPending}
                     />
                   ))}
                 </tbody>
@@ -517,8 +525,8 @@ export function PlansPage() {
               index={idx}
               onEdit={(p) => { setMutError(null); setModalPlan(p) }}
               onDelete={setDeleteId}
-              onToggle={(p) => updateMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
-              disabled={updateMut.isPending}
+              onToggle={(p) => toggleMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
+              disabled={toggleMut.isPending}
             />
           ))}
         </div>
