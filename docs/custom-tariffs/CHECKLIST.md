@@ -138,43 +138,72 @@
 
 ### Задачи
 
-- [ ] Сверить FastAPI response models/dependencies через Context7.
-- [ ] Обновить `web/schemas/admin/plans.py`.
-- [ ] Реализовать `GET /api/admin/plans`.
-- [ ] Реализовать `POST /api/admin/plans`.
-- [ ] Реализовать `PATCH /api/admin/plans/{id}`.
-- [ ] Реализовать `DELETE /api/admin/plans/{id}`.
-- [ ] Реализовать CRUD options.
-- [ ] Добавить серверную валидацию `billing_model`.
-- [ ] Добавить серверную валидацию `plan_kind`.
-- [ ] Добавить серверную валидацию `is_trial`.
-- [ ] Добавить серверную валидацию `traffic_reset_strategy`.
-- [ ] Запретить оба поля `duration_days` и `duration_months` одновременно для новых options.
-- [ ] Для time-only option требовать явный `traffic_gb` или `traffic_unlimited=true`.
-- [ ] Добавить `min_price_rub` и `min_price_stars` на уровне тарифа или глобальных настроек.
-- [ ] Добавить audit log для create/update/delete.
-- [ ] Запретить удаление тарифа, если это ломает активные entitlements, либо сделать soft-disable.
+- [x] Сверить FastAPI response models/dependencies через Context7.
+- [x] Обновить `web/schemas/admin/plans.py`.
+- [x] Реализовать `GET /api/admin/plans`.
+- [x] Реализовать `POST /api/admin/plans`.
+- [x] Реализовать `PATCH /api/admin/plans/{id}`.
+- [x] Реализовать `DELETE /api/admin/plans/{id}`.
+- [x] Реализовать CRUD options (`POST/PATCH/DELETE /api/admin/plans/{id}/options/{option_id}`).
+- [x] Добавить серверную валидацию `billing_model`.
+- [x] Добавить серверную валидацию `plan_kind`.
+- [x] Добавить серверную валидацию `is_trial`.
+- [x] Добавить серверную валидацию `traffic_reset_strategy`.
+- [x] Запретить оба поля `duration_days` и `duration_months` одновременно для новых options.
+- [x] Для time-only option требовать явный `traffic_gb` или `traffic_unlimited=true`.
+- [x] Добавить `min_price_rub` и `min_price_stars` на уровне тарифа.
+- [x] Добавить audit log для create/update/delete.
+- [x] Запретить удаление тарифа, если это ломает активные entitlements (HTTP 409).
+- [x] Запретить смену `plan_kind` у тарифа с активными entitlements.
+- [x] Валидация squad UUID через Remnawave API при create/update; сохранять `remnawave_squad_name_snapshot`.
+- [x] Блокировать сохранение тарифа при недоступном Remnawave (422 от `validate_internal_squad`).
+- [x] Auto-генерация `slug` из `name_ru` с гарантией уникальности.
+- [x] Обновить `PlansPage.tsx` — показывать `name_ru`, `plan_kind`, `billing_model`, options count; toggle и sort работают.
 
 ### Автоматические проверки
 
-- [ ] API schemas валидируются.
-- [ ] Admin endpoints требуют admin auth.
-- [ ] Rate limit admin actions не сломан.
+- [x] API schemas валидируются (`python -c "from web.schemas.admin.plans import ..."`).
+- [x] TypeScript-сборка проходит без ошибок (`tsc --noEmit`).
+- [ ] Admin endpoints требуют admin auth. _(ручная проверка)_
+- [ ] Rate limit admin actions не сломан. _(ручная проверка)_
 
 ### Ручные проверки
 
-- [ ] Админ может создать standalone time-тариф.
-- [ ] Админ может создать addon traffic-тариф.
-- [ ] Админ может создать hybrid-тариф.
-- [ ] Нельзя создать time option без срока.
-- [ ] Нельзя создать option с одновременно заданными `duration_days` и `duration_months`.
-- [ ] Нельзя создать time-only option без явного выбора лимита трафика или unlimited.
-- [ ] Для `billing_model=time` допускается только `NO_RESET`.
-- [ ] Нельзя создать traffic option без `traffic_gb`.
-- [ ] Trial-тариф сохраняется только с нулевой ценой.
-- [ ] Trial activation проверяет `trial_activations` до создания payment/entitlement.
-- [ ] Повторная попытка trial не создаёт второй entitlement.
 - [ ] Неадмин получает отказ на admin endpoints.
+- [ ] `POST /admin/plans` создаёт standalone time-тариф с валидным squad UUID.
+- [ ] `POST /admin/plans` создаёт addon traffic-тариф.
+- [ ] `POST /admin/plans` создаёт hybrid-тариф.
+- [ ] `POST /admin/plans` c несуществующим squad UUID возвращает 422.
+- [ ] `POST /admin/plans` с `billing_model=time, traffic_reset_strategy=DAY` возвращает 422.
+- [ ] `POST /admin/plans` с `is_trial=true, plan_kind=addon` возвращает 422.
+- [ ] `POST /admin/plans/{id}/options` создаёт option с `duration_months` и `traffic_gb`.
+- [ ] `POST /admin/plans/{id}/options` без срока для `billing_model=time` возвращает 422.
+- [ ] `POST /admin/plans/{id}/options` с `duration_months` и `duration_days` одновременно возвращает 422.
+- [ ] `POST /admin/plans/{id}/options` для `billing_model=time` без `traffic_gb` и без `traffic_unlimited=true` возвращает 422.
+- [ ] `POST /admin/plans/{id}/options` для `billing_model=traffic` без `traffic_gb` возвращает 422.
+- [ ] `DELETE /admin/plans/{id}` для тарифа с активными entitlements возвращает 409.
+- [ ] `PATCH /admin/plans/{id}` со сменой `plan_kind` при активных entitlements возвращает 409.
+- [ ] `GET /admin/plans` возвращает список тарифов с вложенными options.
+- [ ] `PlansPage` в браузере отображает name_ru, kind/billing бейджи, количество options и toggle.
+- [ ] Trial-тариф (is_trial=true) требует price_rub=0 для option.
+- [ ] Trial activation проверяет `trial_activations` до создания payment/entitlement. _(Фаза 5)_
+
+### Статус выполнения фазы
+
+Фаза 3 реализована. Требуются ручные проверки перечисленных сценариев через HTTP-клиент (curl/httpie/Swagger) с JWT-токеном администратора.
+
+Реализовано:
+- Полные Pydantic-схемы в `web/schemas/admin/plans.py`: `PricingPlanResponse`, `PricingPlanListResponse`, `PricingPlanCreateRequest`, `PricingPlanUpdateRequest`, `PricingPlanOptionResponse`, `PricingPlanOptionCreateRequest`, `PricingPlanOptionUpdateRequest`; legacy-схемы сохранены.
+- Новый `web/routers/admin/plans.py` — полный CRUD тарифов + CRUD options, заменяет legacy-роутер.
+- Валидация squad UUID через Remnawave API при create/update; сохраняет `remnawave_squad_name_snapshot`.
+- Audit log для всех create/update/delete операций (event_type `admin_tariff_*`).
+- Защита от удаления тарифа с активными entitlements (409 Conflict).
+- Запрет смены `plan_kind` при активных entitlements.
+- Cross-field валидация: `billing_model=time` → только `NO_RESET`; `is_trial=true` → только `standalone`.
+- Серверная валидация options: срок для time/hybrid, `traffic_gb/unlimited` для time/traffic/hybrid.
+- Auto-генерация уникального `slug` из `name_ru`.
+- `PlansPage.tsx` обновлена: показывает `name_ru`, бейджи `plan_kind`/`billing_model`, количество options, диапазон цен, toggle, sort. Полный редактор тарифов — Фаза 9.
+- Frontend TypeScript-сборка без ошибок.
 
 ---
 
