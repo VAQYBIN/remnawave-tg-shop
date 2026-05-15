@@ -104,6 +104,7 @@ async def create_payment(
             account=account,
             provider=body.provider,
             months=body.months,
+            plan_option_id=body.plan_option_id,
             promo_code=body.promo_code,
         )
     except ValueError as e:
@@ -132,7 +133,7 @@ async def create_payment(
                 telegram_user_id=account.telegram_user_id,
                 payment_id=payment_db_id,
                 frontend_url=settings.WEB_FRONTEND_URL,
-                months=body.months,
+                months=body.months or 0,
                 amount=payment.amount,
                 currency=payment.currency,
                 provider=body.provider,

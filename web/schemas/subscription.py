@@ -19,6 +19,8 @@ class SubscriptionResponse(BaseModel):
     panel_subscription_uuid: Optional[str]
 
 
+# ── Legacy plan shapes (kept for backward compat) ──────────────────────────
+
 class TimePlan(BaseModel):
     kind: Literal["time"] = "time"
     months: int
@@ -32,10 +34,96 @@ class TrafficPlan(BaseModel):
     price_rub: float
 
 
-class SubscriptionPlansResponse(BaseModel):
-    mode: Literal["time", "traffic"]
-    plans: list[TimePlan | TrafficPlan]
+# ── Public catalog plan shapes (Phase 4+) ─────────────────────────────────
 
+class PubPlanOptionResponse(BaseModel):
+    id: int
+    duration_months: Optional[int]
+    duration_days: Optional[int]
+    traffic_gb: Optional[float]
+    traffic_unlimited: bool
+    price_rub: Optional[float]
+    price_stars: Optional[int]
+    sort_order: int
+
+
+class PubPlanResponse(BaseModel):
+    id: int
+    slug: str
+    name_ru: str
+    name_en: Optional[str]
+    description_ru: Optional[str]
+    description_en: Optional[str]
+    plan_kind: str
+    billing_model: str
+    traffic_reset_strategy: str
+    min_price_rub: Optional[float]
+    min_price_stars: Optional[int]
+    is_trial: bool
+    options: list[PubPlanOptionResponse]
+
+
+class SubscriptionPlansResponse(BaseModel):
+    mode: Literal["time", "traffic", "catalog"] = "time"
+    plans: list[TimePlan | TrafficPlan] = []
+    catalog_plans: list[PubPlanResponse] = []
+
+
+# ── Entitlements ───────────────────────────────────────────────────────────
+
+class EntitlementResponse(BaseModel):
+    id: int
+    plan_id: int
+    plan_option_id: Optional[int]
+    plan_slug: str
+    plan_name_ru: str
+    plan_name_en: Optional[str]
+    plan_kind: str
+    billing_model: str
+    starts_at: UTCDatetime
+    ends_at: Optional[UTCDatetime]
+    traffic_limit_bytes_added: int
+    is_active: bool
+    auto_renew_enabled: bool
+
+
+class EntitlementsResponse(BaseModel):
+    standalone: Optional[EntitlementResponse]
+    addons: list[EntitlementResponse]
+
+
+class AutoRenewEntitlementRequest(BaseModel):
+    enabled: bool
+
+
+# ── Addons ─────────────────────────────────────────────────────────────────
+
+class AddonPlanOptionResponse(PubPlanOptionResponse):
+    prorated_price_rub: Optional[float]
+    prorated_price_stars: Optional[int]
+
+
+class AddonPlanResponse(BaseModel):
+    id: int
+    slug: str
+    name_ru: str
+    name_en: Optional[str]
+    description_ru: Optional[str]
+    description_en: Optional[str]
+    billing_model: str
+    traffic_reset_strategy: str
+    min_price_rub: Optional[float]
+    min_price_stars: Optional[int]
+    is_trial: bool
+    options: list[AddonPlanOptionResponse]
+
+
+class AddonsListResponse(BaseModel):
+    addons: list[AddonPlanResponse]
+    standalone_ends_at: Optional[UTCDatetime]
+
+
+# ── Misc ──────────────────────────────────────────────────────────────────
 
 class ConnectionResponse(BaseModel):
     link: str

@@ -15,10 +15,13 @@ export interface Subscription {
   panel_subscription_uuid: string | null
 }
 
+// ── Legacy plan shapes ─────────────────────────────────────────────────────
+
 export interface TimePlan {
   kind: 'time'
   months: number
   price_rub: number
+  price_stars?: number | null
 }
 
 export interface TrafficPlan {
@@ -29,10 +32,92 @@ export interface TrafficPlan {
 
 export type Plan = TimePlan | TrafficPlan
 
-export interface SubscriptionPlans {
-  mode: 'time' | 'traffic'
-  plans: Plan[]
+// ── Catalog plan shapes (Phase 4+) ─────────────────────────────────────────
+
+export interface PubPlanOption {
+  id: number
+  duration_months: number | null
+  duration_days: number | null
+  traffic_gb: number | null
+  traffic_unlimited: boolean
+  price_rub: number | null
+  price_stars: number | null
+  sort_order: number
 }
+
+export interface PubPlan {
+  id: number
+  slug: string
+  name_ru: string
+  name_en: string | null
+  description_ru: string | null
+  description_en: string | null
+  plan_kind: string
+  billing_model: string
+  traffic_reset_strategy: string
+  min_price_rub: number | null
+  min_price_stars: number | null
+  is_trial: boolean
+  options: PubPlanOption[]
+}
+
+export interface SubscriptionPlans {
+  mode: 'time' | 'traffic' | 'catalog'
+  plans: Plan[]
+  catalog_plans: PubPlan[]
+}
+
+// ── Entitlements ───────────────────────────────────────────────────────────
+
+export interface Entitlement {
+  id: number
+  plan_id: number
+  plan_option_id: number | null
+  plan_slug: string
+  plan_name_ru: string
+  plan_name_en: string | null
+  plan_kind: string
+  billing_model: string
+  starts_at: string
+  ends_at: string | null
+  traffic_limit_bytes_added: number
+  is_active: boolean
+  auto_renew_enabled: boolean
+}
+
+export interface Entitlements {
+  standalone: Entitlement | null
+  addons: Entitlement[]
+}
+
+// ── Addons ─────────────────────────────────────────────────────────────────
+
+export interface AddonPlanOption extends PubPlanOption {
+  prorated_price_rub: number | null
+  prorated_price_stars: number | null
+}
+
+export interface AddonPlan {
+  id: number
+  slug: string
+  name_ru: string
+  name_en: string | null
+  description_ru: string | null
+  description_en: string | null
+  billing_model: string
+  traffic_reset_strategy: string
+  min_price_rub: number | null
+  min_price_stars: number | null
+  is_trial: boolean
+  options: AddonPlanOption[]
+}
+
+export interface AddonsList {
+  addons: AddonPlan[]
+  standalone_ends_at: string | null
+}
+
+// ── Misc ──────────────────────────────────────────────────────────────────
 
 export interface TrialEligibility {
   eligible: boolean
@@ -44,6 +129,8 @@ export interface TrialEligibility {
 export interface ConnectionInfo {
   link: string
 }
+
+// ── API functions ──────────────────────────────────────────────────────────
 
 export function getSubscription(): Promise<Subscription | null> {
   return apiRequest<Subscription>('/subscription').catch((err) => {
@@ -75,4 +162,19 @@ export function setAutoRenew(enabled: boolean): Promise<{ auto_renew_enabled: bo
     method: 'PATCH',
     body: JSON.stringify({ enabled }),
   })
+}
+
+export function getEntitlements(): Promise<Entitlements> {
+  return apiRequest<Entitlements>('/subscription/entitlements')
+}
+
+export function setEntitlementAutoRenew(entitlementId: number, enabled: boolean): Promise<Entitlement> {
+  return apiRequest<Entitlement>(`/subscription/entitlements/${entitlementId}/auto-renew`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+export function getAddons(): Promise<AddonsList> {
+  return apiRequest<AddonsList>('/subscription/addons')
 }

@@ -12,12 +12,20 @@ from core.dal.account_dal import get_account_user_ids
 from web.schemas.subscription import (
     AutoRenewRequest,
     AutoRenewResponse,
+    AutoRenewEntitlementRequest,
     ConnectionResponse,
     TimePlan,
     TrialEligibilityResponse,
     TrafficPlan,
     SubscriptionPlansResponse,
     SubscriptionResponse,
+    PubPlanResponse,
+    PubPlanOptionResponse,
+    EntitlementResponse,
+    EntitlementsResponse,
+    AddonsListResponse,
+    AddonPlanResponse,
+    AddonPlanOptionResponse,
 )
 from web.middleware.rate_limit import check_rate_limit, get_client_ip
 
@@ -125,6 +133,24 @@ async def _get_account_active_subscription(db: AsyncSession, account: Account, s
             if restored:
                 return restored
     return None
+
+
+def _entitlement_to_response(e) -> EntitlementResponse:
+    return EntitlementResponse(
+        id=e.id,
+        plan_id=e.plan_id,
+        plan_option_id=e.plan_option_id,
+        plan_slug=e.plan.slug,
+        plan_name_ru=e.plan.name_ru,
+        plan_name_en=e.plan.name_en,
+        plan_kind=e.plan.plan_kind,
+        billing_model=e.plan.billing_model,
+        starts_at=e.starts_at,
+        ends_at=e.ends_at,
+        traffic_limit_bytes_added=e.traffic_limit_bytes_added,
+        is_active=e.is_active,
+        auto_renew_enabled=e.auto_renew_enabled,
+    )
 
 
 @router.get("", response_model=SubscriptionResponse)
@@ -245,26 +271,186 @@ async def get_plans(
             TrafficPlan(gb=gb, price_rub=price)
             for gb, price in sorted(settings.traffic_packages.items())
         ]
-        return SubscriptionPlansResponse(mode="traffic", plans=plans)
+        return SubscriptionPlansResponse(mode="traffic", plans=plans, catalog_plans=[])
 
-    # Try DB first — use plans configured in admin panel
-    from core.dal.pricing_plan_dal import get_enabled_plans
-    db_plans = await get_enabled_plans(db)
-    if db_plans:
-        plans = [
-            TimePlan(months=p.duration_months, price_rub=p.price_rub or 0.0, price_stars=p.price_stars)
-            for p in db_plans
-            if p.price_rub is not None
+    # Try DB — catalog mode when non-legacy standalone plans exist
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans, LEGACY_DEFAULT_SLUG
+    db_plans = await dal_get_plans(db, enabled_only=True)
+    standalone_plans = [p for p in db_plans if p.plan_kind == "standalone"]
+
+    if standalone_plans:
+        catalog = [
+            PubPlanResponse(
+                id=p.id,
+                slug=p.slug,
+                name_ru=p.name_ru,
+                name_en=p.name_en,
+                description_ru=p.description_ru,
+                description_en=p.description_en,
+                plan_kind=p.plan_kind,
+                billing_model=p.billing_model,
+                traffic_reset_strategy=p.traffic_reset_strategy,
+                min_price_rub=p.min_price_rub,
+                min_price_stars=p.min_price_stars,
+                is_trial=p.is_trial,
+                options=[
+                    PubPlanOptionResponse(
+                        id=opt.id,
+                        duration_months=opt.duration_months,
+                        duration_days=opt.duration_days,
+                        traffic_gb=opt.traffic_gb,
+                        traffic_unlimited=opt.traffic_unlimited,
+                        price_rub=opt.price_rub,
+                        price_stars=opt.price_stars,
+                        sort_order=opt.sort_order,
+                    )
+                    for opt in p.options
+                    if opt.is_enabled
+                ],
+            )
+            for p in standalone_plans
         ]
-        if plans:
-            return SubscriptionPlansResponse(mode="time", plans=plans)
+        return SubscriptionPlansResponse(mode="catalog", plans=[], catalog_plans=catalog)
 
-    # Fallback to env vars (legacy / not yet configured in admin)
-    plans = [
+    # Legacy fallback: env vars
+    legacy_plans = [
         TimePlan(months=months, price_rub=price)
         for months, price in sorted(settings.subscription_options.items())
     ]
-    return SubscriptionPlansResponse(mode="time", plans=plans)
+    return SubscriptionPlansResponse(mode="time", plans=legacy_plans, catalog_plans=[])
+
+
+@router.get("/entitlements", response_model=EntitlementsResponse)
+async def get_entitlements(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> EntitlementsResponse:
+    from core.dal.plan_entitlement_dal import get_active_entitlements_for_user
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return EntitlementsResponse(standalone=None, addons=[])
+
+    now = datetime.now(timezone.utc)
+    standalone = None
+    addons: list[EntitlementResponse] = []
+
+    for user_id in user_ids:
+        entitlements = await get_active_entitlements_for_user(db, user_id, now=now)
+        for e in entitlements:
+            resp = _entitlement_to_response(e)
+            if e.plan.plan_kind == "standalone":
+                if standalone is None:
+                    standalone = resp
+            else:
+                addons.append(resp)
+
+    return EntitlementsResponse(standalone=standalone, addons=addons)
+
+
+@router.patch("/entitlements/{entitlement_id}/auto-renew", response_model=EntitlementResponse)
+async def toggle_entitlement_auto_renew(
+    entitlement_id: int,
+    body: AutoRenewEntitlementRequest,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> EntitlementResponse:
+    from core.dal.plan_entitlement_dal import get_entitlement_by_id
+
+    e = await get_entitlement_by_id(db, entitlement_id)
+    if e is None or not e.is_active:
+        raise HTTPException(status_code=404, detail="Entitlement not found")
+
+    user_ids = get_account_user_ids(account)
+    if e.user_id not in user_ids:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    e.auto_renew_enabled = body.enabled
+    await db.flush()
+    await db.commit()
+    await db.refresh(e)
+
+    return _entitlement_to_response(e)
+
+
+@router.get("/addons", response_model=AddonsListResponse)
+async def get_addons(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AddonsListResponse:
+    from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans
+    from core.services.tariff_pricing import prorate_option
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return AddonsListResponse(addons=[], standalone_ends_at=None)
+
+    now = datetime.now(timezone.utc)
+    standalone_ends_at = None
+
+    for user_id in user_ids:
+        standalone = await get_active_standalone_entitlement(db, user_id, now=now)
+        if standalone and standalone.ends_at:
+            standalone_ends_at = standalone.ends_at
+            break
+
+    if standalone_ends_at is None:
+        return AddonsListResponse(addons=[], standalone_ends_at=None)
+
+    db_plans = await dal_get_plans(db, enabled_only=True)
+    addon_plans = [p for p in db_plans if p.plan_kind == "addon"]
+
+    result: list[AddonPlanResponse] = []
+    for plan in addon_plans:
+        enabled_options = [opt for opt in plan.options if opt.is_enabled]
+        if not enabled_options:
+            continue
+
+        priced_options: list[AddonPlanOptionResponse] = []
+        for opt in enabled_options:
+            prorated_rub, prorated_stars = prorate_option(
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                plan_min_price_rub=plan.min_price_rub,
+                plan_min_price_stars=plan.min_price_stars,
+                standalone_ends_at=standalone_ends_at,
+                now=now,
+                global_min_rub=settings.MIN_PRORATED_PRICE_RUB,
+                global_min_stars=settings.MIN_PRORATED_PRICE_STARS,
+            )
+            priced_options.append(AddonPlanOptionResponse(
+                id=opt.id,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                traffic_gb=opt.traffic_gb,
+                traffic_unlimited=opt.traffic_unlimited,
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                sort_order=opt.sort_order,
+                prorated_price_rub=prorated_rub,
+                prorated_price_stars=prorated_stars,
+            ))
+
+        result.append(AddonPlanResponse(
+            id=plan.id,
+            slug=plan.slug,
+            name_ru=plan.name_ru,
+            name_en=plan.name_en,
+            description_ru=plan.description_ru,
+            description_en=plan.description_en,
+            billing_model=plan.billing_model,
+            traffic_reset_strategy=plan.traffic_reset_strategy,
+            min_price_rub=plan.min_price_rub,
+            min_price_stars=plan.min_price_stars,
+            is_trial=plan.is_trial,
+            options=priced_options,
+        ))
+
+    return AddonsListResponse(addons=result, standalone_ends_at=standalone_ends_at)
 
 
 @router.get("/connection", response_model=ConnectionResponse)

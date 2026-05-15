@@ -320,13 +320,15 @@ async def create_web_payment(
     *,
     account,
     provider: str,
-    months: int,
+    months: Optional[int] = None,
+    plan_option_id: Optional[int] = None,
     promo_code: Optional[str] = None,
 ) -> Tuple[int, str]:
     """
     Create a pending Payment record and call the provider API.
     Returns (payment_db_id, redirect_url).
     Raises ValueError for invalid input, RuntimeError for provider errors.
+    Accepts either months (legacy) or plan_option_id (new catalog flow).
     """
     from core.dal import payment_dal, active_discount_dal, promo_code_dal
     from core.services.promo_core import validate_discount_promo_code, calculate_discounted_price
@@ -335,9 +337,46 @@ async def create_web_payment(
     if provider not in available:
         raise ValueError(f"Провайдер '{provider}' недоступен")
 
-    price_rub = await get_plan_price_db(db, settings, months)
-    if price_rub is None:
-        raise ValueError(f"Тариф на {months} мес. недоступен")
+    # ── Resolve price and metadata from plan_option_id or months ──────────
+    pricing_plan_id: Optional[int] = None
+    pricing_plan_option_id_val: Optional[int] = None
+    sale_mode: Optional[str] = None
+    duration_months_val: Optional[int] = None
+    duration_days_val: Optional[int] = None
+
+    if plan_option_id is not None:
+        from core.dal.pricing_plan_dal import get_plan_option_by_id
+        opt = await get_plan_option_by_id(db, plan_option_id)
+        if opt is None or not opt.is_enabled:
+            raise ValueError("Выбранный вариант тарифа недоступен")
+        if not opt.plan.is_enabled:
+            raise ValueError("Тариф недоступен")
+        if opt.price_rub is None:
+            raise ValueError("Для данного варианта не задана цена в рублях")
+        price_rub = float(opt.price_rub)
+        pricing_plan_id = opt.plan_id
+        pricing_plan_option_id_val = opt.id
+        sale_mode = opt.plan.plan_kind  # "standalone" | "addon"
+        duration_months_val = opt.duration_months
+        duration_days_val = opt.duration_days
+        duration_display = (
+            f"{opt.duration_months} мес." if opt.duration_months
+            else f"{opt.duration_days} дн." if opt.duration_days
+            else ""
+        )
+        description = f"Оплата тарифа «{opt.plan.name_ru}»" + (f" — {duration_display}" if duration_display else "")
+        months_for_legacy = opt.duration_months
+    elif months is not None:
+        price_rub_maybe = await get_plan_price_db(db, settings, months)
+        if price_rub_maybe is None:
+            raise ValueError(f"Тариф на {months} мес. недоступен")
+        price_rub = float(price_rub_maybe)
+        sale_mode = "legacy"
+        duration_months_val = months
+        months_for_legacy = months
+        description = f"Оплата подписки на {months} мес."
+    else:
+        raise ValueError("Укажите months или plan_option_id")
 
     from core.dal.account_dal import get_effective_payment_user_id
     user_id = await get_effective_payment_user_id(db, account)
@@ -377,9 +416,6 @@ async def create_web_payment(
             promo_code_db_id = active_disc.promo_code_id
 
     idempotency_key = str(uuid.uuid4())
-    description = (
-        f"Оплата подписки на {months} мес."
-    )
 
     payment_data: dict = {
         "user_id": user_id,
@@ -389,10 +425,15 @@ async def create_web_payment(
         "currency": "RUB",
         "status": "pending",
         "description": description,
-        "subscription_duration_months": months,
+        "subscription_duration_months": months_for_legacy,
         "provider": provider,
         "idempotence_key": idempotency_key,
         "promo_code_id": promo_code_db_id,
+        "pricing_plan_id": pricing_plan_id,
+        "pricing_plan_option_id": pricing_plan_option_id_val,
+        "sale_mode": sale_mode,
+        "duration_months": duration_months_val,
+        "duration_days": duration_days_val,
     }
 
     payment = await payment_dal.create_payment_record(db, payment_data)
@@ -408,7 +449,7 @@ async def create_web_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 user_id=user_id,
-                months=months,
+                months=months_for_legacy,
                 amount=final_amount,
                 description=description,
                 return_url=return_url,
@@ -442,7 +483,7 @@ async def create_web_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 user_id=user_id,
-                months=months,
+                months=months_for_legacy or 0,
                 amount=final_amount,
                 description=description,
                 return_url=return_url,

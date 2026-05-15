@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from web.schemas.types import UTCDatetime
 
 
@@ -26,8 +26,15 @@ class PaymentsListResponse(BaseModel):
 
 class CreatePaymentRequest(BaseModel):
     provider: str
-    months: int = Field(ge=1, le=120)
+    months: Optional[int] = Field(default=None, ge=1, le=120)
+    plan_option_id: Optional[int] = Field(default=None, ge=1)
     promo_code: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_months_or_option(self) -> "CreatePaymentRequest":
+        if self.months is None and self.plan_option_id is None:
+            raise ValueError("Укажите months или plan_option_id")
+        return self
 
 
 class CreatePaymentResponse(BaseModel):

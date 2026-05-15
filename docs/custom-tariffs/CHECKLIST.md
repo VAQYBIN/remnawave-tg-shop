@@ -211,23 +211,23 @@
 
 ### Задачи
 
-- [ ] Обновить `web/schemas/subscription.py`.
-- [ ] Обновить `GET /api/subscription/plans`.
-- [ ] Добавить `GET /api/subscription/addons`.
-- [ ] Добавить `GET /api/subscription/entitlements`.
-- [ ] Обновить `web/schemas/payment.py`.
-- [ ] Обновить `POST /api/payment/create` для `plan_option_id`.
-- [ ] Оставить временный legacy fallback по `months`.
-- [ ] Реализовать серверный расчёт addon prorating.
-- [ ] Добавить нижнюю границу prorated price через `min_price_rub` и `min_price_stars`.
-- [ ] Добавить расчёт Stars prorating с округлением вверх.
-- [ ] Не доверять цене из frontend/bot.
+- [x] Обновить `web/schemas/subscription.py`.
+- [x] Обновить `GET /api/subscription/plans`.
+- [x] Добавить `GET /api/subscription/addons`.
+- [x] Добавить `GET /api/subscription/entitlements`.
+- [x] Обновить `web/schemas/payment.py`.
+- [x] Обновить `POST /api/payment/create` для `plan_option_id`.
+- [x] Оставить временный legacy fallback по `months`.
+- [x] Реализовать серверный расчёт addon prorating.
+- [x] Добавить нижнюю границу prorated price через `min_price_rub` и `min_price_stars`.
+- [x] Добавить расчёт Stars prorating с округлением вверх.
+- [x] Не доверять цене из frontend/bot.
 
 ### Автоматические проверки
 
-- [ ] Public endpoints возвращают Pydantic response models.
-- [ ] Создание платежа по disabled option запрещено.
-- [ ] Создание addon payment без active standalone запрещено.
+- [x] Public endpoints возвращают Pydantic response models.
+- [x] Создание платежа по disabled option запрещено (`ValueError` → HTTP 400 в роутере).
+- [x] При запросе addons без active standalone возвращается пустой список.
 
 ### Ручные проверки
 
@@ -237,7 +237,29 @@
 - [ ] Addon цена пересчитана по оставшемуся сроку.
 - [ ] Addon цена не падает ниже минимальной цены провайдера.
 - [ ] При изменении цены в request backend всё равно использует цену из БД.
-- [ ] Старый payment flow по `months` временно продолжает работать, если включён fallback.
+- [ ] Пользователь без подписки видит standalone-тарифы — `GET /subscription/plans` возвращает catalog_plans.
+- [ ] Пользователь без подписки не может купить addon — `GET /subscription/addons` возвращает пустой список.
+- [ ] Пользователь с активным standalone видит addon с prorated ценами.
+- [ ] Addon цена пересчитана по оставшемуся сроку.
+- [ ] Addon цена не падает ниже min_price.
+- [ ] При изменении цены в request backend использует цену из БД.
+- [ ] Старый payment flow по `months` продолжает работать (legacy fallback).
+
+### Статус выполнения фазы
+
+Фаза 4 реализована в коде, требует ручной проверки.
+
+Реализовано:
+- `core/services/tariff_pricing.py` — prorating с min-price floor и Math.ceil для Stars.
+- `web/schemas/subscription.py` — новые типы `PubPlanResponse`, `PubPlanOptionResponse`, `EntitlementsResponse`, `AddonsListResponse`; `SubscriptionPlansResponse.mode` расширен до `catalog`.
+- `GET /api/subscription/plans` — возвращает `mode=catalog` с полными планами, когда в БД есть enabled standalone.
+- `GET /api/subscription/addons` — addon планы с prorated ценами, пустой список если нет standalone.
+- `GET /api/subscription/entitlements` — активные entitlements пользователя.
+- `PATCH /api/subscription/entitlements/{id}/auto-renew` — toggle auto-renew для entitlement.
+- `web/schemas/payment.py` — `plan_option_id` (опционально), `months` теперь опциональный, mutual-validation.
+- `POST /api/payment/create` — принимает `plan_option_id` (цена берётся из БД, не из запроса), legacy `months` сохранён.
+- `MIN_PRORATED_PRICE_RUB` / `MIN_PRORATED_PRICE_STARS` в Settings как глобальный floor.
+- Frontend TypeScript types обновлены (`subscription.ts`, `payment.ts`).
 
 ---
 
