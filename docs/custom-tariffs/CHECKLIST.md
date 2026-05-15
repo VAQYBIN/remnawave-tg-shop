@@ -237,17 +237,17 @@
 - [ ] Addon цена пересчитана по оставшемуся сроку.
 - [ ] Addon цена не падает ниже минимальной цены провайдера.
 - [ ] При изменении цены в request backend всё равно использует цену из БД.
-- [ ] Пользователь без подписки видит standalone-тарифы — `GET /subscription/plans` возвращает catalog_plans.
-- [ ] Пользователь без подписки не может купить addon — `GET /subscription/addons` возвращает пустой список.
-- [ ] Пользователь с активным standalone видит addon с prorated ценами.
-- [ ] Addon цена пересчитана по оставшемуся сроку.
-- [ ] Addon цена не падает ниже min_price.
-- [ ] При изменении цены в request backend использует цену из БД.
-- [ ] Старый payment flow по `months` продолжает работать (legacy fallback).
+- [x] Пользователь без подписки видит standalone-тарифы — `GET /subscription/plans` возвращает catalog_plans.
+- [x] Пользователь без подписки не может купить addon — `GET /subscription/addons` возвращает пустой список.
+- [x] Пользователь с активным standalone видит addon с prorated ценами.
+- [x] Addon цена пересчитана по оставшемуся сроку.
+- [x] Addon цена не падает ниже min_price.
+- [x] При изменении цены в request backend использует цену из БД.
+- [x] Старый payment flow по `months` продолжает работать (legacy fallback).
 
 ### Статус выполнения фазы
 
-Фаза 4 реализована в коде, требует ручной проверки.
+Фаза 4 полностью реализована и проверена.
 
 Реализовано:
 - `core/services/tariff_pricing.py` — prorating с min-price floor и Math.ceil для Stars.
