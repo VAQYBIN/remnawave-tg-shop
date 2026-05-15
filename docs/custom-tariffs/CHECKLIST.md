@@ -1,0 +1,513 @@
+# Custom Tariffs — Пошаговый чек-лист реализации
+
+Этот чек-лист опирается на `docs/custom-tariffs/PLAN.md`.
+
+Обязательные правила для каждой фазы:
+
+1. Перед изменением backend/frontend слоя сверить актуальные docs через Context7 для используемых библиотек.
+2. При изменениях Remnawave-интеграции сверять контракт с Remnawave API v2.7.4.
+3. После каждой фазы выполнить ручные проверки из секции фазы.
+4. Не ломать legacy-подписки и старые платежи.
+
+---
+
+## Фаза 1: Модель данных и legacy bootstrap
+
+### Задачи
+
+- [x] Сверить SQLAlchemy/Alembic подход через Context7.
+- [x] В Alembic migration переименовать существующую `pricing_plans` в `pricing_plans_legacy`.
+- [x] Создать новую `pricing_plans` по новой схеме.
+- [x] Добавить Alembic migration для `pricing_plan_options`.
+- [x] Добавить Alembic migration для `user_plan_entitlements`.
+- [x] Добавить Alembic migration для `entitlement_payments`.
+- [x] Добавить новые nullable поля в `payments`.
+- [x] Добавить `activation_status` и `needs_panel_sync` в `payments`.
+- [x] Добавить nullable `pricing_plan_id` и `pricing_plan_option_id` в `subscriptions`, если используется быстрый доступ.
+- [x] Обновить SQLAlchemy models в `db/models.py`.
+- [x] Удалить зависимость текущего ORM/DAL от старой схемы `pricing_plans`.
+- [x] Если доступ к старой таблице нужен, добавить отдельную модель `LegacyPricingPlan` для `pricing_plans_legacy`.
+- [x] Добавить DAL для тарифов.
+- [x] Добавить DAL для options.
+- [x] Добавить DAL для entitlements.
+- [x] Добавить DAL для связи entitlement-payment.
+- [x] Перенести старые строки из `pricing_plans_legacy` в новый `legacy-default` plan/options, если они есть.
+- [x] Добавить bootstrap legacy-тарифа из `.env`.
+- [x] Bootstrap должен быть идемпотентным и не создавать дубли при повторном старте.
+- [x] Если Remnawave недоступен при bootstrap, приложение не должно падать.
+- [x] Обновить `web/routers/admin/plans.py` и `core.dal.pricing_plan_dal` под новую схему в той же фазе.
+- [x] Оставить frontend admin plans API/types совместимыми через backend compatibility layer до Фазы 9.
+- [x] Запретить включение legacy option через старый admin plans endpoint, если нет `USER_SQUAD_UUIDS`/squad UUID или цены.
+
+### Автоматические проверки
+
+- [x] `alembic upgrade head` проходит на пустой БД.
+- [x] `alembic upgrade head` проходит на существующей БД.
+- [x] Старая таблица после миграции сохранена как `pricing_plans_legacy`.
+- [x] Старые тарифы перенесены в новый `legacy-default` без потери цен.
+- [x] Backend import/start не падает.
+- [x] `python -m compileall db core web alembic` проходит.
+- [x] SQLAlchemy mappers конфигурируются без ошибок.
+- [x] `alembic heads` показывает один head: `0010_custom_tariffs`.
+- [x] `alembic current` после Docker rebuild показывает `0010_custom_tariffs (head)`.
+- [x] `GET /api/subscription/plans` возвращает legacy time options через новую БД-схему.
+
+### Ручные проверки
+
+- [x] На пустой БД после старта создан legacy standalone-тариф из `.env`.
+- [x] На БД со старой `pricing_plans` создан `legacy-default` plan/options из старых строк.
+- [x] `pricing_plans_legacy` не удалена первой миграцией.
+- [x] Если `.env` не содержит цен или squad, bootstrap не включает битый тариф.
+- [x] Если `.env` не содержит цен или squad, старый admin plans endpoint не позволяет включить битый legacy option.
+- [x] Если тарифы уже есть, повторный старт не создаёт дубли.
+- [x] Существующие записи `subscriptions` остаются без обязательного `plan_id` и продолжают читаться.
+- [x] Старый пользователь с активной подпиской отображается как раньше.
+- [x] В `user_plan_entitlements` нет дублирования `panel_user_uuid` и `plan_kind`.
+- [x] Деактивация entitlement может хранить `deactivated_at` и `deactivation_reason`.
+
+### Статус выполнения фазы
+
+Фаза 1 реализована в коде и применена на существующей Docker-БД через `docker compose down; docker compose up -d --build; docker compose logs -f --tail=120`.
+
+Подтверждено:
+
+- Alembic migration `0010_custom_tariffs` применилась на существующей БД.
+- Контейнеры `remnawave-tg-shop`, `remnawave-tg-shop-web-api`, `remnawave-tg-shop-web-frontend`, Postgres и Redis находятся в `Up`.
+- В БД существуют `pricing_plans`, `pricing_plans_legacy`, `pricing_plan_options`, `user_plan_entitlements`, `entitlement_payments`.
+- `legacy-default` создан, включён и содержит 4 option.
+- `/api/subscription/plans` возвращает старый совместимый time-flow из новой схемы.
+- На отдельной чистой dev-БД в `E:\Projects\test\test-remnawave-tg-shop` миграции прошли с нуля от `0001_initial_schema` до `0010_custom_tariffs`.
+- На чистой dev-БД с заполненными ценами и `USER_SQUAD_UUIDS` создан `legacy-default` с 4 enabled option из `.env`.
+- На чистой dev-БД без цен и без `USER_SQUAD_UUIDS` bootstrap не включил тариф автоматически и записал warning `Legacy tariff bootstrap skipped prices`.
+- После Telegram login сайт успешно получил `/api/subscription`, `/api/subscription/plans` и `/api/subscription/connection`.
+
+Осталось проверить вручную:
+
+- После синхронизации последнего патча в тестовый каталог: попробовать включить legacy option в старой web admin странице без `USER_SQUAD_UUIDS` и убедиться, что backend возвращает `400`.
+
+---
+
+## Фаза 2: Remnawave squads API и валидация
+
+### Задачи
+
+- [ ] Сверить Remnawave API v2.7.4 для Internal Squads.
+- [ ] Добавить `get_internal_squads()` в `PanelApiService`.
+- [ ] Добавить `get_internal_squad(uuid)` в `PanelApiService`.
+- [ ] Добавить `validate_internal_squad(uuid)` в `PanelApiService`.
+- [ ] Добавить admin endpoint `GET /api/admin/remnawave/squads`.
+- [ ] Добавить short-lived cache списка Internal Squads на 5-10 минут.
+- [ ] Добавить обработку ошибок Remnawave API.
+- [ ] Заблокировать создание/обновление тарифа при недоступном Remnawave.
+- [ ] Сохранять `remnawave_squad_name_snapshot` после успешной проверки.
+
+### Автоматические проверки
+
+- [ ] Unit/интеграционные проверки клиента Remnawave с mock response.
+- [ ] Backend build/import проходит.
+
+### Ручные проверки
+
+- [ ] При доступной панели список Internal Squads загружается в admin endpoint.
+- [ ] Повторное открытие выбора squad использует cache и не делает лишний запрос к Remnawave.
+- [ ] UUID существующего squad проходит валидацию.
+- [ ] UUID несуществующего squad не сохраняется.
+- [ ] При недоступной панели создание тарифа блокируется понятной ошибкой.
+- [ ] В логах нет утечки API key.
+
+---
+
+## Фаза 3: Admin API тарифов
+
+### Задачи
+
+- [ ] Сверить FastAPI response models/dependencies через Context7.
+- [ ] Обновить `web/schemas/admin/plans.py`.
+- [ ] Реализовать `GET /api/admin/plans`.
+- [ ] Реализовать `POST /api/admin/plans`.
+- [ ] Реализовать `PATCH /api/admin/plans/{id}`.
+- [ ] Реализовать `DELETE /api/admin/plans/{id}`.
+- [ ] Реализовать CRUD options.
+- [ ] Добавить серверную валидацию `billing_model`.
+- [ ] Добавить серверную валидацию `plan_kind`.
+- [ ] Добавить серверную валидацию `is_trial`.
+- [ ] Добавить серверную валидацию `traffic_reset_strategy`.
+- [ ] Запретить оба поля `duration_days` и `duration_months` одновременно для новых options.
+- [ ] Для time-only option требовать явный `traffic_gb` или `traffic_unlimited=true`.
+- [ ] Добавить `min_price_rub` и `min_price_stars` на уровне тарифа или глобальных настроек.
+- [ ] Добавить audit log для create/update/delete.
+- [ ] Запретить удаление тарифа, если это ломает активные entitlements, либо сделать soft-disable.
+
+### Автоматические проверки
+
+- [ ] API schemas валидируются.
+- [ ] Admin endpoints требуют admin auth.
+- [ ] Rate limit admin actions не сломан.
+
+### Ручные проверки
+
+- [ ] Админ может создать standalone time-тариф.
+- [ ] Админ может создать addon traffic-тариф.
+- [ ] Админ может создать hybrid-тариф.
+- [ ] Нельзя создать time option без срока.
+- [ ] Нельзя создать option с одновременно заданными `duration_days` и `duration_months`.
+- [ ] Нельзя создать time-only option без явного выбора лимита трафика или unlimited.
+- [ ] Для `billing_model=time` допускается только `NO_RESET`.
+- [ ] Нельзя создать traffic option без `traffic_gb`.
+- [ ] Trial-тариф сохраняется только с нулевой ценой.
+- [ ] Trial activation проверяет `trial_activations` до создания payment/entitlement.
+- [ ] Повторная попытка trial не создаёт второй entitlement.
+- [ ] Неадмин получает отказ на admin endpoints.
+
+---
+
+## Фаза 4: Публичное API тарифов и платежей
+
+### Задачи
+
+- [ ] Обновить `web/schemas/subscription.py`.
+- [ ] Обновить `GET /api/subscription/plans`.
+- [ ] Добавить `GET /api/subscription/addons`.
+- [ ] Добавить `GET /api/subscription/entitlements`.
+- [ ] Обновить `web/schemas/payment.py`.
+- [ ] Обновить `POST /api/payment/create` для `plan_option_id`.
+- [ ] Оставить временный legacy fallback по `months`.
+- [ ] Реализовать серверный расчёт addon prorating.
+- [ ] Добавить нижнюю границу prorated price через `min_price_rub` и `min_price_stars`.
+- [ ] Добавить расчёт Stars prorating с округлением вверх.
+- [ ] Не доверять цене из frontend/bot.
+
+### Автоматические проверки
+
+- [ ] Public endpoints возвращают Pydantic response models.
+- [ ] Создание платежа по disabled option запрещено.
+- [ ] Создание addon payment без active standalone запрещено.
+
+### Ручные проверки
+
+- [ ] Пользователь без подписки видит standalone-тарифы.
+- [ ] Пользователь без подписки не может купить addon.
+- [ ] Пользователь с активным standalone видит addon.
+- [ ] Addon цена пересчитана по оставшемуся сроку.
+- [ ] Addon цена не падает ниже минимальной цены провайдера.
+- [ ] При изменении цены в request backend всё равно использует цену из БД.
+- [ ] Старый payment flow по `months` временно продолжает работать, если включён fallback.
+
+---
+
+## Фаза 5: Активация тарифов после оплаты
+
+### Задачи
+
+- [ ] Создать `core/services/tariff_activation.py`.
+- [ ] Создать `core/services/tariff_sync.py`.
+- [ ] Реализовать активацию standalone.
+- [ ] Реализовать замену standalone с сохранением срока.
+- [ ] Реализовать активацию addon до конца standalone.
+- [ ] Реализовать суммирование traffic GB.
+- [ ] Реализовать explicit unlimited traffic без неявного `trafficLimitBytes=0`.
+- [ ] Реализовать сборку `activeInternalSquads`.
+- [ ] Реализовать обновление Remnawave `expireAt`.
+- [ ] Реализовать обновление Remnawave `trafficLimitBytes`.
+- [ ] Реализовать обновление Remnawave `trafficLimitStrategy`.
+- [ ] Реализовать атомарный порядок смены standalone без промежуточного состояния с двумя standalone squads.
+- [ ] При любом изменении standalone обрезать `addon.ends_at` до `new_standalone.ends_at`, если addon оказался длиннее standalone.
+- [ ] Реализовать bundled-offer при ручном продлении standalone с активными addon.
+- [ ] Отключённые от renewal addon не продлевать бесплатно.
+- [ ] Обновить `subscriptions` после activation.
+- [ ] Создавать записи `entitlement_payments`.
+- [ ] Реализовать идемпотентность activation по payment status и entitlement-payment links.
+- [ ] Реализовать `pending_panel_sync` и `needs_panel_sync` при недоступном Remnawave после успешной оплаты.
+- [ ] Подключить YooKassa.
+- [ ] Подключить Telegram Stars.
+- [ ] Подключить CryptoPay.
+- [ ] Подключить FreeKassa.
+- [ ] Подключить Platega.
+- [ ] Подключить SeverPay.
+
+### Автоматические проверки
+
+- [ ] Mock-тест standalone activation.
+- [ ] Mock-тест standalone replacement.
+- [ ] Mock-тест addon activation.
+- [ ] Mock-тест traffic summing.
+- [ ] Mock-тест explicit unlimited + traffic addon.
+- [ ] Mock-тест bundled manual renewal with addon.
+- [ ] Mock-тест обрезки addon при `addon.ends_at > standalone.ends_at`.
+- [ ] Mock-тест Remnawave unavailable after paid webhook.
+- [ ] Payment activation идемпотентна для повторного webhook.
+
+### Ручные проверки
+
+- [ ] Новый пользователь после оплаты получает Remnawave user и subscription URL.
+- [ ] Покупка standalone назначает только squad этого тарифа.
+- [ ] Покупка другого standalone снимает старый standalone squad и ставит новый.
+- [ ] Срок при смене standalone не теряется.
+- [ ] Addon добавляет squad к текущему standalone squad.
+- [ ] Addon действует до конца standalone.
+- [ ] Traffic GB суммируется с текущим лимитом в Remnawave.
+- [ ] Time-only тариф с explicit GB создаёт ожидаемый лимит.
+- [ ] Time-only тариф с explicit unlimited не превращается в ограниченный лимит при addon.
+- [ ] При ручном продлении standalone пользователю предлагается оплатить active auto-renew addon в bundle.
+- [ ] Addon с отключённым renewal остаётся до старой даты и не входит в bundle.
+- [ ] Если standalone ends_at стал раньше addon ends_at после админского/edge-case изменения, addon обрезается до standalone ends_at.
+- [ ] При сбое Remnawave после оплаты платёж остаётся succeeded, а sync уходит в pending.
+- [ ] Повторный webhook не продлевает подписку повторно.
+
+---
+
+## Фаза 6: Telegram user flow
+
+### Задачи
+
+- [ ] Обновить пользовательские клавиатуры тарифов.
+- [ ] Обновить `main_action:subscribe`.
+- [ ] Добавить выбор тарифа.
+- [ ] Добавить показ описания тарифа.
+- [ ] Добавить выбор option.
+- [ ] Добавить addon flow.
+- [ ] Передавать `plan_option_id` в payment handlers.
+- [ ] Обновить тексты `locales/ru.json`.
+- [ ] Обновить тексты `locales/en.json`.
+- [ ] Обновить сообщение успешной оплаты.
+
+### Автоматические проверки
+
+- [ ] Bot import/start проходит.
+- [ ] Callback data не превышает лимит Telegram.
+- [ ] Payment handlers корректно парсят новые callback data.
+
+### Ручные проверки
+
+- [ ] В боте кнопка “Купить” показывает список тарифов.
+- [ ] Описание тарифа отображается на языке пользователя.
+- [ ] Выбор тарифа показывает корректные options.
+- [ ] Выбор option показывает доступные методы оплаты.
+- [ ] Пользователь без standalone не видит addon purchase как доступный.
+- [ ] Пользователь с standalone видит addon с пересчитанной ценой.
+- [ ] После оплаты бот показывает ссылку подписки.
+
+---
+
+## Фаза 7: Telegram admin flow
+
+### Задачи
+
+- [ ] Добавить пункт `Тарифы` в админку.
+- [ ] Добавить список тарифов.
+- [ ] Добавить FSM states для создания тарифа.
+- [ ] Добавить ввод name/description RU/EN.
+- [ ] Добавить выбор Remnawave squad через API.
+- [ ] Использовать cache списка squads в течение FSM.
+- [ ] Добавить выбор kind.
+- [ ] Добавить выбор billing model.
+- [ ] Добавить выбор traffic reset strategy.
+- [ ] Добавить ввод options.
+- [ ] Добавить подтверждение перед сохранением.
+- [ ] Добавить enable/disable.
+- [ ] Добавить delete или soft-delete.
+- [ ] Обновить i18n.
+
+### Автоматические проверки
+
+- [ ] Bot import/start проходит.
+- [ ] FSM states не конфликтуют с существующими admin states.
+
+### Ручные проверки
+
+- [ ] Админ видит пункт `Тарифы`.
+- [ ] Список тарифов показывает name, squad, цены, статус.
+- [ ] Создание тарифа успешно при доступном Remnawave.
+- [ ] Создание тарифа блокируется при недоступном Remnawave.
+- [ ] Повторное открытие шага выбора squad не спамит Remnawave API.
+- [ ] Ошибочный UUID squad не сохраняется.
+- [ ] Созданный в боте тариф виден в web admin.
+- [ ] Созданный в web admin тариф виден в боте.
+
+---
+
+## Фаза 8: Web user flow
+
+### Задачи
+
+- [ ] Обновить `frontend/src/api/subscription.ts`.
+- [ ] Обновить `frontend/src/api/payment.ts`.
+- [ ] Создать `TariffSelector`.
+- [ ] Создать `TariffOptionSelector`.
+- [ ] Создать `AddonSelector`.
+- [ ] Обновить `SubscriptionPage.tsx`.
+- [ ] Обновить `PaymentPendingPage`.
+- [ ] Обновить `DashboardPage`/`My subscription` блок.
+- [ ] Добавить auto-renew toggles в UI, если backend готов.
+- [ ] Обновить i18n ru/en.
+
+### Автоматические проверки
+
+- [ ] `npm run build` проходит.
+- [ ] TypeScript types проходят.
+- [ ] Нет runtime ошибок в основных страницах.
+
+### Ручные проверки
+
+- [ ] Сайт показывает тарифы из БД.
+- [ ] Выбор тарифа не показывает методы оплаты до выбора option.
+- [ ] Создание платежа уходит с `plan_option_id`.
+- [ ] Addon отображается только при активном standalone.
+- [ ] Цена addon соответствует оставшемуся сроку.
+- [ ] Цена addon не ниже минимальной цены.
+- [ ] После оплаты пользователь видит активный тариф.
+- [ ] На мобильном экране карточки и кнопки не перекрываются.
+
+---
+
+## Фаза 9: Web admin plans page
+
+### Задачи
+
+- [ ] Обновить `frontend/src/api/admin/plans.ts`.
+- [ ] Заменить `PlansPage.tsx`.
+- [ ] Создать форму тарифа.
+- [ ] Создать editor options.
+- [ ] Добавить Remnawave squad picker.
+- [ ] Добавить client-side validation.
+- [ ] Добавить обработку ошибок Remnawave API.
+- [ ] Добавить enabled/sort controls.
+- [ ] Обновить i18n ru/en.
+
+### Автоматические проверки
+
+- [ ] `npm run build` проходит.
+- [ ] TypeScript не ругается на admin plans types.
+
+### Ручные проверки
+
+- [ ] Админ создаёт standalone тариф через web.
+- [ ] Админ создаёт addon тариф через web.
+- [ ] Админ добавляет несколько options.
+- [ ] Админ меняет порядок тарифов.
+- [ ] Disabled тариф не виден пользователям.
+- [ ] Ошибка Remnawave API показана в UI.
+- [ ] Удаление/отключение тарифа не ломает активные подписки.
+
+---
+
+## Фаза 10: Автопродление bundle
+
+### Задачи
+
+- [ ] До готовности bundle не удалять legacy YooKassa auto-renew для старых подписок.
+- [ ] Расширить auto-renew service для entitlements.
+- [ ] Рассчитывать сумму standalone + enabled addon.
+- [ ] При ручном продлении standalone формировать bundled-offer с active addon, у которых `auto_renew_enabled=true`.
+- [ ] Сохранять `auto_renew_bundle_snapshot`.
+- [ ] Формат `auto_renew_bundle_snapshot` содержит standalone object и addons array с `entitlement_id`, `plan_id`, `option_id`, `price_rub`, `price_stars`.
+- [ ] Продлевать standalone после успешной оплаты.
+- [ ] Продлевать addon с `auto_renew_enabled=true`.
+- [ ] Не продлевать addon с `auto_renew_enabled=false`.
+- [ ] Обновить bot UI toggle.
+- [ ] Обновить web UI toggle.
+- [ ] Обновить историю платежей.
+
+### Автоматические проверки
+
+- [ ] Mock-тест расчёта bundle.
+- [ ] Mock-тест ручного bundled renewal.
+- [ ] Mock-тест отключённого addon.
+- [ ] Mock-тест повторного webhook.
+
+### Ручные проверки
+
+- [ ] Автопродление списывает сумму standalone + addon.
+- [ ] Ручное продление standalone предлагает bundled оплату с включёнными addon.
+- [ ] Отключённый addon не входит в сумму автопродления.
+- [ ] Отключённый addon остаётся активным до конца текущего срока.
+- [ ] После автопродления включённые addon продлены до нового конца standalone.
+- [ ] Remnawave squads после автопродления корректны.
+
+---
+
+## Фаза 11: Cleanup и синхронизация
+
+### Задачи
+
+- [ ] Добавить job поиска истёкших entitlements.
+- [ ] Деактивировать истёкшие addon.
+- [ ] Деактивировать истёкший standalone.
+- [ ] Пересобирать Remnawave squads после cleanup.
+- [ ] Синхронизировать `subscriptions`.
+- [ ] Логировать ошибки Remnawave.
+- [ ] Не падать при временно недоступном Remnawave.
+- [ ] Добавить retry или повторную попытку следующего цикла.
+
+### Автоматические проверки
+
+- [ ] Mock-тест истечения addon.
+- [ ] Mock-тест истечения standalone.
+- [ ] Mock-тест Remnawave unavailable.
+
+### Ручные проверки
+
+- [ ] После истечения addon его squad снимается.
+- [ ] После истечения standalone пользователь теряет standalone squad.
+- [ ] При активных addon без standalone система приводит состояние к корректному.
+- [ ] Если Remnawave временно недоступен, локальный job не ломает процесс.
+- [ ] После восстановления Remnawave sync доводит состояние до ожидаемого.
+
+---
+
+## Фаза 12: Документация и финальная проверка
+
+### Задачи
+
+- [ ] Обновить README.
+- [ ] Описать migration guide для open-source пользователей.
+- [ ] Обновить `.env.example`.
+- [ ] Пометить legacy tariff env-поля deprecated.
+- [ ] Описать Remnawave v2.7.4 requirement.
+- [ ] Описать настройку тарифов в web admin.
+- [ ] Описать настройку тарифов в bot admin.
+- [ ] Проверить ru/en i18n.
+- [ ] Финальный backend build/test.
+- [ ] Финальный frontend build.
+
+### Автоматические проверки
+
+- [ ] Backend стартует.
+- [ ] Bot стартует.
+- [ ] `npm run build` проходит.
+- [ ] Alembic migrations проходят с нуля.
+- [ ] Alembic migrations проходят на существующей БД.
+
+### Ручные проверки
+
+- [ ] Новый self-hosted запуск без тарифов получает legacy bootstrap или понятный warning.
+- [ ] Старый пользователь с legacy-подпиской не теряет доступ.
+- [ ] Новый пользователь покупает standalone в боте.
+- [ ] Новый пользователь покупает standalone на сайте.
+- [ ] Пользователь покупает addon в боте.
+- [ ] Пользователь покупает addon на сайте.
+- [ ] Админ создаёт тариф в web admin.
+- [ ] Админ создаёт тариф в bot admin.
+- [ ] Remnawave user получает ожидаемые `activeInternalSquads`.
+- [ ] Remnawave user получает ожидаемый `expireAt`.
+- [ ] Remnawave user получает ожидаемый `trafficLimitBytes`.
+
+---
+
+## Финальный smoke-test сценарий
+
+- [ ] Поднять проект на чистой БД.
+- [ ] Проверить bootstrap legacy-тарифа.
+- [ ] Создать standalone тариф `Basic`.
+- [ ] Создать standalone тариф `Premium`.
+- [ ] Создать addon тариф.
+- [ ] Зарегистрировать нового пользователя.
+- [ ] Купить `Basic`.
+- [ ] Проверить Remnawave squads.
+- [ ] Купить addon.
+- [ ] Проверить Remnawave squads и traffic limit.
+- [ ] Купить `Premium`.
+- [ ] Проверить, что `Basic` squad снят, `Premium` squad установлен, addon squad сохранён.
+- [ ] Проверить, что срок подписки не потерян.
+- [ ] Отключить auto-renew addon.
+- [ ] Проверить расчёт следующего автопродления.

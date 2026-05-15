@@ -5,7 +5,10 @@ from db.models import Account
 from web.dependencies import get_db, get_current_admin
 from web.schemas.admin.plans import PlanResponse, PlanCreateRequest, PlanUpdateRequest, PlansListResponse
 from core.dal.pricing_plan_dal import (
-    get_all_plans, get_plan_by_id, create_plan, update_plan, delete_plan
+    get_all_plans,
+    create_legacy_time_option,
+    update_legacy_time_option,
+    delete_legacy_time_option,
 )
 from web.middleware.rate_limit import admin_action_limit
 from web.routers.admin.audit import add_admin_audit_log
@@ -31,7 +34,10 @@ async def create_new_plan(
     db: AsyncSession = Depends(get_db),
     admin: Account = Depends(get_current_admin),
 ):
-    plan = await create_plan(db, **body.model_dump())
+    try:
+        plan = await create_legacy_time_option(db, **body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await add_admin_audit_log(db, admin, "admin_plan_create", details={"plan": body.model_dump()})
     await db.commit()
     return PlanResponse.model_validate(plan)
@@ -45,7 +51,10 @@ async def update_existing_plan(
     admin: Account = Depends(get_current_admin),
 ):
     updates = body.model_dump(exclude_none=True)
-    plan = await update_plan(db, plan_id, **updates)
+    try:
+        plan = await update_legacy_time_option(db, plan_id, **updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
     await add_admin_audit_log(db, admin, "admin_plan_update", details={"plan_id": plan_id, "updates": updates})
@@ -59,7 +68,7 @@ async def delete_existing_plan(
     db: AsyncSession = Depends(get_db),
     admin: Account = Depends(get_current_admin),
 ):
-    deleted = await delete_plan(db, plan_id)
+    deleted = await delete_legacy_time_option(db, plan_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Plan not found")
     await add_admin_audit_log(db, admin, "admin_plan_delete", details={"plan_id": plan_id})
