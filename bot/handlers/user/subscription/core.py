@@ -46,6 +46,7 @@ async def display_subscription_options(
     settings: Settings,
     session: AsyncSession,
     promo_code_service=None,
+    _catalog_checked: bool = False,
 ):
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
@@ -62,6 +63,16 @@ async def display_subscription_options(
         elif isinstance(event, types.Message):
             await event.answer(err_msg)
         return
+
+    # Catalog mode: if non-legacy enabled standalone plans exist, use catalog flow
+    if not _catalog_checked:
+        try:
+            from bot.handlers.user.subscription.catalog_flow import has_catalog_plans, display_catalog_tariffs
+            if await has_catalog_plans(session):
+                await display_catalog_tariffs(event, session, i18n_data, settings)
+                return
+        except Exception:
+            logging.exception("display_subscription_options: catalog check failed, falling back to legacy")
 
     currency_symbol_val = "RUB"
     traffic_packages = getattr(settings, "traffic_packages", {}) or {}

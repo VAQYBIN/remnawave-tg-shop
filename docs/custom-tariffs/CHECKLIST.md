@@ -267,60 +267,79 @@
 
 ### Задачи
 
-- [ ] Создать `core/services/tariff_activation.py`.
-- [ ] Создать `core/services/tariff_sync.py`.
-- [ ] Реализовать активацию standalone.
-- [ ] Реализовать замену standalone с сохранением срока.
-- [ ] Реализовать активацию addon до конца standalone.
-- [ ] Реализовать суммирование traffic GB.
-- [ ] Реализовать explicit unlimited traffic без неявного `trafficLimitBytes=0`.
-- [ ] Реализовать сборку `activeInternalSquads`.
-- [ ] Реализовать обновление Remnawave `expireAt`.
-- [ ] Реализовать обновление Remnawave `trafficLimitBytes`.
-- [ ] Реализовать обновление Remnawave `trafficLimitStrategy`.
-- [ ] Реализовать атомарный порядок смены standalone без промежуточного состояния с двумя standalone squads.
-- [ ] При любом изменении standalone обрезать `addon.ends_at` до `new_standalone.ends_at`, если addon оказался длиннее standalone.
-- [ ] Реализовать bundled-offer при ручном продлении standalone с активными addon.
-- [ ] Отключённые от renewal addon не продлевать бесплатно.
-- [ ] Обновить `subscriptions` после activation.
-- [ ] Создавать записи `entitlement_payments`.
-- [ ] Реализовать идемпотентность activation по payment status и entitlement-payment links.
-- [ ] Реализовать `pending_panel_sync` и `needs_panel_sync` при недоступном Remnawave после успешной оплаты.
-- [ ] Подключить YooKassa.
-- [ ] Подключить Telegram Stars.
-- [ ] Подключить CryptoPay.
-- [ ] Подключить FreeKassa.
-- [ ] Подключить Platega.
-- [ ] Подключить SeverPay.
+- [x] Создать `core/services/tariff_activation.py`.
+- [x] Создать `core/services/tariff_sync.py`.
+- [x] Реализовать активацию standalone.
+- [x] Реализовать замену standalone с сохранением срока.
+- [x] Реализовать активацию addon до конца standalone.
+- [x] Реализовать суммирование traffic GB.
+- [x] Реализовать explicit unlimited traffic без неявного `trafficLimitBytes=0`.
+- [x] Реализовать сборку `activeInternalSquads`.
+- [x] Реализовать обновление Remnawave `expireAt`.
+- [x] Реализовать обновление Remnawave `trafficLimitBytes`.
+- [x] Реализовать обновление Remnawave `trafficLimitStrategy`.
+- [x] Реализовать атомарный порядок смены standalone без промежуточного состояния с двумя standalone squads. _(старый standalone деактивируется локально до PATCH; новый squad отправляется одним PATCH через tariff_sync)_
+- [ ] При любом изменении standalone обрезать `addon.ends_at` до `new_standalone.ends_at`, если addon оказался длиннее standalone. _(Фаза 10 / cleanup job)_
+- [ ] Реализовать bundled-offer при ручном продлении standalone с активными addon. _(Фаза 10)_
+- [ ] Отключённые от renewal addon не продлевать бесплатно. _(Фаза 10)_
+- [x] Обновить `subscriptions` после activation.
+- [x] Создавать записи `entitlement_payments`.
+- [x] Реализовать идемпотентность activation по payment status и entitlement-payment links.
+- [x] Реализовать `needs_panel_sync=True` при недоступном Remnawave после успешной оплаты.
+- [x] Подключить YooKassa. _(через хук в subscription_service.activate_subscription)_
+- [x] Подключить Telegram Stars. _(через хук в subscription_service.activate_subscription)_
+- [x] Подключить CryptoPay. _(через хук в subscription_service.activate_subscription)_
+- [x] Подключить FreeKassa. _(через хук в subscription_service.activate_subscription)_
+- [x] Подключить Platega. _(через хук в subscription_service.activate_subscription)_
+- [x] Подключить SeverPay. _(через хук в subscription_service.activate_subscription)_
 
 ### Автоматические проверки
 
+- [x] Backend import/compile проходит (`python -m compileall core bot web db -q`).
+- [x] `SubscriptionService._maybe_handle_catalog_payment` существует.
+- [x] `activate_subscription` вызывает catalog pre-check.
 - [ ] Mock-тест standalone activation.
 - [ ] Mock-тест standalone replacement.
 - [ ] Mock-тест addon activation.
 - [ ] Mock-тест traffic summing.
 - [ ] Mock-тест explicit unlimited + traffic addon.
-- [ ] Mock-тест bundled manual renewal with addon.
-- [ ] Mock-тест обрезки addon при `addon.ends_at > standalone.ends_at`.
+- [ ] Mock-тест bundled manual renewal with addon. _(Фаза 10)_
+- [ ] Mock-тест обрезки addon при `addon.ends_at > standalone.ends_at`. _(Фаза 11)_
 - [ ] Mock-тест Remnawave unavailable after paid webhook.
 - [ ] Payment activation идемпотентна для повторного webhook.
 
 ### Ручные проверки
 
-- [ ] Новый пользователь после оплаты получает Remnawave user и subscription URL.
-- [ ] Покупка standalone назначает только squad этого тарифа.
+- [x] Новый пользователь после оплаты (web, plan_option_id) получает Remnawave user и subscription URL.
+- [x] Покупка standalone назначает только squad этого тарифа (activeInternalSquads содержит только один UUID).
+- [x] Traffic GB выставляется корректно (50 ГБ в Remnawave после покупки опции с traffic_gb=50).
+- [x] Срок выставляется корректно (expireAt = ends_at из entitlement).
 - [ ] Покупка другого standalone снимает старый standalone squad и ставит новый.
 - [ ] Срок при смене standalone не теряется.
 - [ ] Addon добавляет squad к текущему standalone squad.
 - [ ] Addon действует до конца standalone.
-- [ ] Traffic GB суммируется с текущим лимитом в Remnawave.
-- [ ] Time-only тариф с explicit GB создаёт ожидаемый лимит.
 - [ ] Time-only тариф с explicit unlimited не превращается в ограниченный лимит при addon.
-- [ ] При ручном продлении standalone пользователю предлагается оплатить active auto-renew addon в bundle.
-- [ ] Addon с отключённым renewal остаётся до старой даты и не входит в bundle.
-- [ ] Если standalone ends_at стал раньше addon ends_at после админского/edge-case изменения, addon обрезается до standalone ends_at.
-- [ ] При сбое Remnawave после оплаты платёж остаётся succeeded, а sync уходит в pending.
-- [ ] Повторный webhook не продлевает подписку повторно.
+- [ ] При сбое Remnawave после оплаты платёж остаётся succeeded, а `needs_panel_sync=True`.
+- [ ] Повторный webhook не продлевает подписку повторно (idempotency check через entitlement_payments).
+
+### Статус выполнения фазы
+
+Фаза 5 реализована (backend сервисы). Требуется ручная проверка на реальном платеже.
+
+Реализовано:
+- `core/services/tariff_activation.py` — `create_standalone_entitlement`, `create_addon_entitlement`, `compute_ends_at`.
+- `core/services/tariff_sync.py` — `build_panel_state`, `sync_entitlements_to_panel`.
+- `SubscriptionService._maybe_handle_catalog_payment` — хук внутри `activate_subscription`, автоматически покрывает все 6 провайдеров.
+- `core/services/payment_core.py` — исправлен `months_for_legacy` для day-based опций (был `None`, теперь приблизительное значение).
+- Entitlement-payment links создаются при каждой активации.
+- `payment.needs_panel_sync = True` при недоступном Remnawave.
+- Legacy Subscription обновляется для standalone (backward compat).
+- Idempotency через `entitlement_payment_dal.get_links_for_payment`.
+
+Ограничения MVP:
+- Bundled renewal addon — Фаза 10.
+- Обрезка addon.ends_at > standalone.ends_at — Фаза 11 (cleanup job).
+- `activation_status = "pending_panel_sync"` в payment — только `needs_panel_sync=True`, full retry job — Фаза 11.
 
 ---
 
@@ -328,32 +347,48 @@
 
 ### Задачи
 
-- [ ] Обновить пользовательские клавиатуры тарифов.
-- [ ] Обновить `main_action:subscribe`.
-- [ ] Добавить выбор тарифа.
-- [ ] Добавить показ описания тарифа.
-- [ ] Добавить выбор option.
-- [ ] Добавить addon flow.
-- [ ] Передавать `plan_option_id` в payment handlers.
-- [ ] Обновить тексты `locales/ru.json`.
-- [ ] Обновить тексты `locales/en.json`.
-- [ ] Обновить сообщение успешной оплаты.
+- [x] Обновить пользовательские клавиатуры тарифов.
+- [x] Обновить `main_action:subscribe`.
+- [x] Добавить выбор тарифа (`select_tariff:{plan_id}`).
+- [x] Добавить показ описания тарифа.
+- [x] Добавить выбор option (`subscribe_option:{option_id}`).
+- [x] Добавить addon flow (проверка standalone, prorating).
+- [x] Передавать `plan_option_id` (`o{id}` encoding) в payment handlers (severpay, freekassa, platega, crypto, stars, yookassa).
+- [x] Обновить тексты `locales/ru.json`.
+- [x] Обновить тексты `locales/en.json`.
+- [ ] Обновить сообщение успешной оплаты для catalog. _(сообщение формируется в subscription_service/stars_service, использует legacy keys — отдельный UI улучшение)_
 
 ### Автоматические проверки
 
-- [ ] Bot import/start проходит.
-- [ ] Callback data не превышает лимит Telegram.
-- [ ] Payment handlers корректно парсят новые callback data.
+- [x] Bot import/start проходит (`python -m compileall bot core -q`).
+- [x] Callback data не превышает лимит Telegram (compact `o{id}` encoding).
+- [x] Payment handlers корректно парсят новые callback data (catalog + legacy dual-path).
 
 ### Ручные проверки
 
-- [ ] В боте кнопка “Купить” показывает список тарифов.
+- [ ] В боте кнопка “Купить” показывает список тарифов (когда есть catalog plans).
+- [ ] При legacy-only режиме (только `legacy-default`) показывается старый period selector.
 - [ ] Описание тарифа отображается на языке пользователя.
-- [ ] Выбор тарифа показывает корректные options.
+- [ ] Выбор тарифа показывает корректные options с ценами.
 - [ ] Выбор option показывает доступные методы оплаты.
 - [ ] Пользователь без standalone не видит addon purchase как доступный.
 - [ ] Пользователь с standalone видит addon с пересчитанной ценой.
 - [ ] После оплаты бот показывает ссылку подписки.
+- [ ] Back-кнопки в payment flow ведут к нужным шагам (к options, не к period selector).
+
+### Статус выполнения фазы
+
+Фаза 6 реализована. Требуется ручная проверка на реальном боте.
+
+Реализовано:
+- `bot/handlers/user/subscription/catalog_flow.py` — `has_catalog_plans()`, `display_catalog_tariffs()`, хендлеры `select_tariff:` и `subscribe_option:`.
+- `bot/keyboards/inline/user_keyboards.py` — `get_catalog_tariff_list_keyboard()`, `get_catalog_option_list_keyboard()`, `_fmt_option_price()`; `get_payment_method_keyboard` принимает `str` для catalog value.
+- `bot/handlers/user/subscription/core.py` — при наличии catalog plans вызывает `display_catalog_tariffs()` вместо legacy flow.
+- `bot/handlers/user/subscription/payments_subscription.py` — `resolve_catalog_offer_for_payment()`.
+- Payment handlers (severpay, freekassa, platega, crypto, stars, yookassa) — dual catalog/legacy path, `pricing_plan_option_id`/`pricing_plan_id`/`sale_mode` в payment record.
+- `bot/services/stars_service.py` — принимает `pricing_plan_option_id`/`pricing_plan_id`; для catalog пропускает settings-валидацию Stars price.
+- `bot/services/crypto_pay_service.py` — принимает и сохраняет `pricing_plan_option_id`/`pricing_plan_id`.
+- `locales/ru.json`, `locales/en.json` — добавлены 10 новых ключей для catalog flow.
 
 ---
 

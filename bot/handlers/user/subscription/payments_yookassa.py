@@ -62,7 +62,7 @@ async def _initiate_yk_payment(
     settings: Settings,
     session: AsyncSession,
     yookassa_service: YooKassaService,
-    promo_code_service,  # NEW: Added promo_code_service
+    promo_code_service,
     i18n: Optional[JsonI18n],
     current_lang: str,
     get_text,
@@ -75,6 +75,9 @@ async def _initiate_yk_payment(
     payment_method_id: Optional[str] = None,
     selected_method_internal_id: Optional[int] = None,
     sale_mode: str = "subscription",
+    pricing_plan_option_id: Optional[int] = None,
+    pricing_plan_id: Optional[int] = None,
+    payment_description: Optional[str] = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
     if not callback.message:
@@ -120,21 +123,25 @@ async def _initiate_yk_payment(
                     f"original {original_price:.2f} -> final {price_rub}"
                 )
 
-    payment_description = (
-        get_text("payment_description_traffic", traffic_gb=_format_value(months))
-        if sale_mode == "traffic"
-        else get_text("payment_description_subscription", months=int(months))
-    )
+    if payment_description is None:
+        payment_description = (
+            get_text("payment_description_traffic", traffic_gb=_format_value(months))
+            if sale_mode == "traffic"
+            else get_text("payment_description_subscription", months=int(months))
+        )
     payment_record_data = {
         "user_id": user_id,
-        "amount": price_rub,  # Discounted amount
-        "original_amount": original_price if discount_amount else None,  # NEW
-        "discount_applied": discount_amount,  # NEW
+        "amount": price_rub,
+        "original_amount": original_price if discount_amount else None,
+        "discount_applied": discount_amount,
         "currency": currency_code_for_yk,
         "status": "pending_yookassa",
         "description": payment_description,
         "subscription_duration_months": int(months),
-        "promo_code_id": active_promo_code_id,  # NEW: Link to promo code
+        "promo_code_id": active_promo_code_id,
+        "pricing_plan_option_id": pricing_plan_option_id,
+        "pricing_plan_id": pricing_plan_id,
+        "sale_mode": sale_mode if pricing_plan_option_id else None,
     }
 
     db_payment_record = None
@@ -387,6 +394,12 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
         return
 
+    user_id = callback.from_user.id
+    pricing_plan_option_id = None
+    pricing_plan_id = None
+    back_callback_value = None
+    catalog_payment_description = None
+
     try:
         _, data_payload = callback.data.split(":", 1)
     except ValueError:
@@ -397,62 +410,78 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
         return
 
-    parsed = _parse_offer_payload(data_payload)
-    if not parsed:
-        logging.error(f"Invalid pay_yk payload structure: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+    parts = data_payload.split(":")
+    if parts[0].startswith("o") and parts[0][1:].isdigit():
+        from bot.handlers.user.subscription.payments_subscription import resolve_catalog_offer_for_payment
+        catalog_info = await resolve_catalog_offer_for_payment(session, parts, user_id, settings)
+        if catalog_info is None or catalog_info["price_rub"] is None:
+            try:
+                await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
+        months = float(catalog_info["months_for_legacy"])
+        price_rub = catalog_info["price_rub"]
+        sale_mode = catalog_info["sale_mode"]
+        pricing_plan_option_id = catalog_info["option_id"]
+        pricing_plan_id = catalog_info["pricing_plan_id"]
+        back_callback_value = catalog_info["back_callback"]
+        plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
+        catalog_payment_description = get_text("catalog_payment_description", plan_name=plan_name)
+        currency_code_for_yk = "RUB"
+        autopay_enabled = False
+    else:
+        parsed = _parse_offer_payload(data_payload)
+        if not parsed:
+            logging.error(f"Invalid pay_yk payload structure: {callback.data}")
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
 
-    months, callback_price_rub, sale_mode = parsed
-    user_id = callback.from_user.id
+        months, callback_price_rub, sale_mode = parsed
 
-    resolved_price_rub = await resolve_fiat_offer_price_for_user(
-        session=session,
-        settings=settings,
-        user_id=user_id,
-        months=months,
-        sale_mode=sale_mode,
-        promo_code_service=promo_code_service,
-    )
-    if resolved_price_rub is None:
-        logging.warning(
-            "YooKassa: no server-side price for user %s, value=%s, mode=%s",
-            user_id,
-            months,
-            sale_mode,
+        resolved_price_rub = await resolve_fiat_offer_price_for_user(
+            session=session,
+            settings=settings,
+            user_id=user_id,
+            months=months,
+            sale_mode=sale_mode,
+            promo_code_service=promo_code_service,
         )
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+        if resolved_price_rub is None:
+            logging.warning(
+                "YooKassa: no server-side price for user %s, value=%s, mode=%s",
+                user_id, months, sale_mode,
+            )
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
 
-    if abs(resolved_price_rub - callback_price_rub) > 0.01:
-        logging.warning(
-            "YooKassa: callback price mismatch for user %s, value=%s, mode=%s, callback=%.2f, resolved=%.2f",
-            user_id,
-            months,
-            sale_mode,
-            callback_price_rub,
-            resolved_price_rub,
-        )
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+        if abs(resolved_price_rub - callback_price_rub) > 0.01:
+            logging.warning(
+                "YooKassa: callback price mismatch for user %s, value=%s, mode=%s, callback=%.2f, resolved=%.2f",
+                user_id, months, sale_mode, callback_price_rub, resolved_price_rub,
+            )
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
 
-    price_rub = resolved_price_rub
-    currency_code_for_yk = "RUB"
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
-    autopay_require_binding = bool(
-        getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
-    )
-    saved_methods: List = []
+        price_rub = resolved_price_rub
+        currency_code_for_yk = "RUB"
+        back_callback_value = f"subscribe_period:{_format_value(months)}"
+        autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+
     if autopay_enabled:
+        autopay_require_binding = bool(
+            getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
+        )
+        saved_methods: List = []
         try:
             saved_methods = await user_billing_dal.list_user_payment_methods(
                 session, user_id, provider="yookassa"
@@ -461,23 +490,9 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
             logging.exception(f"Failed to load saved payment methods for user {user_id}: {e_list}")
             saved_methods = []
 
-    if autopay_enabled and saved_methods:
-        try:
-            await callback.message.edit_text(
-                get_text("yookassa_autopay_flow_prompt"),
-                reply_markup=get_yk_autopay_choice_keyboard(
-                    months,
-                    price_rub,
-                    current_lang,
-                    i18n,
-                    has_saved_cards=True,
-                    sale_mode=sale_mode,
-                ),
-            )
-        except Exception as e_edit:
-            logging.warning(f"Failed to show autopay choice: {e_edit}. Sending new message.")
+        if saved_methods:
             try:
-                await callback.message.answer(
+                await callback.message.edit_text(
                     get_text("yookassa_autopay_flow_prompt"),
                     reply_markup=get_yk_autopay_choice_keyboard(
                         months,
@@ -488,13 +503,29 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
                         sale_mode=sale_mode,
                     ),
                 )
+            except Exception as e_edit:
+                logging.warning(f"Failed to show autopay choice: {e_edit}. Sending new message.")
+                try:
+                    await callback.message.answer(
+                        get_text("yookassa_autopay_flow_prompt"),
+                        reply_markup=get_yk_autopay_choice_keyboard(
+                            months,
+                            price_rub,
+                            current_lang,
+                            i18n,
+                            has_saved_cards=True,
+                            sale_mode=sale_mode,
+                        ),
+                    )
+                except Exception as exc:
+                    logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            try:
+                await callback.answer()
             except Exception as exc:
                 logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        try:
-            await callback.answer()
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+            return
+    else:
+        autopay_require_binding = False
 
     await _initiate_yk_payment(
         callback,
@@ -510,8 +541,11 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
         price_rub=price_rub,
         currency_code_for_yk=currency_code_for_yk,
         save_payment_method=autopay_enabled and autopay_require_binding,
-        back_callback=f"subscribe_period:{_format_value(months)}",
+        back_callback=back_callback_value,
         sale_mode=sale_mode,
+        pricing_plan_option_id=pricing_plan_option_id,
+        pricing_plan_id=pricing_plan_id,
+        payment_description=catalog_payment_description,
     )
     try:
         await callback.answer()
@@ -544,6 +578,12 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
         return
 
+    user_id = callback.from_user.id
+    pricing_plan_option_id = None
+    pricing_plan_id = None
+    back_callback_value = None
+    catalog_payment_description = None
+
     try:
         _, data_payload = callback.data.split(":", 1)
     except ValueError:
@@ -554,60 +594,75 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
         return
 
-    parsed = _parse_offer_payload(data_payload)
-    if not parsed:
-        logging.error(f"Invalid pay_yk_new payload structure: {callback.data}")
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+    parts = data_payload.split(":")
+    if parts[0].startswith("o") and parts[0][1:].isdigit():
+        from bot.handlers.user.subscription.payments_subscription import resolve_catalog_offer_for_payment
+        catalog_info = await resolve_catalog_offer_for_payment(session, parts, user_id, settings)
+        if catalog_info is None or catalog_info["price_rub"] is None:
+            try:
+                await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
+        months = float(catalog_info["months_for_legacy"])
+        price_rub = catalog_info["price_rub"]
+        sale_mode = catalog_info["sale_mode"]
+        pricing_plan_option_id = catalog_info["option_id"]
+        pricing_plan_id = catalog_info["pricing_plan_id"]
+        back_callback_value = catalog_info["back_callback"]
+        plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
+        catalog_payment_description = get_text("catalog_payment_description", plan_name=plan_name)
+        autopay_enabled = False
+        autopay_require_binding = False
+    else:
+        parsed = _parse_offer_payload(data_payload)
+        if not parsed:
+            logging.error(f"Invalid pay_yk_new payload structure: {callback.data}")
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
 
-    months, callback_price_rub, sale_mode = parsed
-    user_id = callback.from_user.id
-    resolved_price_rub = await resolve_fiat_offer_price_for_user(
-        session=session,
-        settings=settings,
-        user_id=user_id,
-        months=months,
-        sale_mode=sale_mode,
-        promo_code_service=promo_code_service,
-    )
-    if resolved_price_rub is None:
-        logging.warning(
-            "YooKassa: no server-side price for new-card flow, user=%s, value=%s, mode=%s",
-            user_id,
-            months,
-            sale_mode,
+        months, callback_price_rub, sale_mode = parsed
+        resolved_price_rub = await resolve_fiat_offer_price_for_user(
+            session=session,
+            settings=settings,
+            user_id=user_id,
+            months=months,
+            sale_mode=sale_mode,
+            promo_code_service=promo_code_service,
         )
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
+        if resolved_price_rub is None:
+            logging.warning(
+                "YooKassa: no server-side price for new-card flow, user=%s, value=%s, mode=%s",
+                user_id, months, sale_mode,
+            )
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
 
-    if abs(resolved_price_rub - callback_price_rub) > 0.01:
-        logging.warning(
-            "YooKassa: callback price mismatch in new-card flow, user=%s, value=%s, mode=%s, callback=%.2f, resolved=%.2f",
-            user_id,
-            months,
-            sale_mode,
-            callback_price_rub,
-            resolved_price_rub,
+        if abs(resolved_price_rub - callback_price_rub) > 0.01:
+            logging.warning(
+                "YooKassa: callback price mismatch in new-card flow, user=%s, value=%s, mode=%s, callback=%.2f, resolved=%.2f",
+                user_id, months, sale_mode, callback_price_rub, resolved_price_rub,
+            )
+            try:
+                await callback.answer(get_text("error_try_again"), show_alert=True)
+            except Exception as exc:
+                logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
+            return
+
+        price_rub = resolved_price_rub
+        back_callback_value = f"subscribe_period:{_format_value(months)}"
+        autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
+        autopay_require_binding = bool(
+            getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
         )
-        try:
-            await callback.answer(get_text("error_try_again"), show_alert=True)
-        except Exception as exc:
-            logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_yookassa.py: %s", exc)
-        return
 
-    price_rub = resolved_price_rub
     currency_code_for_yk = "RUB"
-    autopay_enabled = bool(settings.yookassa_autopayments_active and sale_mode != "traffic" and not settings.traffic_sale_mode)
-    autopay_require_binding = bool(
-        getattr(settings, 'YOOKASSA_AUTOPAYMENTS_REQUIRE_CARD_BINDING', True)
-    )
-
     await _initiate_yk_payment(
         callback,
         settings=settings,
@@ -622,8 +677,11 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
         price_rub=price_rub,
         currency_code_for_yk=currency_code_for_yk,
         save_payment_method=autopay_enabled and autopay_require_binding,
-        back_callback=f"subscribe_period:{_format_value(months)}",
+        back_callback=back_callback_value,
         sale_mode=sale_mode,
+        pricing_plan_option_id=pricing_plan_option_id,
+        pricing_plan_id=pricing_plan_id,
+        payment_description=catalog_payment_description,
     )
     try:
         await callback.answer()

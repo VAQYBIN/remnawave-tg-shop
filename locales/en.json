@@ -526,5 +526,16 @@
   "link_email_send_failed": "❌ Failed to send the email. Please try again later.",
   "link_email_code_sent": "📬 A verification code has been sent to <b>{email}</b>.\n\nEnter the 6-digit code from the email:",
   "link_email_invalid_code": "❌ Invalid or expired code. Try again or restart with /link_email.",
-  "link_email_success": "✅ Email <b>{email}</b> successfully linked to your account!\n\nYou can now sign in at <a href=\"{frontend_url}\">{frontend_url}</a> via this email.\n\n<i>If you haven't set a password yet — use the «Forgot password?» button on the login page.</i>"
+  "link_email_success": "✅ Email <b>{email}</b> successfully linked to your account!\n\nYou can now sign in at <a href=\"{frontend_url}\">{frontend_url}</a> via this email.\n\n<i>If you haven't set a password yet — use the «Forgot password?» button on the login page.</i>",
+
+  "catalog_select_tariff": "Choose a plan:",
+  "catalog_select_option": "Choose a subscription option:",
+  "catalog_addons_header": "Add-ons:",
+  "catalog_addon_unavailable": "⚠️ Add-ons are only available with an active subscription.",
+  "back_to_tariff_list_button": "← Back to plans",
+  "back_to_plan_options_button": "← Back to options",
+  "catalog_payment_description": "Payment: {plan_name}",
+  "payment_successful_catalog_full": "✅ Payment successful!\nSubscription active until {end_date}.\n\nConnection key:\n<code>{config_link}</code>\n\nTo connect, follow the link and instructions 👇",
+  "catalog_error_option_not_found": "❌ Subscription option not found or unavailable.",
+  "catalog_error_no_standalone": "❌ An active subscription is required to purchase an add-on."
 }

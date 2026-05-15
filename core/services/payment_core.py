@@ -365,7 +365,10 @@ async def create_web_payment(
             else ""
         )
         description = f"Оплата тарифа «{opt.plan.name_ru}»" + (f" — {duration_display}" if duration_display else "")
-        months_for_legacy = opt.duration_months
+        # Ensure a non-None integer for legacy metadata (day-based options use day/30 approx)
+        months_for_legacy = opt.duration_months or (
+            max(1, round(opt.duration_days / 30.0)) if opt.duration_days else 0
+        )
     elif months is not None:
         price_rub_maybe = await get_plan_price_db(db, settings, months)
         if price_rub_maybe is None:

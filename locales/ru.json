@@ -527,5 +527,16 @@
   "link_email_send_failed": "❌ Не удалось отправить письмо. Попробуйте позже.",
   "link_email_code_sent": "📬 Код подтверждения отправлен на <b>{email}</b>.\n\nВведите 6-значный код из письма:",
   "link_email_invalid_code": "❌ Неверный или устаревший код. Попробуйте ещё раз или начните заново командой /link_email.",
-  "link_email_success": "✅ Email <b>{email}</b> успешно привязан к вашему аккаунту!\n\nТеперь вы можете войти на <a href=\"{frontend_url}\">{frontend_url}</a> через этот email.\n\n<i>Если вы ещё не устанавливали пароль — воспользуйтесь кнопкой «Забыли пароль?» на странице входа.</i>"
+  "link_email_success": "✅ Email <b>{email}</b> успешно привязан к вашему аккаунту!\n\nТеперь вы можете войти на <a href=\"{frontend_url}\">{frontend_url}</a> через этот email.\n\n<i>Если вы ещё не устанавливали пароль — воспользуйтесь кнопкой «Забыли пароль?» на странице входа.</i>",
+
+  "catalog_select_tariff": "Выберите тариф:",
+  "catalog_select_option": "Выберите вариант подписки:",
+  "catalog_addons_header": "Дополнения:",
+  "catalog_addon_unavailable": "⚠️ Дополнения доступны только при наличии активной подписки.",
+  "back_to_tariff_list_button": "← К тарифам",
+  "back_to_plan_options_button": "← К вариантам",
+  "catalog_payment_description": "Оплата: {plan_name}",
+  "payment_successful_catalog_full": "✅ Оплата прошла успешно!\nПодписка активна до {end_date}.\n\nКлюч подключения:\n<code>{config_link}</code>\n\nЧтобы подключиться, перейдите по ссылке и следуйте инструкции 👇",
+  "catalog_error_option_not_found": "❌ Вариант подписки не найден или недоступен.",
+  "catalog_error_no_standalone": "❌ Для покупки дополнения необходима активная подписка."
 }

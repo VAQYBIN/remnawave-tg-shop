@@ -1,6 +1,6 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Union
 
 from config.settings import Settings
 
@@ -126,7 +126,7 @@ def get_subscription_options_keyboard(subscription_options: Dict[
     return builder.as_markup()
 
 
-def get_payment_method_keyboard(months: int, price: float,
+def get_payment_method_keyboard(months: Union[int, float, str], price: float,
                                 stars_price: Optional[int],
                                 currency_symbol_val: str, lang: str,
                                 i18n_instance, settings: Settings, sale_mode: str = "subscription") -> InlineKeyboardMarkup:
@@ -134,7 +134,7 @@ def get_payment_method_keyboard(months: int, price: float,
     builder = InlineKeyboardBuilder()
     def _format_value(val: float) -> str:
         return str(int(val)) if float(val).is_integer() else f"{val:g}"
-    value_str = _format_value(months)
+    value_str = months if isinstance(months, str) else _format_value(months)
     mode_suffix = f":{sale_mode}"
     for method in settings.payment_methods_order:
         if method == "severpay" and getattr(settings, "SEVERPAY_ENABLED", False):
@@ -533,4 +533,99 @@ def get_autorenew_confirm_keyboard(enable: bool, sub_id: int, lang: str, i18n_in
         InlineKeyboardButton(text=_(key="yes_button"), callback_data=f"autorenew:confirm:{sub_id}:{1 if enable else 0}"),
         InlineKeyboardButton(text=_(key="no_button"), callback_data="main_action:my_subscription"),
     )
+    return builder.as_markup()
+
+
+def get_catalog_tariff_list_keyboard(
+    plans: list,
+    addon_plans: list,
+    lang: str,
+    i18n_instance,
+    has_standalone: bool = False,
+) -> InlineKeyboardMarkup:
+    """Keyboard listing standalone plans (and optionally addons if user has active standalone)."""
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    builder = InlineKeyboardBuilder()
+
+    for plan in plans:
+        name = plan.name_ru if lang == "ru" else (plan.name_en or plan.name_ru)
+        builder.row(InlineKeyboardButton(
+            text=name,
+            callback_data=f"select_tariff:{plan.id}",
+        ))
+
+    if has_standalone and addon_plans:
+        for plan in addon_plans:
+            name = plan.name_ru if lang == "ru" else (plan.name_en or plan.name_ru)
+            builder.row(InlineKeyboardButton(
+                text=f"+ {name}",
+                callback_data=f"select_tariff:{plan.id}",
+            ))
+
+    builder.row(InlineKeyboardButton(
+        text=_(key="back_to_main_menu_button"),
+        callback_data="main_action:back_to_main",
+    ))
+    return builder.as_markup()
+
+
+def _fmt_option_price(price_rub: Optional[float], price_stars: Optional[int]) -> str:
+    """Build a compact price string for an option button."""
+    parts = []
+    if price_rub is not None:
+        parts.append(f"{price_rub:g} ₽")
+    if price_stars is not None:
+        parts.append(f"{price_stars} ⭐")
+    return " | ".join(parts) if parts else "—"
+
+
+def get_catalog_option_list_keyboard(
+    plan,
+    options: list,
+    lang: str,
+    i18n_instance,
+    *,
+    prorated_prices: Optional[dict] = None,
+    standalone_end_date_str: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """
+    Keyboard with option buttons for a catalog plan.
+    prorated_prices: {option_id: (price_rub, price_stars)} for addon prorating.
+    """
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+    builder = InlineKeyboardBuilder()
+
+    for opt in options:
+        if not opt.is_enabled:
+            continue
+
+        if opt.duration_months:
+            dur_label = f"{opt.duration_months} мес." if lang == "ru" else f"{opt.duration_months} mo."
+        elif opt.duration_days:
+            dur_label = f"{opt.duration_days} дн." if lang == "ru" else f"{opt.duration_days} d."
+        else:
+            dur_label = "—"
+
+        if prorated_prices and opt.id in prorated_prices:
+            p_rub, p_stars = prorated_prices[opt.id]
+        else:
+            p_rub = float(opt.price_rub) if opt.price_rub is not None else None
+            p_stars = opt.price_stars
+
+        price_str = _fmt_option_price(p_rub, p_stars)
+
+        if standalone_end_date_str:
+            button_text = f"{dur_label} — {price_str} (до {standalone_end_date_str})"
+        else:
+            button_text = f"{dur_label} — {price_str}"
+
+        builder.row(InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"subscribe_option:{opt.id}",
+        ))
+
+    builder.row(InlineKeyboardButton(
+        text=_(key="back_to_tariff_list_button"),
+        callback_data="main_action:subscribe",
+    ))
     return builder.as_markup()
