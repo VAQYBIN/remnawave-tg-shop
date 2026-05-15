@@ -88,20 +88,20 @@
 
 ### Задачи
 
-- [ ] Сверить Remnawave API v2.7.4 для Internal Squads.
-- [ ] Добавить `get_internal_squads()` в `PanelApiService`.
-- [ ] Добавить `get_internal_squad(uuid)` в `PanelApiService`.
-- [ ] Добавить `validate_internal_squad(uuid)` в `PanelApiService`.
-- [ ] Добавить admin endpoint `GET /api/admin/remnawave/squads`.
-- [ ] Добавить short-lived cache списка Internal Squads на 5-10 минут.
-- [ ] Добавить обработку ошибок Remnawave API.
-- [ ] Заблокировать создание/обновление тарифа при недоступном Remnawave.
-- [ ] Сохранять `remnawave_squad_name_snapshot` после успешной проверки.
+- [x] Сверить Remnawave API v2.7.4 для Internal Squads.
+- [x] Добавить `get_internal_squads()` в `PanelApiService`.
+- [x] Добавить `get_internal_squad(uuid)` в `PanelApiService`.
+- [x] Добавить `validate_internal_squad(uuid)` в `PanelApiService`.
+- [x] Добавить admin endpoint `GET /api/admin/remnawave/squads`.
+- [x] Добавить short-lived cache списка Internal Squads на 5-10 минут.
+- [x] Добавить обработку ошибок Remnawave API.
+- [ ] Заблокировать создание/обновление тарифа при недоступном Remnawave. _(будет подключено в Фазе 3 при создании нового CRUD тарифов)_
+- [ ] Сохранять `remnawave_squad_name_snapshot` после успешной проверки. _(будет подключено в Фазе 3 при создании нового CRUD тарифов)_
 
 ### Автоматические проверки
 
 - [ ] Unit/интеграционные проверки клиента Remnawave с mock response.
-- [ ] Backend build/import проходит.
+- [x] Backend build/import проходит.
 
 ### Ручные проверки
 
@@ -109,8 +109,21 @@
 - [ ] Повторное открытие выбора squad использует cache и не делает лишний запрос к Remnawave.
 - [ ] UUID существующего squad проходит валидацию.
 - [ ] UUID несуществующего squad не сохраняется.
-- [ ] При недоступной панели создание тарифа блокируется понятной ошибкой.
+- [ ] При недоступной панели `GET /api/admin/remnawave/squads` возвращает 502 с понятной ошибкой.
 - [ ] В логах нет утечки API key.
+
+### Статус выполнения фазы
+
+Фаза 2 реализована в коде. Требует ручной проверки с запущенным Docker.
+
+Реализовано:
+
+- Методы `get_internal_squads()`, `get_internal_squad(uuid)`, `validate_internal_squad(uuid)` добавлены в `core/services/panel_client.py`.
+- Новый роутер `web/routers/admin/remnawave.py` с endpoint `GET /api/admin/remnawave/squads`.
+- Redis-кеш на 5 минут (`cache:remnawave:squads`), флаг `cached: bool` в ответе.
+- При недоступном Remnawave возвращает HTTP 502.
+- `_sanitize_payload_for_log` уже маскирует API key в логах (унаследовано от существующего клиента).
+- Блокировка создания/обновления тарифа и сохранение `remnawave_squad_name_snapshot` отложены до Фазы 3, когда будет реализован полный CRUD тарифов.
 
 ---
 
