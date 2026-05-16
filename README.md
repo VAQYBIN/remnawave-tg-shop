@@ -2,7 +2,7 @@
 
 **Форк** [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop) с расширенными возможностями: веб-дашборд (личный кабинет) и полнофункциональная веб-панель администратора.
 
-> Проверено на **Remnawave ≥ 2.7.0**.
+> Проверено на **Remnawave 2.7.4**.
 
 ---
 
@@ -173,13 +173,24 @@ WEB_CORS_ORIGINS=https://your-domain.com
 ```
 
 ```nginx
-upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
-upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
-upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
+upstream remnawave-tg-shop {
+    server remnawave-tg-shop:8080;
+}
+
+upstream remnawave-tg-shop-web-api {
+    server remnawave-tg-shop-web-api:8090;
+}
+
+upstream remnawave-tg-shop-web-frontend {
+    server remnawave-tg-shop-web-frontend:3000;
+}
 
 server {
     listen 443 ssl;
     server_name your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.key;
 
     # SSE (лента новостей) — без буферизации
     location = /api/news/stream {
@@ -188,9 +199,17 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    location /api/ { proxy_pass http://remnawave-tg-shop-web-api; }
-    location /webhook/ { proxy_pass http://remnawave-tg-shop; }
-    location / { proxy_pass http://remnawave-tg-shop-web-frontend; }
+    location /api/ {
+        proxy_pass http://remnawave-tg-shop-web-api;
+    }
+
+    location /webhook/ {
+        proxy_pass http://remnawave-tg-shop;
+    }
+    
+    location / {
+        proxy_pass http://remnawave-tg-shop-web-frontend;
+    }
 }
 ```
 
@@ -214,9 +233,17 @@ WEB_CORS_ORIGINS=https://app.your-domain.com
 Nginx должен быть подключен к той же Docker-сети, что и контейнеры проекта, например к `remnawave-network`.
 
 ```nginx
-upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
-upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
-upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
+upstream remnawave-tg-shop {
+    server remnawave-tg-shop:8080;
+}
+
+upstream remnawave-tg-shop-web-api {
+    server remnawave-tg-shop-web-api:8090;
+}
+
+upstream remnawave-tg-shop-web-frontend {
+    server remnawave-tg-shop-web-frontend:3000;
+}
 
 server {
     listen 443 ssl;
@@ -323,6 +350,97 @@ docker compose logs -f --tail=100
 ```bash
 docker compose exec remnawave-tg-shop alembic upgrade head
 ```
+
+---
+
+## 🔑 Настройка внешних сервисов
+
+### Telegram Login (OIDC)
+
+Авторизация через Telegram на сайте работает через OpenID Connect. Без настройки кнопка «Войти через Telegram» не будет работать.
+
+**1. Откройте @BotFather и перейдите в управление ботами:**
+
+В Telegram откройте `@BotFather` → нажмите кнопку **Mini App** в нижней части экрана.
+
+**2. Выберите вашего бота:**
+
+В списке нажмите на нужного бота.
+
+**3. Перейдите в настройки Login Widget:**
+
+Нажмите **Bot Settings** → **Login Widget** → **Switch to OpenID Connect Login**.
+
+Подтвердите переключение. После этого откроются настройки OIDC.
+
+**4. Скопируйте данные:**
+
+- **Client ID** — числовой идентификатор бота. Он совпадает с первой частью `BOT_TOKEN` (до символа `:`). Указывать отдельно в `.env` не нужно — вычисляется автоматически.
+- **Client Secret** → скопируйте и вставьте в `.env`:
+
+```env
+TELEGRAM_OIDC_CLIENT_SECRET=<скопированный_секрет>
+```
+
+**5. Настройте Redirect URI:**
+
+В поле **Redirect URIs** добавьте:
+
+```
+https://app.your-domain.com/auth/telegram/callback
+```
+
+**6. Настройте Trusted Origins:**
+
+В поле **Trusted Origins** добавьте:
+
+```
+https://app.your-domain.com
+```
+
+Нажмите **Save**. Авторизация через Telegram теперь работает.
+
+---
+
+### Resend — отправка email
+
+Resend используется для отправки кодов подтверждения при регистрации, смене и восстановлении пароля. Без настройки email-регистрация недоступна (Telegram-авторизация продолжает работать).
+
+**1. Зарегистрируйтесь на [resend.com](https://resend.com)**
+
+**2. Добавьте домен:**
+
+Перейдите в раздел **Domains** → **Add Domain**. Введите домен, с которого будут приходить письма (например, `your-domain.com`).
+
+**3. Добавьте DNS-записи:**
+
+Resend покажет список записей — обычно это:
+- **SPF** — TXT-запись (`v=spf1 include:amazonses.com ~all`)
+- **DKIM** — 2–3 CNAME-записи для подписи писем
+- **DMARC** — TXT-запись (опционально)
+
+Добавьте их в DNS-настройках вашего домена.
+
+> **Важно для Cloudflare:** DNS-записи DKIM (CNAME) должны быть в режиме **DNS only** (серое облако), а не **Proxied** (оранжевое). Иначе верификация домена не пройдёт. Подробнее: [resend.com/docs/knowledge-base/cloudflare](https://resend.com/docs/knowledge-base/cloudflare).
+
+**4. Дождитесь верификации:**
+
+После добавления записей нажмите **Verify**. Обычно занимает от 1 до 15 минут.
+
+**5. Создайте API-ключ:**
+
+Перейдите в **API Keys** → **Create API Key**. Дайте ему имя (например, `remnawave-tg-shop`) и выберите разрешение **Sending access**.
+
+Скопируйте ключ — он показывается только один раз.
+
+**6. Заполните `.env`:**
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx   # API-ключ из шага 5
+RESEND_FROM_EMAIL=noreply@your-domain.com        # Email отправителя (должен соответствовать верифицированному домену)
+```
+
+> Email в `RESEND_FROM_EMAIL` должен принадлежать домену, добавленному в шаге 2. Например, если домен `petrovich.com` — можно использовать `noreply@petrovich.com`.
 
 ---
 
