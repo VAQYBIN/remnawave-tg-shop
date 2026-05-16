@@ -516,30 +516,50 @@
 
 ### Задачи
 
-- [ ] Обновить `frontend/src/api/admin/plans.ts`.
-- [ ] Заменить `PlansPage.tsx`.
-- [ ] Создать форму тарифа.
-- [ ] Создать editor options.
-- [ ] Добавить Remnawave squad picker.
-- [ ] Добавить client-side validation.
-- [ ] Добавить обработку ошибок Remnawave API.
-- [ ] Добавить enabled/sort controls.
-- [ ] Обновить i18n ru/en.
+- [x] Обновить `frontend/src/api/admin/plans.ts`. _(типы и функции были готовы с Фазы 3)_
+- [x] Заменить `PlansPage.tsx`. _(полный редактор с новыми полями)_
+- [x] Создать форму тарифа. _(name_ru/en, desc_ru/en, kind, billing_model, reset_strategy, squad picker, is_trial, is_enabled, min_price_rub/stars)_
+- [x] Создать editor options. _(OptionRow: duration months/days toggle, traffic GB/unlimited, price RUB/Stars, is_enabled; inline edit существующих опций)_
+- [x] Добавить Remnawave squad picker. _(SquadPicker с кэшом 5 мин)_
+- [x] Добавить client-side validation. _(required name_ru, squad для standalone, toast на ошибках API)_
+- [x] Добавить обработку ошибок Remnawave API. _(squad_error в SquadPicker, API errors в toast)_
+- [x] Добавить enabled/sort controls. _(toggle + drag-and-drop sort_order)_
+- [x] Обновить i18n ru/en. _(17 новых ключей: is_trial, reset_strategy_*, min_price_*, option_days/use_days/use_months, option_editing, delete_success)_
 
 ### Автоматические проверки
 
-- [ ] `npm run build` проходит.
-- [ ] TypeScript не ругается на admin plans types.
+- [x] `tsc --noEmit` проходит без ошибок.
+- [ ] `npm run build` проходит. _(требует ручной проверки в среде с Node)_
 
 ### Ручные проверки
 
 - [ ] Админ создаёт standalone тариф через web.
 - [ ] Админ создаёт addon тариф через web.
-- [ ] Админ добавляет несколько options.
-- [ ] Админ меняет порядок тарифов.
+- [ ] Админ добавляет несколько options (duration months и days).
+- [ ] Админ меняет порядок тарифов drag-and-drop.
 - [ ] Disabled тариф не виден пользователям.
-- [ ] Ошибка Remnawave API показана в UI.
-- [ ] Удаление/отключение тарифа не ломает активные подписки.
+- [ ] Ошибка Remnawave API (недоступный squad) показана в UI.
+- [x] Удаление/отключение тарифа не ломает активные подписки (409 при попытке удалить с активными). _(исправлен FK bug: migration 0011_fix_plan_fk добавил ON DELETE SET NULL)_
+- [ ] Форма тарифа с is_trial=true блокирует plan_kind=addon.
+- [ ] reset_strategy показывается только для non-time биллинг модели.
+- [ ] Inline-редактирование существующей опции сохраняет изменения.
+
+### Статус выполнения фазы
+
+Фаза 9 реализована. Требуются оставшиеся ручные проверки.
+
+Исправлено в процессе:
+- **Bug: 500 при удалении тарифа** — FK `payments`/`subscriptions` → `pricing_plan_options`/`pricing_plans` создавались без `ON DELETE SET NULL`. Миграция `0011_fix_plan_fk` пересоздала все 4 FK с `ON DELETE SET NULL`. Применена и проверена.
+
+Реализовано:
+- `PlansPage.tsx` полностью переписан с полным набором полей:
+  - Форма тарифа: name_ru/en, description_ru/en, plan_kind, billing_model, traffic_reset_strategy (скрыт для time), squad UUID picker, is_trial checkbox, is_enabled checkbox, min_price_rub/stars.
+  - is_trial=true автоматически форсирует plan_kind=standalone.
+  - billing_model=time автоматически форсирует reset_strategy=NO_RESET.
+  - Editor options: OptionRow поддерживает duration_type toggle (months/days), traffic GB/unlimited, price RUB (read-only=0 для trial) / Stars, is_enabled.
+  - Inline-редактирование существующих опций через Pencil → OptionRow → updatePlanOption.
+  - 17 новых i18n ключей в ru и en.
+  - `tsc --noEmit` без ошибок.
 
 ---
 

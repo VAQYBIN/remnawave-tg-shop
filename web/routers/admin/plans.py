@@ -130,6 +130,16 @@ async def _active_entitlement_count(db: AsyncSession, plan_id: int) -> int:
     return result.scalar_one()
 
 
+async def _any_entitlement_count(db: AsyncSession, plan_id: int) -> int:
+    """Total entitlements for plan (active and historical). Used to guard DELETE."""
+    result = await db.execute(
+        select(func.count(UserPlanEntitlement.id)).where(
+            UserPlanEntitlement.plan_id == plan_id,
+        )
+    )
+    return result.scalar_one()
+
+
 # ── Plan CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/plans", response_model=PricingPlanListResponse)
@@ -256,12 +266,17 @@ async def delete_existing_plan(
 ) -> None:
     await _get_plan_or_404(db, plan_id)
 
-    count = await _active_entitlement_count(db, plan_id)
+    count = await _any_entitlement_count(db, plan_id)
     if count > 0:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Невозможно удалить тариф: {count} пользователей имеют активные права. Отключите тариф вместо удаления.",
+        active = await _active_entitlement_count(db, plan_id)
+        detail = (
+            f"Невозможно удалить тариф: {active} активных и {count - active} исторических прав пользователей. "
+            "Отключите тариф вместо удаления."
+        ) if active > 0 else (
+            f"Невозможно удалить тариф: {count} исторических записей в entitlements. "
+            "Отключите тариф вместо удаления."
         )
+        raise HTTPException(status_code=409, detail=detail)
 
     await delete_plan(db, plan_id)
     await add_admin_audit_log(db, admin, "admin_tariff_delete", details={"plan_id": plan_id})

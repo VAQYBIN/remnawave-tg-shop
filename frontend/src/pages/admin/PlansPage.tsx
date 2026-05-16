@@ -20,10 +20,16 @@ import {
 import type {
   PricingPlanResponse, PricingPlanCreateRequest,
   PricingPlanOptionResponse, PricingPlanOptionCreateRequest,
+  PricingPlanOptionUpdateRequest,
 } from '@/api/admin/plans'
 import { getSquads } from '@/api/admin/remnawave'
 import { useTranslation } from 'react-i18next'
 import { useToastContext } from '@/lib/toast-context'
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const RESET_STRATEGIES = ['NO_RESET', 'DAY', 'WEEK', 'MONTH', 'MONTH_ROLLING'] as const
+type ResetStrategy = typeof RESET_STRATEGIES[number]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -125,7 +131,7 @@ function SquadPicker({ value, onChange }: { value: string; onChange: (v: string)
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{sq.uuid}</span>
             </button>
           ))}
-          {data?.items.length === 0 && (
+          {data && data.items.length === 0 && (
             <p className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">Нет squads</p>
           )}
         </div>
@@ -134,11 +140,13 @@ function SquadPicker({ value, onChange }: { value: string; onChange: (v: string)
   )
 }
 
-// ── Option row in editor ──────────────────────────────────────────────────────
+// ── Option draft types ────────────────────────────────────────────────────────
 
 interface OptionDraft {
   id?: number
+  duration_type: 'months' | 'days'
   duration_months: string
+  duration_days: string
   traffic_gb: string
   traffic_unlimited: boolean
   price_rub: string
@@ -146,95 +154,191 @@ interface OptionDraft {
   is_enabled: boolean
 }
 
-function emptyOption(billingModel = 'time'): OptionDraft {
+function emptyOption(billingModel = 'time', isTrial = false): OptionDraft {
   return {
+    duration_type: isTrial ? 'days' : 'months',
     duration_months: '',
+    duration_days: '',
     traffic_gb: '',
     traffic_unlimited: billingModel === 'time',
-    price_rub: '',
+    price_rub: isTrial ? '0' : '',
     price_stars: '',
     is_enabled: true,
   }
 }
 
+function optionResponseToDraft(opt: PricingPlanOptionResponse): OptionDraft {
+  return {
+    id: opt.id,
+    duration_type: opt.duration_days != null ? 'days' : 'months',
+    duration_months: opt.duration_months?.toString() ?? '',
+    duration_days: opt.duration_days?.toString() ?? '',
+    traffic_gb: opt.traffic_gb?.toString() ?? '',
+    traffic_unlimited: opt.traffic_unlimited,
+    price_rub: opt.price_rub?.toString() ?? '',
+    price_stars: opt.price_stars?.toString() ?? '',
+    is_enabled: opt.is_enabled,
+  }
+}
+
+// ── Option row in editor ──────────────────────────────────────────────────────
+
 function OptionRow({
   opt,
   billingModel,
+  isTrial,
   onChange,
   onDelete,
+  onSave,
+  onCancelEdit,
+  saveLabel,
+  isPending,
 }: {
   opt: OptionDraft
   billingModel: string
+  isTrial?: boolean
   onChange: (o: OptionDraft) => void
-  onDelete: () => void
+  onDelete?: () => void
+  onSave?: () => void
+  onCancelEdit?: () => void
+  saveLabel?: string
+  isPending?: boolean
 }) {
   const { t } = useTranslation()
   const showDuration = billingModel === 'time' || billingModel === 'hybrid'
-  const showTraffic = true // all billing models require traffic_gb or traffic_unlimited
 
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)] px-3 py-2">
-      {showDuration && (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_months')}</span>
-          <input
-            type="number" min="1" max="36"
-            className="w-14 rounded border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1 text-sm text-center"
-            value={opt.duration_months}
-            onChange={e => onChange({ ...opt, duration_months: e.target.value })}
-          />
+  const trafficField = (
+    <div>
+      <label className="flex items-center gap-1.5 cursor-pointer select-none mb-1.5">
+        <input
+          type="checkbox"
+          checked={opt.traffic_unlimited}
+          onChange={e => onChange({ ...opt, traffic_unlimited: e.target.checked, traffic_gb: e.target.checked ? '' : opt.traffic_gb })}
+        />
+        <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_unlimited')}</span>
+      </label>
+      {opt.traffic_unlimited ? (
+        <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-3 py-1.5 text-xs text-[hsl(var(--muted-foreground))] italic">
+          ∞ Без ограничений
         </div>
-      )}
-      {showTraffic && !opt.traffic_unlimited && (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_traffic')}</span>
+      ) : (
+        <div className="relative">
           <input
             type="number" min="1"
-            className="w-16 rounded border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1 text-sm text-center"
+            className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm pr-8"
             value={opt.traffic_gb}
             onChange={e => onChange({ ...opt, traffic_gb: e.target.value })}
           />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-[hsl(var(--muted-foreground))] pointer-events-none">ГБ</span>
         </div>
       )}
-      {showTraffic && (
-        <label className="flex items-center gap-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={opt.traffic_unlimited}
-            onChange={e => onChange({ ...opt, traffic_unlimited: e.target.checked, traffic_gb: e.target.checked ? '' : opt.traffic_gb })}
-          />
-          <span className="text-xs">{t('admin_plans_option_unlimited')}</span>
-        </label>
-      )}
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_rub')}</span>
-        <input
-          type="number" min="0"
-          className="w-20 rounded border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1 text-sm text-center"
-          value={opt.price_rub}
-          onChange={e => onChange({ ...opt, price_rub: e.target.value })}
-        />
+    </div>
+  )
+
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] overflow-hidden">
+      {/* Top: Period & Traffic */}
+      <div className="bg-[hsl(var(--card))] px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.07em] text-[hsl(var(--muted-foreground))]">
+            Период и трафик
+          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={opt.is_enabled}
+                onChange={e => onChange({ ...opt, is_enabled: e.target.checked })}
+              />
+              <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_enabled')}</span>
+            </label>
+            {onSave && (
+              <>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[hsl(var(--primary))] text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                  {saveLabel ?? t('admin_plans_save')}
+                </button>
+                {onCancelEdit && (
+                  <button type="button" onClick={onCancelEdit} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+                    <X size={14} />
+                  </button>
+                )}
+              </>
+            )}
+            {onDelete && !onSave && (
+              <button type="button" onClick={onDelete} className="text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showDuration ? (
+          <div className="grid grid-cols-[78px_78px_1fr] gap-2.5 items-end">
+            <div>
+              <label className="block text-[11px] text-[hsl(var(--muted-foreground))] mb-1.5">Ед. периода</label>
+              <select
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1.5 text-xs"
+                value={opt.duration_type}
+                onChange={e => onChange({ ...opt, duration_type: e.target.value as 'months' | 'days', duration_months: '', duration_days: '' })}
+              >
+                <option value="months">{t('admin_plans_option_use_months')}</option>
+                <option value="days">{t('admin_plans_option_use_days')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] text-[hsl(var(--muted-foreground))] mb-1.5">Кол-во</label>
+              <input
+                type="number"
+                min="1"
+                max={opt.duration_type === 'months' ? '36' : '365'}
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1.5 text-sm text-center"
+                value={opt.duration_type === 'months' ? opt.duration_months : opt.duration_days}
+                onChange={e => {
+                  if (opt.duration_type === 'months') onChange({ ...opt, duration_months: e.target.value })
+                  else onChange({ ...opt, duration_days: e.target.value })
+                }}
+              />
+            </div>
+            {trafficField}
+          </div>
+        ) : (
+          trafficField
+        )}
       </div>
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_stars')}</span>
-        <input
-          type="number" min="0"
-          className="w-20 rounded border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2 py-1 text-sm text-center"
-          value={opt.price_stars}
-          onChange={e => onChange({ ...opt, price_stars: e.target.value })}
-        />
+
+      {/* Bottom: Prices */}
+      <div className="bg-[hsl(var(--muted)/0.45)] px-4 py-3 border-t border-[hsl(var(--border))]">
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.07em] text-[hsl(var(--muted-foreground))] mb-2.5">Цены</span>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label className="block text-[11px] text-[hsl(var(--muted-foreground))] mb-1.5">Цена в рублях ₽</label>
+            <input
+              type="number" min="0"
+              className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm"
+              value={opt.price_rub}
+              readOnly={isTrial}
+              onChange={e => !isTrial && onChange({ ...opt, price_rub: e.target.value })}
+            />
+          </div>
+          {!isTrial && (
+            <div>
+              <label className="block text-[11px] text-[hsl(var(--muted-foreground))] mb-1.5">Цена в звёздах ⭐</label>
+              <input
+                type="number" min="0"
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-1.5 text-sm"
+                value={opt.price_stars}
+                onChange={e => onChange({ ...opt, price_stars: e.target.value })}
+              />
+            </div>
+          )}
+        </div>
       </div>
-      <label className="flex items-center gap-1 cursor-pointer select-none ml-auto">
-        <input
-          type="checkbox"
-          checked={opt.is_enabled}
-          onChange={e => onChange({ ...opt, is_enabled: e.target.checked })}
-        />
-        <span className="text-xs">{t('admin_plans_option_enabled')}</span>
-      </label>
-      <button type="button" onClick={onDelete} className="text-red-400 hover:text-red-600 p-0.5">
-        <X size={14} />
-      </button>
     </div>
   )
 }
@@ -250,7 +354,6 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   const { t } = useTranslation()
   const { toast } = useToastContext()
   const qc = useQueryClient()
-
   const isEdit = !!plan
 
   // Plan fields
@@ -260,22 +363,38 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   const [descEn, setDescEn] = useState(plan?.description_en ?? '')
   const [planKind, setPlanKind] = useState(plan?.plan_kind ?? 'standalone')
   const [billingModel, setBillingModel] = useState(plan?.billing_model ?? 'time')
+  const [resetStrategy, setResetStrategy] = useState<ResetStrategy>(
+    (plan?.traffic_reset_strategy as ResetStrategy) ?? 'NO_RESET'
+  )
   const [squadUuid, setSquadUuid] = useState(plan?.remnawave_squad_uuid ?? '')
+  const [isTrial, setIsTrial] = useState(plan?.is_trial ?? false)
   const [isEnabled, setIsEnabled] = useState(plan?.is_enabled ?? true)
+  const [minPriceRub, setMinPriceRub] = useState(plan?.min_price_rub?.toString() ?? '')
+  const [minPriceStars, setMinPriceStars] = useState(plan?.min_price_stars?.toString() ?? '')
 
   // Options state
   const [existingOptions, setExistingOptions] = useState<PricingPlanOptionResponse[]>(plan?.options ?? [])
-  const initialBilling = plan ? plan.billing_model : 'time'
-  const [newOptions, setNewOptions] = useState<OptionDraft[]>(isEdit ? [] : [emptyOption(initialBilling)])
+  const [newOptions, setNewOptions] = useState<OptionDraft[]>(isEdit ? [] : [emptyOption(billingModel, isTrial)])
+  const [editingOptId, setEditingOptId] = useState<number | null>(null)
+  const [editingOptDraft, setEditingOptDraft] = useState<OptionDraft | null>(null)
 
   const [saving, setSaving] = useState(false)
 
-  function buildOptionBody(opt: OptionDraft): PricingPlanOptionCreateRequest {
-    const body: PricingPlanOptionCreateRequest = {
-      is_enabled: opt.is_enabled,
+  // When billingModel changes to 'time', force resetStrategy to NO_RESET
+  function handleBillingModelChange(model: string) {
+    setBillingModel(model)
+    if (model === 'time') setResetStrategy('NO_RESET')
+  }
+
+  function buildCreateOptionBody(opt: OptionDraft): PricingPlanOptionCreateRequest {
+    const body: PricingPlanOptionCreateRequest = { is_enabled: opt.is_enabled }
+    if (opt.duration_type === 'months') {
+      const months = parseInt(opt.duration_months)
+      if (!isNaN(months) && months > 0) body.duration_months = months
+    } else {
+      const days = parseInt(opt.duration_days)
+      if (!isNaN(days) && days > 0) body.duration_days = days
     }
-    const months = parseInt(opt.duration_months)
-    if (!isNaN(months) && months > 0) body.duration_months = months
     if (opt.traffic_unlimited) {
       body.traffic_unlimited = true
     } else {
@@ -289,6 +408,36 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     return body
   }
 
+  function buildUpdateOptionBody(opt: OptionDraft): PricingPlanOptionUpdateRequest {
+    const body: PricingPlanOptionUpdateRequest = { is_enabled: opt.is_enabled }
+    if (opt.duration_type === 'months') {
+      const months = parseInt(opt.duration_months)
+      body.duration_months = !isNaN(months) && months > 0 ? months : null
+      body.duration_days = null
+    } else {
+      const days = parseInt(opt.duration_days)
+      body.duration_days = !isNaN(days) && days > 0 ? days : null
+      body.duration_months = null
+    }
+    if (opt.traffic_unlimited) {
+      body.traffic_unlimited = true
+      body.traffic_gb = null
+    } else {
+      const gb = parseFloat(opt.traffic_gb)
+      body.traffic_gb = !isNaN(gb) && gb > 0 ? gb : null
+      body.traffic_unlimited = false
+    }
+    const rub = parseFloat(opt.price_rub)
+    body.price_rub = !isNaN(rub) && rub >= 0 ? rub : null
+    const stars = parseInt(opt.price_stars)
+    body.price_stars = !isNaN(stars) && stars >= 0 ? stars : null
+    return body
+  }
+
+  function isNewOptionNonEmpty(opt: OptionDraft): boolean {
+    return !!(opt.duration_months || opt.duration_days || opt.traffic_gb || opt.traffic_unlimited)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameRu.trim()) return
@@ -298,6 +447,9 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     }
     setSaving(true)
     try {
+      const minRub = parseFloat(minPriceRub)
+      const minStars = parseInt(minPriceStars)
+
       if (isEdit) {
         await updatePlan(plan.id, {
           name_ru: nameRu.trim(),
@@ -307,12 +459,15 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           remnawave_squad_uuid: squadUuid.trim() || null,
           plan_kind: planKind,
           billing_model: billingModel,
+          traffic_reset_strategy: resetStrategy,
+          is_trial: isTrial,
           is_enabled: isEnabled,
+          min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : null,
+          min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : null,
         })
-        // Create new options
         for (const opt of newOptions) {
-          if (!opt.duration_months && !opt.traffic_gb && !opt.traffic_unlimited) continue
-          await createPlanOption(plan.id, buildOptionBody(opt))
+          if (!isNewOptionNonEmpty(opt)) continue
+          await createPlanOption(plan.id, buildCreateOptionBody(opt))
         }
         toast(t('admin_plans_update_success'), 'success')
       } else {
@@ -324,13 +479,16 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           remnawave_squad_uuid: squadUuid.trim() || undefined,
           plan_kind: planKind,
           billing_model: billingModel,
+          traffic_reset_strategy: resetStrategy,
+          is_trial: isTrial,
           is_enabled: isEnabled,
+          min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : undefined,
+          min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : undefined,
         }
         const created = await createPlan(body)
-        // Create options
         for (const opt of newOptions) {
-          if (!opt.duration_months && !opt.traffic_gb && !opt.traffic_unlimited) continue
-          await createPlanOption(created.id, buildOptionBody(opt))
+          if (!isNewOptionNonEmpty(opt)) continue
+          await createPlanOption(created.id, buildCreateOptionBody(opt))
         }
         toast(t('admin_plans_create_success'), 'success')
       }
@@ -365,10 +523,40 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     onError: (e: Error) => toast(e.message, 'error'),
   })
 
+  // Update existing option (inline edit)
+  const updateOptMut = useMutation({
+    mutationFn: ({ optId, body }: { optId: number; body: PricingPlanOptionUpdateRequest }) =>
+      updatePlanOption(plan!.id, optId, body),
+    onSuccess: (updated) => {
+      setExistingOptions(prev => prev.map(o => o.id === updated.id ? updated : o))
+      setEditingOptId(null)
+      setEditingOptDraft(null)
+      toast(t('admin_plans_option_updated'), 'success')
+      qc.invalidateQueries({ queryKey: ['admin', 'plans'] })
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  })
+
+  function startEditOption(opt: PricingPlanOptionResponse) {
+    setEditingOptId(opt.id)
+    setEditingOptDraft(optionResponseToDraft(opt))
+  }
+
+  function cancelEditOption() {
+    setEditingOptId(null)
+    setEditingOptDraft(null)
+  }
+
+  function saveEditOption() {
+    if (!editingOptDraft || editingOptId == null) return
+    updateOptMut.mutate({ optId: editingOptId, body: buildUpdateOptionBody(editingOptDraft) })
+  }
+
   function optionLabel(opt: PricingPlanOptionResponse): string {
     const parts: string[] = []
     if (opt.duration_months) parts.push(`${opt.duration_months} мес.`)
-    if (opt.traffic_unlimited) parts.push('∞ трафик')
+    if (opt.duration_days) parts.push(`${opt.duration_days} дн.`)
+    if (opt.traffic_unlimited) parts.push('∞')
     else if (opt.traffic_gb) parts.push(`${opt.traffic_gb} ГБ`)
     if (opt.price_rub != null) parts.push(`${opt.price_rub} ₽`)
     if (opt.price_stars != null) parts.push(`${opt.price_stars} ⭐`)
@@ -376,8 +564,8 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-6 px-4">
-      <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-lg mx-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-xl mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
           <h2 className="text-base font-semibold text-[hsl(var(--foreground))]">
             {isEdit ? t('admin_plans_edit') : t('admin_plans_create')}
@@ -387,132 +575,221 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
-          {/* Names */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>{t('admin_plans_name_ru')} *</label>
-              <input className={inputCls} required value={nameRu} onChange={e => setNameRu(e.target.value)} />
+        <form onSubmit={handleSubmit} className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 72px)' }}>
+
+          {/* ── Section 1: Basic info ─────────────────────────────────── */}
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))]">
+              Основная информация
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>{t('admin_plans_name_ru')} *</label>
+                <input className={inputCls} required value={nameRu} onChange={e => setNameRu(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>{t('admin_plans_name_en')}</label>
+                <input className={inputCls} value={nameEn} onChange={e => setNameEn(e.target.value)} />
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>{t('admin_plans_name_en')}</label>
-              <input className={inputCls} value={nameEn} onChange={e => setNameEn(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>{t('admin_plans_desc_ru')}</label>
+                <textarea className={inputCls + ' resize-none'} rows={2} value={descRu} onChange={e => setDescRu(e.target.value)} />
+              </div>
+              <div>
+                <label className={labelCls}>{t('admin_plans_desc_en')}</label>
+                <textarea className={inputCls + ' resize-none'} rows={2} value={descEn} onChange={e => setDescEn(e.target.value)} />
+              </div>
             </div>
           </div>
 
-          {/* Descriptions */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>{t('admin_plans_desc_ru')}</label>
-              <textarea className={inputCls + ' resize-none'} rows={2} value={descRu} onChange={e => setDescRu(e.target.value)} />
+          <div className="h-px bg-[hsl(var(--border))]" />
+
+          {/* ── Section 2: Billing & Type ─────────────────────────────── */}
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))]">
+              Биллинг и тип
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>{t('admin_plans_kind')}</label>
+                <select className={inputCls} value={planKind} onChange={e => setPlanKind(e.target.value)}>
+                  <option value="standalone">{t('admin_plans_kind_standalone')}</option>
+                  <option value="addon">{t('admin_plans_kind_addon')}</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>{t('admin_plans_billing')}</label>
+                <select className={inputCls} value={billingModel} onChange={e => handleBillingModelChange(e.target.value)}>
+                  <option value="time">{t('admin_plans_billing_time')}</option>
+                  <option value="traffic">{t('admin_plans_billing_traffic')}</option>
+                  <option value="hybrid">{t('admin_plans_billing_hybrid')}</option>
+                </select>
+              </div>
             </div>
+
+            {billingModel !== 'time' && (
+              <div>
+                <label className={labelCls}>{t('admin_plans_reset_strategy')}</label>
+                <select className={inputCls} value={resetStrategy} onChange={e => setResetStrategy(e.target.value as ResetStrategy)}>
+                  <option value="NO_RESET">{t('admin_plans_reset_no_reset')}</option>
+                  <option value="DAY">{t('admin_plans_reset_day')}</option>
+                  <option value="WEEK">{t('admin_plans_reset_week')}</option>
+                  <option value="MONTH">{t('admin_plans_reset_month')}</option>
+                  <option value="MONTH_ROLLING">{t('admin_plans_reset_month_rolling')}</option>
+                </select>
+              </div>
+            )}
+
             <div>
-              <label className={labelCls}>{t('admin_plans_desc_en')}</label>
-              <textarea className={inputCls + ' resize-none'} rows={2} value={descEn} onChange={e => setDescEn(e.target.value)} />
+              <label className={labelCls}>
+                {t('admin_plans_squad_uuid')}
+                {planKind === 'standalone' && <span className="text-red-500 ml-0.5">*</span>}
+              </label>
+              <SquadPicker value={squadUuid} onChange={setSquadUuid} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>{t('admin_plans_min_price_rub')} (prorate)</label>
+                <input
+                  type="number" min="0" step="0.01"
+                  className={inputCls}
+                  placeholder="—"
+                  value={minPriceRub}
+                  onChange={e => setMinPriceRub(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>{t('admin_plans_min_price_stars')} (prorate)</label>
+                <input
+                  type="number" min="0"
+                  className={inputCls}
+                  placeholder="—"
+                  value={minPriceStars}
+                  onChange={e => setMinPriceStars(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-5 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={isTrial} onChange={e => {
+                  setIsTrial(e.target.checked)
+                  if (e.target.checked && planKind !== 'standalone') setPlanKind('standalone')
+                }} />
+                <span className="text-sm text-[hsl(var(--foreground))]">
+                  {t('admin_plans_is_trial')}
+                  <span className="ml-1 text-[10px] text-[hsl(var(--muted-foreground))] font-mono">{t('admin_plans_is_trial_hint')}</span>
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)} />
+                <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_plans_enabled')}</span>
+              </label>
             </div>
           </div>
 
-          {/* Kind & Billing */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="h-px bg-[hsl(var(--border))]" />
+
+          {/* ── Section 3: Options ───────────────────────────────────── */}
+          <div className="px-5 py-4 space-y-3">
             <div>
-              <label className={labelCls}>{t('admin_plans_kind')}</label>
-              <select className={inputCls} value={planKind} onChange={e => setPlanKind(e.target.value)}>
-                <option value="standalone">{t('admin_plans_kind_standalone')}</option>
-                <option value="addon">{t('admin_plans_kind_addon')}</option>
-              </select>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))] mb-0.5">
+                Опции подписки
+              </p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">Каждая опция — отдельный вариант срока и стоимости</p>
             </div>
-            <div>
-              <label className={labelCls}>{t('admin_plans_billing')}</label>
-              <select className={inputCls} value={billingModel} onChange={e => setBillingModel(e.target.value)}>
-                <option value="time">{t('admin_plans_billing_time')}</option>
-                <option value="traffic">{t('admin_plans_billing_traffic')}</option>
-                <option value="hybrid">{t('admin_plans_billing_hybrid')}</option>
-              </select>
-            </div>
-          </div>
 
-          {/* Squad UUID */}
-          <div>
-            <label className={labelCls}>
-              {t('admin_plans_squad_uuid')}
-              {planKind === 'standalone' && <span className="text-red-500 ml-0.5">*</span>}
-            </label>
-            <SquadPicker value={squadUuid} onChange={setSquadUuid} />
-          </div>
-
-          {/* Enabled toggle */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)} />
-            <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_plans_enabled')}</span>
-          </label>
-
-          {/* Existing options (edit mode) */}
-          {isEdit && existingOptions.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mb-2">{t('admin_plans_options_title')}</p>
-              <div className="space-y-1.5">
+            {/* Existing options in edit mode */}
+            {isEdit && existingOptions.length > 0 && (
+              <div className="space-y-2.5">
                 {existingOptions.map(opt => (
-                  <div key={opt.id} className="flex items-center gap-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)] px-3 py-2 text-sm">
-                    <span className="flex-1 text-xs">{optionLabel(opt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleOptMut.mutate({ optId: opt.id, enabled: !opt.is_enabled })}
-                      className={[
-                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium',
-                        opt.is_enabled ? 'bg-green-100 text-green-700' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
-                      ].join(' ')}
-                    >
-                      {opt.is_enabled ? <Check size={10} /> : <X size={10} />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => delOptMut.mutate({ optId: opt.id })}
-                      className="text-red-400 hover:text-red-600"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <div key={opt.id}>
+                    {editingOptId === opt.id && editingOptDraft ? (
+                      <OptionRow
+                        opt={editingOptDraft}
+                        billingModel={billingModel}
+                        isTrial={isTrial}
+                        onChange={setEditingOptDraft}
+                        onSave={saveEditOption}
+                        onCancelEdit={cancelEditOption}
+                        saveLabel={t('admin_plans_save')}
+                        isPending={updateOptMut.isPending}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5">
+                        <span className="flex-1 text-xs text-[hsl(var(--foreground))]">{optionLabel(opt)}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleOptMut.mutate({ optId: opt.id, enabled: !opt.is_enabled })}
+                          className={[
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0',
+                            opt.is_enabled ? 'bg-green-100 text-green-700' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
+                          ].join(' ')}
+                        >
+                          {opt.is_enabled ? <Check size={10} /> : <X size={10} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEditOption(opt)}
+                          className="shrink-0 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] p-0.5 transition-colors"
+                          title={t('admin_edit')}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => delOptMut.mutate({ optId: opt.id })}
+                          className="shrink-0 text-[hsl(var(--muted-foreground))] hover:text-red-500 p-0.5 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* New options */}
-          <div>
-            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mb-2">{t('admin_plans_options_title')}</p>
-            <div className="space-y-2">
+            {/* New options */}
+            <div className="space-y-2.5">
               {newOptions.map((opt, idx) => (
                 <OptionRow
                   key={idx}
                   opt={opt}
                   billingModel={billingModel}
+                  isTrial={isTrial}
                   onChange={updated => setNewOptions(prev => prev.map((o, i) => i === idx ? updated : o))}
                   onDelete={() => setNewOptions(prev => prev.filter((_, i) => i !== idx))}
                 />
               ))}
             </div>
+
             <button
               type="button"
-              onClick={() => setNewOptions(prev => [...prev, emptyOption(billingModel)])}
-              className="mt-2 text-xs font-medium text-[hsl(var(--primary))] hover:underline"
+              onClick={() => setNewOptions(prev => [...prev, emptyOption(billingModel, isTrial)])}
+              className="w-full rounded-xl border border-dashed border-[hsl(var(--primary)/0.4)] py-2.5 text-sm text-[hsl(var(--primary))] font-medium hover:bg-[hsl(var(--primary)/0.04)] transition-colors flex items-center justify-center gap-1.5"
             >
+              <Plus size={15} />
               {t('admin_plans_options_add')}
             </button>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2 border-t border-[hsl(var(--border))]">
+          {/* ── Footer ───────────────────────────────────────────────── */}
+          <div className="flex justify-end gap-3 px-5 py-4 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]"
+              className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
             >
               {t('admin_cancel')}
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {t('admin_plans_save')}
@@ -610,7 +887,12 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: P
           <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] mb-1">
             <span>#{index + 1}</span>
           </div>
-          <h3 className="text-base font-semibold leading-snug text-[hsl(var(--foreground))]">{plan.name_ru}</h3>
+          <h3 className="text-base font-semibold leading-snug text-[hsl(var(--foreground))]">
+            {plan.name_ru}
+            {plan.is_trial && (
+              <span className="ml-1.5 text-[10px] font-semibold uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">trial</span>
+            )}
+          </h3>
           <div className="flex items-center gap-1.5 mt-1">
             <KindBadge kind={plan.plan_kind} />
             <BillingBadge model={plan.billing_model} />
@@ -689,8 +971,12 @@ export function PlansPage() {
 
   const deleteMut = useMutation({
     mutationFn: deletePlan,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'plans'] }); setDeleteId(null) },
-    onError: (e: Error) => toast(e.message, 'error'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'plans'] })
+      setDeleteId(null)
+      toast(t('admin_plans_delete_success'), 'success')
+    },
+    onError: (e: Error) => { toast(e.message, 'error'); setDeleteId(null) },
   })
 
   const sensors = useSensors(
