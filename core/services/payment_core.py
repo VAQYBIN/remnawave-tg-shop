@@ -353,7 +353,7 @@ async def create_web_payment(
             raise ValueError("Тариф недоступен")
         if opt.price_rub is None:
             raise ValueError("Для данного варианта не задана цена в рублях")
-        price_rub = float(opt.price_rub)
+
         pricing_plan_id = opt.plan_id
         pricing_plan_option_id_val = opt.id
         sale_mode = opt.plan.plan_kind  # "standalone" | "addon"
@@ -369,6 +369,37 @@ async def create_web_payment(
         months_for_legacy = opt.duration_months or (
             max(1, round(opt.duration_days / 30.0)) if opt.duration_days else 0
         )
+
+        if opt.plan.plan_kind == "addon":
+            # For addon options the price must be prorated against the remaining standalone period.
+            from core.dal.account_dal import get_effective_payment_user_id as _get_uid
+            from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+            from core.services.tariff_pricing import prorate_option
+            from datetime import datetime, timezone as _tz
+
+            _user_id_for_prorate = await _get_uid(db, account)
+            standalone_ent = await get_active_standalone_entitlement(db, _user_id_for_prorate)
+            if standalone_ent is None or standalone_ent.ends_at is None:
+                raise ValueError("Для покупки дополнения необходима активная подписка")
+
+            _now = datetime.now(_tz.utc)
+            prorated_rub, _prorated_stars = prorate_option(
+                price_rub=float(opt.price_rub),
+                price_stars=opt.price_stars,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                plan_min_price_rub=float(opt.plan.min_price_rub) if opt.plan.min_price_rub is not None else None,
+                plan_min_price_stars=opt.plan.min_price_stars,
+                standalone_ends_at=standalone_ent.ends_at,
+                now=_now,
+                global_min_rub=getattr(settings, "MIN_PRORATED_PRICE_RUB", None),
+                global_min_stars=getattr(settings, "MIN_PRORATED_PRICE_STARS", None),
+            )
+            if prorated_rub is None:
+                raise ValueError("Не удалось рассчитать стоимость дополнения")
+            price_rub = prorated_rub
+        else:
+            price_rub = float(opt.price_rub)
     elif months is not None:
         price_rub_maybe = await get_plan_price_db(db, settings, months)
         if price_rub_maybe is None:

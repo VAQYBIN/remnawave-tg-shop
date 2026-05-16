@@ -128,6 +128,26 @@ const ru = {
   trial_success: 'Пробный период активирован',
   trial_error: 'Не удалось активировать пробный период',
 
+  // Catalog tariff flow
+  catalog_select_tariff: 'Выберите тариф',
+  catalog_trial: 'Пробный',
+  catalog_billing_time: 'По времени',
+  catalog_billing_traffic: 'По трафику',
+  catalog_billing_hybrid: 'Гибридный',
+  catalog_from_rub: 'от {{amount}} ₽',
+  catalog_free: 'Бесплатно',
+  catalog_stars_price: '⭐ {{stars}}',
+  catalog_back_to_tariffs: 'Назад к тарифам',
+  catalog_unlimited: 'Безлимит',
+  catalog_addons_title: 'Дополнения к подписке',
+  catalog_addon_until: 'Действует до {{date}}',
+  catalog_addon_prorated: 'пропорционально сроку',
+  catalog_addon_label: 'Дополнение',
+  catalog_standalone_label: 'Тариф',
+
+  // Entitlements
+  entitlement_plan: 'Тариф: {{name}}',
+
   // Plan selector months label
   plan_months_1: 'месяц',
   plan_months_few: 'месяца',
@@ -802,6 +822,26 @@ const en: typeof ru = {
   trial_activating: 'Activating...',
   trial_success: 'Trial activated',
   trial_error: 'Could not activate trial',
+
+  // Catalog tariff flow
+  catalog_select_tariff: 'Select plan',
+  catalog_trial: 'Trial',
+  catalog_billing_time: 'Time-based',
+  catalog_billing_traffic: 'Traffic-based',
+  catalog_billing_hybrid: 'Hybrid',
+  catalog_from_rub: 'from {{amount}} ₽',
+  catalog_free: 'Free',
+  catalog_stars_price: '⭐ {{stars}}',
+  catalog_back_to_tariffs: 'Back to plans',
+  catalog_unlimited: 'Unlimited',
+  catalog_addons_title: 'Add-ons',
+  catalog_addon_until: 'Active until {{date}}',
+  catalog_addon_prorated: 'prorated',
+  catalog_addon_label: 'Add-on',
+  catalog_standalone_label: 'Plan',
+
+  // Entitlements
+  entitlement_plan: 'Plan: {{name}}',
 
   plan_months_1: 'month',
   plan_months_few: 'months',
