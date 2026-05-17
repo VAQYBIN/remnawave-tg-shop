@@ -261,8 +261,50 @@ async def activate_trial(
     )
 
 
+async def _get_optional_account(request: Request, db: AsyncSession, settings: Settings):
+    """Возвращает Account, если в запросе есть валидный JWT.
+
+    Если заголовка Authorization нет — возвращает None (анонимный публичный доступ).
+    Если токен присутствует, но недействителен/просрочен — бросает 401, чтобы
+    фронтенд-клиент выполнил refresh (он триггерится именно на 401).
+    """
+    import jwt as _jwt
+
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth or not auth.lower().startswith("bearer "):
+        return None
+    token = auth.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    if not settings.WEB_JWT_SECRET:
+        raise HTTPException(status_code=500, detail="JWT not configured")
+
+    from web.auth.jwt_service import verify_access_token
+    from core.dal.account_dal import get_account_by_id
+    try:
+        payload = verify_access_token(token, settings.WEB_JWT_SECRET)
+    except _jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except _jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    import uuid as _uuid
+    try:
+        account_id = _uuid.UUID(sub)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid account ID in token")
+    account = await get_account_by_id(db, account_id)
+    if not account:
+        raise HTTPException(status_code=401, detail="Account not found")
+    return account
+
+
 @router.get("/plans", response_model=SubscriptionPlansResponse)
 async def get_plans(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SubscriptionPlansResponse:
@@ -274,9 +316,28 @@ async def get_plans(
         return SubscriptionPlansResponse(mode="traffic", plans=plans, catalog_plans=[])
 
     # Try DB — catalog mode when non-legacy standalone plans exist
-    from core.dal.pricing_plan_dal import get_plans as dal_get_plans, LEGACY_DEFAULT_SLUG
-    db_plans = await dal_get_plans(db, enabled_only=True)
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans, get_plan_by_id, LEGACY_DEFAULT_SLUG
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
     standalone_plans = [p for p in db_plans if p.plan_kind == "standalone" and not p.is_trial]
+
+    # Если у пользователя активный standalone на архивный план — показываем его в каталоге для продления
+    account = await _get_optional_account(request, db, settings)
+    if account:
+        from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+        user_ids = get_account_user_ids(account)
+        now = datetime.now(timezone.utc)
+        for user_id in user_ids:
+            ent = await get_active_standalone_entitlement(db, user_id, now=now)
+            if ent and ent.plan and ent.plan.is_archived:
+                archived_plan = await get_plan_by_id(db, ent.plan_id)
+                if (
+                    archived_plan
+                    and archived_plan.plan_kind == "standalone"
+                    and any(o.is_enabled for o in (archived_plan.options or []))
+                    and not any(p.id == archived_plan.id for p in standalone_plans)
+                ):
+                    standalone_plans.append(archived_plan)
+                break
 
     if standalone_plans:
         catalog = [
@@ -399,7 +460,7 @@ async def get_addons(
     if standalone_ends_at is None:
         return AddonsListResponse(addons=[], standalone_ends_at=None)
 
-    db_plans = await dal_get_plans(db, enabled_only=True)
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
     addon_plans = [p for p in db_plans if p.plan_kind == "addon"]
 
     result: list[AddonPlanResponse] = []

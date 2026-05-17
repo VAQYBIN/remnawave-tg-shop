@@ -33,6 +33,7 @@ export interface PricingPlanResponse {
   min_price_stars: number | null
   is_trial: boolean
   is_enabled: boolean
+  is_archived: boolean
   sort_order: number
   created_at: string
   updated_at: string | null
@@ -128,6 +129,12 @@ export interface PlanUpdateRequest {
   sort_order?: number
 }
 
+export interface PlanArchiveResponse {
+  id: number
+  is_archived: boolean
+  is_enabled: boolean
+}
+
 // ── API functions ──────────────────────────────────────────────────────────
 
 export function getAdminPlans(): Promise<PricingPlanListResponse> {
@@ -150,6 +157,14 @@ export function updatePlan(planId: number, body: PricingPlanUpdateRequest): Prom
 
 export function deletePlan(planId: number): Promise<void> {
   return apiRequest<void>(`/admin/plans/${planId}`, { method: 'DELETE' })
+}
+
+export function archivePlan(planId: number): Promise<PlanArchiveResponse> {
+  return apiRequest<PlanArchiveResponse>(`/admin/plans/${planId}/archive`, { method: 'POST' })
+}
+
+export function unarchivePlan(planId: number): Promise<PlanArchiveResponse> {
+  return apiRequest<PlanArchiveResponse>(`/admin/plans/${planId}/unarchive`, { method: 'POST' })
 }
 
 export function createPlanOption(

@@ -72,13 +72,16 @@ async def create_standalone_entitlement(
 
     ends_at = compute_ends_at(opt, starts_at)
 
-    # Deactivate old standalone
+    # Deactivate old standalone — продление того же плана vs смена плана
     if existing_standalone:
+        deactivation_reason = (
+            "plan_renewed" if existing_standalone.plan_id == plan.id else "plan_switched"
+        )
         await plan_entitlement_dal.deactivate_entitlement(
             session,
             existing_standalone.id,
             deactivated_at=now,
-            reason="plan_switched",
+            reason=deactivation_reason,
         )
 
     traffic_bytes = int(float(opt.traffic_gb) * (1024 ** 3)) if opt.traffic_gb else 0

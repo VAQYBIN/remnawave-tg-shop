@@ -529,24 +529,24 @@
 ### Автоматические проверки
 
 - [x] `tsc --noEmit` проходит без ошибок.
-- [ ] `npm run build` проходит. _(требует ручной проверки в среде с Node)_
+- [x] `npm run build` проходит.
 
 ### Ручные проверки
 
-- [ ] Админ создаёт standalone тариф через web.
-- [ ] Админ создаёт addon тариф через web.
-- [ ] Админ добавляет несколько options (duration months и days).
-- [ ] Админ меняет порядок тарифов drag-and-drop.
-- [ ] Disabled тариф не виден пользователям.
-- [ ] Ошибка Remnawave API (недоступный squad) показана в UI.
+- [x] Админ создаёт standalone тариф через web.
+- [x] Админ создаёт addon тариф через web.
+- [x] Админ добавляет несколько options (duration months и days).
+- [x] Админ меняет порядок тарифов drag-and-drop.
+- [x] Disabled тариф не виден пользователям.
+- [x] Ошибка Remnawave API (недоступный squad) показана в UI.
 - [x] Удаление/отключение тарифа не ломает активные подписки (409 при попытке удалить с активными). _(исправлен FK bug: migration 0011_fix_plan_fk добавил ON DELETE SET NULL)_
-- [ ] Форма тарифа с is_trial=true блокирует plan_kind=addon.
-- [ ] reset_strategy показывается только для non-time биллинг модели.
-- [ ] Inline-редактирование существующей опции сохраняет изменения.
+- [x] Форма тарифа с is_trial=true блокирует plan_kind=addon.
+- [x] reset_strategy показывается только для non-time биллинг модели.
+- [x] Inline-редактирование существующей опции сохраняет изменения.
 
 ### Статус выполнения фазы
 
-Фаза 9 реализована. Требуются оставшиеся ручные проверки.
+Фаза 9 полностью реализована и проверена.
 
 Исправлено в процессе:
 - **Bug: 500 при удалении тарифа** — FK `payments`/`subscriptions` → `pricing_plan_options`/`pricing_plans` создавались без `ON DELETE SET NULL`. Миграция `0011_fix_plan_fk` пересоздала все 4 FK с `ON DELETE SET NULL`. Применена и проверена.
@@ -560,6 +560,65 @@
   - Inline-редактирование существующих опций через Pencil → OptionRow → updatePlanOption.
   - 17 новых i18n ключей в ru и en.
   - `tsc --noEmit` без ошибок.
+
+---
+
+## Фаза 9.5: Архивные тарифы и единый guard покупки (внеплановая)
+
+Появилась в ходе работы над Фазой 9. Изначально планом не предусматривалась —
+вместо «удаления тарифа с миграцией пользователей» введён статус «архивный»:
+тариф пропадает из публичных каталогов, но текущие подписчики могут продолжать
+им пользоваться и продлевать его, пока подписка активна. Логику покупки/продления
+теперь определяет единый guard `can_purchase_plan_option`.
+
+### Задачи
+
+- [x] Миграция: добавить `pricing_plans.is_archived BOOLEAN NOT NULL DEFAULT false` + индекс. _(`alembic/versions/77d18bb308d7_add_is_archived_to_pricing_plans.py`)_
+- [x] Модель: поле `is_archived` в `PricingPlan` (`db/models.py`).
+- [x] DAL: `archive_plan`, `unarchive_plan`, `has_any_entitlements`. Дефолт `get_plans(include_archived=False)`. Публичные query (`get_enabled_plan_options`, `get_enabled_plans`, `get_plan_by_months`) фильтруют `is_archived=False`. _(`core/dal/pricing_plan_dal.py`)_
+- [x] Инвариант: archive ставит `is_enabled=False`; unarchive снимает только флаг архива, `is_enabled` остаётся False — публикация отдельным действием.
+- [x] Bootstrap (`core/services/tariff_bootstrap.py`) и legacy DAL не включают архивные планы автоматически.
+- [x] Единый guard `core/services/plan_purchase_policy.py::can_purchase_plan_option(session, user_ids, option)`. Архивный standalone разрешён только владельцу активного entitlement на тот же `plan_id`. Архивный addon — никогда.
+- [x] Применить guard в точках создания платежа:
+  - [x] `core/services/payment_core.py` (web, standalone-ветка).
+  - [x] `bot/handlers/user/subscription/payments_subscription.py::resolve_catalog_offer_for_payment`.
+  - [x] `bot/handlers/user/subscription/catalog_flow.py::select_tariff_callback` и `subscribe_option_callback`.
+- [x] Каталог показывает архивный план активному владельцу для продления:
+  - [x] Web `/api/subscription/plans` подклеивает архивный план владельца (через optional auth, при невалидном токене — 401 для refresh-flow).
+  - [x] Bot `display_catalog_tariffs` добавляет архивный план владельца к списку.
+  - [x] Bot `has_catalog_plans(session, user_id)` возвращает True, если у юзера есть активный entitlement на архивный standalone — иначе legacy flow перехватил бы catalog.
+- [x] Renewal vs switch: `tariff_activation.create_standalone_entitlement` помечает `deactivation_reason="plan_renewed"`, если оплачен тот же `plan_id`, иначе `plan_switched`.
+- [x] Web admin: 409 на `is_enabled=true` PATCH archived plan, 409 на `is_enabled=true` PATCH/POST option архивного плана.
+- [x] Bot admin: `admin_tariff:enable:{id}` отказывает архивному с алертом `admin_tariff_enable_archived_blocked`.
+- [x] Web admin UI: отдельная секция «Архивные тарифы» с кнопками Восстановить/Удалить; 409 при удалении использованного тарифа → toast `admin_plans_delete_has_users`.
+- [x] Bot admin UI: карточка архивного тарифа показывает «Восстановить из архива» вместо enable/disable.
+- [x] i18n: 12 новых ключей в `locales/ru.json`/`locales/en.json` + 11 ключей в `frontend/src/i18n.ts`. Тексты архивирования и восстановления уточняют, что текущие подписчики могут продлевать, а unarchive не включает план автоматически.
+
+### Автоматические проверки
+
+- [x] `alembic upgrade head` применяет `77d18bb308d7_add_is_archived_to_pricing_plans`.
+- [x] `python -m py_compile` для изменённых файлов (DAL, services, bot handlers, web routers).
+- [x] `json.load` для `locales/ru.json`, `locales/en.json`.
+- [x] `tsc --noEmit` для frontend.
+
+### Ручные проверки
+
+- [ ] Архивирование тарифа без активных entitlements: тариф пропадает из публичного web `/plans` и bot catalog, появляется в админской секции «Архив».
+- [ ] Архивирование тарифа с активными подписками: подписчики продолжают видеть и могут продлить (web /plans/bot catalog показывают именно им).
+- [ ] После expiry архивного entitlement тариф пропадает из catalog у бывшего владельца.
+- [ ] Прямое нажатие старой inline-кнопки `subscribe_option:{id}` на архивный план у не-владельца отдаёт `catalog_error_option_not_found`.
+- [ ] Прямой POST `/api/payment/create` с `plan_option_id` от архивного плана не-владельцем возвращает 400.
+- [ ] Web admin: попытка PATCH `is_enabled=true` для архивного плана возвращает 409.
+- [ ] Bot admin: попытка «Включить» архивный план показывает алерт.
+- [ ] Удаление тарифа с историческими entitlements (даже без активных) возвращает 409.
+- [ ] Unarchive переводит план в `is_archived=false`, `is_enabled=false`; повторное включение требует отдельного действия.
+- [ ] Auto-renew архивного тарифа у активного владельца проходит как обычное продление; `deactivation_reason="plan_renewed"`.
+- [ ] При смене plan_id `deactivation_reason="plan_switched"`.
+
+### Статус выполнения фазы
+
+Backend и frontend реализованы и проходят автоматические проверки. Требуется
+прохождение ручных проверок на dev-стенде.
 
 ---
 

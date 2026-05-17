@@ -13,7 +13,6 @@ from aiogram import Router, F, types
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
@@ -21,7 +20,6 @@ from bot.states.admin_states import AdminStates
 from config.settings import Settings
 from core.dal import pricing_plan_dal
 from core.services.panel_client import PanelApiService
-from db.models import UserPlanEntitlement
 
 logger = logging.getLogger(__name__)
 
@@ -124,10 +122,13 @@ def _tariff_list_kb(i18n, lang: str, plans: list) -> types.InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for plan in plans:
         if plan.is_trial:
-            continue  # Trial plans are managed separately
-        status = "✅" if plan.is_enabled else "⛔"
-        kind_label = _fmt_kind(plan.plan_kind)
-        label = f"{status} {plan.name_ru} ({kind_label})"
+            continue
+        if plan.is_archived:
+            label = f"📦 [Архив] {plan.name_ru}"
+        else:
+            status = "✅" if plan.is_enabled else "⛔"
+            kind_label = _fmt_kind(plan.plan_kind)
+            label = f"{status} {plan.name_ru} ({kind_label})"
         builder.row(InlineKeyboardButton(text=label, callback_data=f"admin_tariff:card:{plan.id}"))
     builder.row(InlineKeyboardButton(text=_("admin_tariff_create_button"), callback_data="admin_tariff:create"))
     builder.row(InlineKeyboardButton(text=_("admin_trial_menu_button"), callback_data="admin_trial:menu"))
@@ -138,10 +139,14 @@ def _tariff_list_kb(i18n, lang: str, plans: list) -> types.InlineKeyboardMarkup:
 def _tariff_card_kb(i18n, lang: str, plan) -> types.InlineKeyboardMarkup:
     _ = _mk(i18n, lang)
     builder = InlineKeyboardBuilder()
-    if plan.is_enabled:
-        builder.row(InlineKeyboardButton(text=_("admin_tariff_disable_button"), callback_data=f"admin_tariff:disable:{plan.id}"))
+    if plan.is_archived:
+        builder.row(InlineKeyboardButton(text=_("admin_tariff_unarchive_button"), callback_data=f"admin_tariff:unarchive:{plan.id}"))
     else:
-        builder.row(InlineKeyboardButton(text=_("admin_tariff_enable_button"), callback_data=f"admin_tariff:enable:{plan.id}"))
+        if plan.is_enabled:
+            builder.row(InlineKeyboardButton(text=_("admin_tariff_disable_button"), callback_data=f"admin_tariff:disable:{plan.id}"))
+        else:
+            builder.row(InlineKeyboardButton(text=_("admin_tariff_enable_button"), callback_data=f"admin_tariff:enable:{plan.id}"))
+        builder.row(InlineKeyboardButton(text=_("admin_tariff_archive_button"), callback_data=f"admin_tariff:archive:{plan.id}"))
     builder.row(InlineKeyboardButton(text=_("admin_tariff_delete_button"), callback_data=f"admin_tariff:delete:{plan.id}"))
     builder.row(InlineKeyboardButton(text=_("back_to_tariff_list_button"), callback_data="admin_tariff:list"))
     return builder.as_markup()
@@ -152,6 +157,26 @@ def _delete_confirm_kb(i18n, lang: str, plan_id: int) -> types.InlineKeyboardMar
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text=_("admin_tariff_delete_confirm_yes"), callback_data=f"admin_tariff:delete_confirm:{plan_id}"),
+        InlineKeyboardButton(text=_("admin_tariff_delete_confirm_no"), callback_data=f"admin_tariff:card:{plan_id}"),
+    )
+    return builder.as_markup()
+
+
+def _archive_confirm_kb(i18n, lang: str, plan_id: int) -> types.InlineKeyboardMarkup:
+    _ = _mk(i18n, lang)
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text=_("admin_tariff_archive_confirm_yes"), callback_data=f"admin_tariff:archive_confirm:{plan_id}"),
+        InlineKeyboardButton(text=_("admin_tariff_delete_confirm_no"), callback_data=f"admin_tariff:card:{plan_id}"),
+    )
+    return builder.as_markup()
+
+
+def _unarchive_confirm_kb(i18n, lang: str, plan_id: int) -> types.InlineKeyboardMarkup:
+    _ = _mk(i18n, lang)
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text=_("admin_tariff_unarchive_confirm_yes"), callback_data=f"admin_tariff:unarchive_confirm:{plan_id}"),
         InlineKeyboardButton(text=_("admin_tariff_delete_confirm_no"), callback_data=f"admin_tariff:card:{plan_id}"),
     )
     return builder.as_markup()
@@ -296,7 +321,7 @@ async def show_tariff_list(callback: types.CallbackQuery, i18n_data: dict,
         return
     _ = _mk(i18n, lang)
 
-    plans = await pricing_plan_dal.get_plans(session)
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
     count = len(plans)
     if count == 0:
         text = _("admin_tariffs_empty")
@@ -374,6 +399,9 @@ async def tariff_toggle_handler(callback: types.CallbackQuery, i18n_data: dict,
         return
 
     new_enabled = action == "enable"
+    if new_enabled and plan.is_archived:
+        await callback.answer(_("admin_tariff_enable_archived_blocked"), show_alert=True)
+        return
     await pricing_plan_dal.update_plan(session, plan_id, is_enabled=new_enabled)
     await session.commit()
     await callback.answer(_("admin_tariff_toggle_success"))
@@ -418,6 +446,10 @@ async def tariff_delete_prompt_handler(callback: types.CallbackQuery, state: FSM
         await callback.answer(_("admin_tariff_not_found"), show_alert=True)
         return
 
+    if await pricing_plan_dal.has_any_entitlements(session, plan_id):
+        await callback.answer(_("admin_tariff_delete_has_users"), show_alert=True)
+        return
+
     text = _("admin_tariff_delete_confirm_text", name=plan.name_ru)
     await _edit_or_answer(callback.message, text, _delete_confirm_kb(i18n, lang, plan_id))
     await callback.answer()
@@ -438,14 +470,7 @@ async def tariff_delete_confirm_handler(callback: types.CallbackQuery, i18n_data
         await callback.answer("Bad plan ID.", show_alert=True)
         return
 
-    # Check all entitlements (active and historical) — FK constraint blocks deletion of any referenced plan
-    result = await session.execute(
-        select(func.count(UserPlanEntitlement.id)).where(
-            UserPlanEntitlement.plan_id == plan_id,
-        )
-    )
-    total_count = result.scalar_one()
-    if total_count > 0:
+    if await pricing_plan_dal.has_any_entitlements(session, plan_id):
         await callback.answer(_("admin_tariff_delete_failed"), show_alert=True)
         return
 
@@ -459,12 +484,124 @@ async def tariff_delete_confirm_handler(callback: types.CallbackQuery, i18n_data
 
     if deleted:
         await callback.answer(_("admin_tariff_deleted"))
-        plans = await pricing_plan_dal.get_plans(session)
+        plans = await pricing_plan_dal.get_plans(session, include_archived=True)
         count = len(plans)
         text = _("admin_tariffs_list_header", count=count) if count else _("admin_tariffs_empty")
         await _edit_or_answer(callback.message, text, _tariff_list_kb(i18n, lang, plans))
     else:
         await callback.answer(_("admin_tariff_not_found"), show_alert=True)
+
+
+# ── Archive / Unarchive ──────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("admin_tariff:archive:") & ~F.data.startswith("admin_tariff:archive_confirm:"))
+async def tariff_archive_prompt_handler(callback: types.CallbackQuery, i18n_data: dict,
+                                        settings: Settings, session: AsyncSession):
+    lang, i18n = _get_i18n(i18n_data, settings)
+    if not i18n or not callback.message:
+        await callback.answer("Error.", show_alert=True)
+        return
+    _ = _mk(i18n, lang)
+
+    try:
+        plan_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Bad plan ID.", show_alert=True)
+        return
+
+    plan = await pricing_plan_dal.get_plan_by_id(session, plan_id)
+    if not plan:
+        await callback.answer(_("admin_tariff_not_found"), show_alert=True)
+        return
+
+    text = _("admin_tariff_archive_confirm_text", name=plan.name_ru)
+    await _edit_or_answer(callback.message, text, _archive_confirm_kb(i18n, lang, plan_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_tariff:archive_confirm:"))
+async def tariff_archive_confirm_handler(callback: types.CallbackQuery, i18n_data: dict,
+                                          settings: Settings, session: AsyncSession):
+    lang, i18n = _get_i18n(i18n_data, settings)
+    if not i18n or not callback.message:
+        await callback.answer("Error.", show_alert=True)
+        return
+    _ = _mk(i18n, lang)
+
+    try:
+        plan_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Bad plan ID.", show_alert=True)
+        return
+
+    try:
+        await pricing_plan_dal.archive_plan(session, plan_id)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        await callback.answer(_("admin_tariff_archive_failed"), show_alert=True)
+        return
+
+    await callback.answer(_("admin_tariff_archived"))
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
+    count = len(plans)
+    text = _("admin_tariffs_list_header", count=count) if count else _("admin_tariffs_empty")
+    await _edit_or_answer(callback.message, text, _tariff_list_kb(i18n, lang, plans))
+
+
+@router.callback_query(F.data.startswith("admin_tariff:unarchive:") & ~F.data.startswith("admin_tariff:unarchive_confirm:"))
+async def tariff_unarchive_prompt_handler(callback: types.CallbackQuery, i18n_data: dict,
+                                           settings: Settings, session: AsyncSession):
+    lang, i18n = _get_i18n(i18n_data, settings)
+    if not i18n or not callback.message:
+        await callback.answer("Error.", show_alert=True)
+        return
+    _ = _mk(i18n, lang)
+
+    try:
+        plan_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Bad plan ID.", show_alert=True)
+        return
+
+    plan = await pricing_plan_dal.get_plan_by_id(session, plan_id)
+    if not plan:
+        await callback.answer(_("admin_tariff_not_found"), show_alert=True)
+        return
+
+    text = _("admin_tariff_unarchive_confirm_text", name=plan.name_ru)
+    await _edit_or_answer(callback.message, text, _unarchive_confirm_kb(i18n, lang, plan_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_tariff:unarchive_confirm:"))
+async def tariff_unarchive_confirm_handler(callback: types.CallbackQuery, i18n_data: dict,
+                                            settings: Settings, session: AsyncSession):
+    lang, i18n = _get_i18n(i18n_data, settings)
+    if not i18n or not callback.message:
+        await callback.answer("Error.", show_alert=True)
+        return
+    _ = _mk(i18n, lang)
+
+    try:
+        plan_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer("Bad plan ID.", show_alert=True)
+        return
+
+    try:
+        await pricing_plan_dal.unarchive_plan(session, plan_id)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        await callback.answer(_("admin_tariff_unarchive_failed"), show_alert=True)
+        return
+
+    await callback.answer(_("admin_tariff_unarchived"))
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
+    count = len(plans)
+    text = _("admin_tariffs_list_header", count=count) if count else _("admin_tariffs_empty")
+    await _edit_or_answer(callback.message, text, _tariff_list_kb(i18n, lang, plans))
 
 
 # ── FSM: Cancel ──────────────────────────────────────────────────────────────
@@ -1036,7 +1173,7 @@ async def tariff_fsm_confirm(callback: types.CallbackQuery, state: FSMContext,
         await callback.answer()
 
         # Show updated list
-        plans = await pricing_plan_dal.get_plans(session)
+        plans = await pricing_plan_dal.get_plans(session, include_archived=True)
         count = len(plans)
         list_text = _("admin_tariffs_list_header", count=count) if count else _("admin_tariffs_empty")
         await callback.message.answer(list_text, reply_markup=_tariff_list_kb(i18n, lang, plans), parse_mode="HTML")
@@ -1121,7 +1258,7 @@ async def _show_trial_menu(callback: types.CallbackQuery, i18n, lang: str, sessi
     if not callback.message:
         return
 
-    plans = await pricing_plan_dal.get_plans(session)
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
     trial_plan = next((p for p in plans if p.is_trial), None)
 
     if not trial_plan:
@@ -1166,7 +1303,7 @@ async def trial_toggle_handler(callback: types.CallbackQuery, i18n_data: dict,
         return
     _ = _mk(i18n, lang)
 
-    plans = await pricing_plan_dal.get_plans(session)
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
     trial_plan = next((p for p in plans if p.is_trial), None)
     if not trial_plan:
         await callback.answer(_("admin_tariff_not_found"), show_alert=True)
@@ -1204,7 +1341,7 @@ async def trial_configure_start(callback: types.CallbackQuery, state: FSMContext
     await state.clear()
 
     # Pre-fill from existing trial plan if any
-    plans = await pricing_plan_dal.get_plans(session)
+    plans = await pricing_plan_dal.get_plans(session, include_archived=True)
     trial_plan = next((p for p in plans if p.is_trial), None)
     prefill = {}
     if trial_plan:

@@ -14,6 +14,9 @@ from core.dal.pricing_plan_dal import (
     create_plan,
     update_plan,
     delete_plan,
+    archive_plan,
+    unarchive_plan,
+    has_any_entitlements,
     create_plan_option,
     get_plan_option_by_id,
     update_plan_option,
@@ -31,6 +34,7 @@ from web.schemas.admin.plans import (
     PricingPlanOptionResponse,
     PricingPlanOptionCreateRequest,
     PricingPlanOptionUpdateRequest,
+    PlanArchiveResponse,
     _validate_plan_combination,
     slugify,
 )
@@ -147,7 +151,7 @@ async def list_plans(
     db: AsyncSession = Depends(get_db),
     _admin: Account = Depends(get_current_admin),
 ) -> PricingPlanListResponse:
-    plans = await get_plans(db)
+    plans = await get_plans(db, include_archived=True)
     return PricingPlanListResponse(
         items=[PricingPlanResponse.model_validate(p) for p in plans],
         total=len(plans),
@@ -218,6 +222,12 @@ async def update_existing_plan(
 
     updates = body.model_dump(exclude_none=True)
 
+    if updates.get("is_enabled") and plan.is_archived:
+        raise HTTPException(
+            status_code=409,
+            detail="Нельзя включить архивный тариф. Сначала восстановите его из архива.",
+        )
+
     if "plan_kind" in updates and updates["plan_kind"] != plan.plan_kind:
         count = await _active_entitlement_count(db, plan_id)
         if count > 0:
@@ -266,21 +276,53 @@ async def delete_existing_plan(
 ) -> None:
     await _get_plan_or_404(db, plan_id)
 
-    count = await _any_entitlement_count(db, plan_id)
-    if count > 0:
-        active = await _active_entitlement_count(db, plan_id)
-        detail = (
-            f"Невозможно удалить тариф: {active} активных и {count - active} исторических прав пользователей. "
-            "Отключите тариф вместо удаления."
-        ) if active > 0 else (
-            f"Невозможно удалить тариф: {count} исторических записей в entitlements. "
-            "Отключите тариф вместо удаления."
+    if await has_any_entitlements(db, plan_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Тариф использовался пользователями и не может быть удалён. Переведите его в архив.",
         )
-        raise HTTPException(status_code=409, detail=detail)
 
     await delete_plan(db, plan_id)
     await add_admin_audit_log(db, admin, "admin_tariff_delete", details={"plan_id": plan_id})
     await db.commit()
+
+
+@router.post(
+    "/plans/{plan_id}/archive",
+    response_model=PlanArchiveResponse,
+    dependencies=[Depends(admin_action_limit)],
+)
+async def archive_existing_plan(
+    plan_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+) -> PlanArchiveResponse:
+    plan = await _get_plan_or_404(db, plan_id)
+    if plan.is_archived:
+        raise HTTPException(status_code=409, detail="Тариф уже находится в архиве")
+    updated = await archive_plan(db, plan_id)
+    await add_admin_audit_log(db, admin, "admin_tariff_archive", details={"plan_id": plan_id})
+    await db.commit()
+    return PlanArchiveResponse(id=updated.id, is_archived=updated.is_archived, is_enabled=updated.is_enabled)
+
+
+@router.post(
+    "/plans/{plan_id}/unarchive",
+    response_model=PlanArchiveResponse,
+    dependencies=[Depends(admin_action_limit)],
+)
+async def unarchive_existing_plan(
+    plan_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+) -> PlanArchiveResponse:
+    plan = await _get_plan_or_404(db, plan_id)
+    if not plan.is_archived:
+        raise HTTPException(status_code=409, detail="Тариф не находится в архиве")
+    updated = await unarchive_plan(db, plan_id)
+    await add_admin_audit_log(db, admin, "admin_tariff_unarchive", details={"plan_id": plan_id})
+    await db.commit()
+    return PlanArchiveResponse(id=updated.id, is_archived=updated.is_archived, is_enabled=updated.is_enabled)
 
 
 # ── Option CRUD ────────────────────────────────────────────────────────────
@@ -298,6 +340,12 @@ async def add_plan_option(
     admin: Account = Depends(get_current_admin),
 ) -> PricingPlanOptionResponse:
     plan = await _get_plan_or_404(db, plan_id)
+
+    if body.is_enabled and plan.is_archived:
+        raise HTTPException(
+            status_code=409,
+            detail="Нельзя создать включённую опцию для архивного тарифа. Сначала восстановите тариф из архива.",
+        )
 
     try:
         _check_option_create(plan, body)
@@ -343,6 +391,12 @@ async def update_plan_option_endpoint(
     option = await get_plan_option_by_id(db, option_id)
     if option is None or option.plan_id != plan_id:
         raise HTTPException(status_code=404, detail="Option не найден")
+
+    if body.is_enabled and plan.is_archived:
+        raise HTTPException(
+            status_code=409,
+            detail="Нельзя включить опцию архивного тарифа. Сначала восстановите тариф из архива.",
+        )
 
     try:
         _check_option_update(plan, option, body)

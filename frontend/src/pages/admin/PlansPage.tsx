@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Check, X, GripVertical,
-  Package, Puzzle, ChevronDown, Loader2, Clock,
+  Package, Puzzle, ChevronDown, Loader2, Clock, Archive, ArchiveRestore,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor,
@@ -15,6 +15,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   getAdminPlans, createPlan, updatePlan, deletePlan,
+  archivePlan, unarchivePlan,
   createPlanOption, updatePlanOption, deletePlanOption,
 } from '@/api/admin/plans'
 import type {
@@ -794,11 +795,12 @@ interface PlanRowProps {
   index: number
   onEdit: (plan: PricingPlanResponse) => void
   onDelete: (id: number) => void
+  onArchive?: (id: number) => void
   onToggle: (plan: PricingPlanResponse) => void
   disabled: boolean
 }
 
-function SortablePlanRow({ plan, index, onEdit, onDelete, onToggle, disabled }: PlanRowProps) {
+function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, disabled }: PlanRowProps) {
   const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: plan.id })
 
@@ -855,6 +857,11 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onToggle, disabled }: 
           <button onClick={() => onEdit(plan)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">
             <Pencil size={15} />
           </button>
+          {onArchive && (
+            <button onClick={() => onArchive(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-amber-600 hover:bg-amber-50" title="В архив">
+              <Archive size={15} />
+            </button>
+          )}
           <button onClick={() => onDelete(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50">
             <Trash2 size={15} />
           </button>
@@ -864,7 +871,7 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onToggle, disabled }: 
   )
 }
 
-function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: PlanRowProps) {
+function PlanMobileCard({ plan, index, onEdit, onDelete, onArchive, onToggle, disabled }: PlanRowProps) {
   const { t } = useTranslation()
   return (
     <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
@@ -906,7 +913,7 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: P
           <div className="mt-0.5 font-semibold text-[hsl(var(--foreground))]">{optionPriceSummary(plan)}</div>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-end gap-2">
+      <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
         <button
           onClick={() => onEdit(plan)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-xs font-medium text-[hsl(var(--foreground))]"
@@ -914,9 +921,118 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: P
           <Pencil size={14} />
           {t('admin_edit')}
         </button>
+        {onArchive && (
+          <button
+            onClick={() => onArchive(plan.id)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-xs font-medium text-amber-600"
+          >
+            <Archive size={14} />
+            {t('admin_plans_archive_submit')}
+          </button>
+        )}
         <button
           onClick={() => onDelete(plan.id)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600"
+        >
+          <Trash2 size={14} />
+          {t('admin_delete')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Archived plan row / card ──────────────────────────────────────────────────
+
+function ArchivedPlanRow({
+  plan,
+  onUnarchive,
+  onDelete,
+  disabled,
+}: {
+  plan: PricingPlanResponse
+  onUnarchive: (id: number) => void
+  onDelete: (id: number) => void
+  disabled: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <tr className="opacity-60 hover:opacity-80 transition-opacity">
+      <td className="px-2 py-3 w-8" />
+      <td className="px-4 py-3" colSpan={4}>
+        <div className="flex flex-col gap-1">
+          <span className="font-medium text-[hsl(var(--foreground))] flex items-center gap-2">
+            {plan.name_ru}
+            <span className="text-[10px] font-semibold uppercase bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] px-1.5 py-0.5 rounded">
+              {t('admin_plans_archived_badge')}
+            </span>
+          </span>
+          <div className="flex items-center gap-1.5">
+            <KindBadge kind={plan.plan_kind} />
+            <BillingBadge model={plan.billing_model} />
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2 justify-end">
+          <button
+            onClick={() => onUnarchive(plan.id)}
+            disabled={disabled}
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-green-600 hover:bg-green-50 disabled:opacity-40"
+            title={t('admin_plans_unarchive_submit')}
+          >
+            <ArchiveRestore size={15} />
+          </button>
+          <button
+            onClick={() => onDelete(plan.id)}
+            disabled={disabled}
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function ArchivedPlanCard({
+  plan,
+  onUnarchive,
+  onDelete,
+  disabled,
+}: {
+  plan: PricingPlanResponse
+  onUnarchive: (id: number) => void
+  onDelete: (id: number) => void
+  disabled: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 opacity-60">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="font-semibold text-[hsl(var(--foreground))]">{plan.name_ru}</span>
+        <span className="text-[10px] font-semibold uppercase bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] px-1.5 py-0.5 rounded">
+          {t('admin_plans_archived_badge')}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 mb-3">
+        <KindBadge kind={plan.plan_kind} />
+        <BillingBadge model={plan.billing_model} />
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => onUnarchive(plan.id)}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-3 py-2 text-xs font-medium text-green-700 disabled:opacity-40"
+        >
+          <ArchiveRestore size={14} />
+          {t('admin_plans_unarchive_submit')}
+        </button>
+        <button
+          onClick={() => onDelete(plan.id)}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 disabled:opacity-40"
         >
           <Trash2 size={14} />
           {t('admin_delete')}
@@ -1158,6 +1274,8 @@ export function PlansPage() {
   const { t } = useTranslation()
   const { toast } = useToastContext()
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [archiveId, setArchiveId] = useState<number | null>(null)
+  const [unarchiveId, setUnarchiveId] = useState<number | null>(null)
   const [localOrder, setLocalOrder] = useState<number[] | null>(null)
   const [dialogPlan, setDialogPlan] = useState<PricingPlanResponse | null | undefined>(undefined)
   // undefined = closed, null = create, PricingPlanResponse = edit
@@ -1188,7 +1306,33 @@ export function PlansPage() {
       setDeleteId(null)
       toast(t('admin_plans_delete_success'), 'success')
     },
-    onError: (e: Error) => { toast(e.message, 'error'); setDeleteId(null) },
+    onError: (e: Error) => {
+      const msg = e.message.includes('409') || e.message.toLowerCase().includes('пользовател')
+        ? t('admin_plans_delete_has_users')
+        : e.message
+      toast(msg, 'error')
+      setDeleteId(null)
+    },
+  })
+
+  const archiveMut = useMutation({
+    mutationFn: (id: number) => archivePlan(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'plans'] })
+      setArchiveId(null)
+      toast(t('admin_plans_archive_success'), 'success')
+    },
+    onError: (e: Error) => { toast(e.message, 'error'); setArchiveId(null) },
+  })
+
+  const unarchiveMut = useMutation({
+    mutationFn: (id: number) => unarchivePlan(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'plans'] })
+      setUnarchiveId(null)
+      toast(t('admin_plans_unarchive_success'), 'success')
+    },
+    onError: (e: Error) => { toast(e.message, 'error'); setUnarchiveId(null) },
   })
 
   const sensors = useSensors(
@@ -1196,9 +1340,11 @@ export function PlansPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  const archivedPlans = data ? data.filter(p => p.is_archived) : []
+
   const plans = (() => {
     if (!data) return []
-    const nonTrial = data.filter(p => !p.is_trial)
+    const nonTrial = data.filter(p => !p.is_trial && !p.is_archived)
     if (!localOrder) return nonTrial
     return [...nonTrial].sort((a, b) => localOrder.indexOf(a.id) - localOrder.indexOf(b.id))
   })()
@@ -1283,6 +1429,7 @@ export function PlansPage() {
                         index={idx}
                         onEdit={p => setDialogPlan(p)}
                         onDelete={setDeleteId}
+                        onArchive={setArchiveId}
                         onToggle={p => toggleMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
                         disabled={toggleMut.isPending}
                       />
@@ -1307,12 +1454,53 @@ export function PlansPage() {
                 index={idx}
                 onEdit={p => setDialogPlan(p)}
                 onDelete={setDeleteId}
+                onArchive={setArchiveId}
                 onToggle={p => toggleMut.mutate({ id: p.id, body: { is_enabled: !p.is_enabled } })}
                 disabled={toggleMut.isPending}
               />
             ))}
           </div>
         </>
+      )}
+
+      {/* Archived plans section */}
+      {archivedPlans.length > 0 && (
+        <div className="space-y-3 mt-2">
+          <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide flex items-center gap-2">
+            <Archive size={14} />
+            {t('admin_plans_archived_section')}
+          </h2>
+
+          {/* Desktop */}
+          <div className="hidden bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden sm:block">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-[hsl(var(--border))]">
+                {archivedPlans.map(plan => (
+                  <ArchivedPlanRow
+                    key={plan.id}
+                    plan={plan}
+                    onUnarchive={setUnarchiveId}
+                    onDelete={setDeleteId}
+                    disabled={unarchiveMut.isPending || deleteMut.isPending}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile */}
+          <div className="space-y-3 sm:hidden">
+            {archivedPlans.map(plan => (
+              <ArchivedPlanCard
+                key={plan.id}
+                plan={plan}
+                onUnarchive={setUnarchiveId}
+                onDelete={setDeleteId}
+                disabled={unarchiveMut.isPending || deleteMut.isPending}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Create / Edit dialog */}
@@ -1331,6 +1519,50 @@ export function PlansPage() {
           onClose={() => setTrialModalOpen(false)}
           onSaved={() => qc.invalidateQueries({ queryKey: ['admin', 'plans'] })}
         />
+      )}
+
+      {/* Archive confirm */}
+      {archiveId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{t('admin_plans_archive_confirm')}</h3>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{t('admin_plans_archive_description')}</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setArchiveId(null)} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+                {t('admin_cancel')}
+              </button>
+              <button
+                onClick={() => archiveMut.mutate(archiveId)}
+                disabled={archiveMut.isPending}
+                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+              >
+                {archiveMut.isPending ? <Loader2 size={14} className="animate-spin inline" /> : t('admin_plans_archive_submit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unarchive confirm */}
+      {unarchiveId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{t('admin_plans_unarchive_confirm')}</h3>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{t('admin_plans_unarchive_description')}</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setUnarchiveId(null)} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+                {t('admin_cancel')}
+              </button>
+              <button
+                onClick={() => unarchiveMut.mutate(unarchiveId)}
+                disabled={unarchiveMut.isPending}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {unarchiveMut.isPending ? <Loader2 size={14} className="animate-spin inline" /> : t('admin_plans_unarchive_submit')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirm */}

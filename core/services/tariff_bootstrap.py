@@ -47,7 +47,7 @@ async def bootstrap_legacy_tariff(db: AsyncSession, settings: Settings) -> None:
         plan.remnawave_squad_uuid = squad_uuid
         changed = True
 
-    if should_enable and not plan.is_enabled:
+    if should_enable and not plan.is_enabled and not plan.is_archived:
         plan.is_enabled = True
         changed = True
 
@@ -103,7 +103,7 @@ async def bootstrap_legacy_tariff(db: AsyncSession, settings: Settings) -> None:
             option.traffic_gb = traffic_payload["traffic_gb"]
             option.traffic_unlimited = traffic_payload["traffic_unlimited"]
             changed = True
-        if is_enabled and not option.is_enabled:
+        if is_enabled and not option.is_enabled and not plan.is_archived:
             option.is_enabled = True
             changed = True
 

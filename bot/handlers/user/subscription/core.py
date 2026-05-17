@@ -68,7 +68,9 @@ async def display_subscription_options(
     if not _catalog_checked:
         try:
             from bot.handlers.user.subscription.catalog_flow import has_catalog_plans, display_catalog_tariffs
-            if await has_catalog_plans(session):
+            _from_user = event.from_user if hasattr(event, "from_user") else None
+            _uid = _from_user.id if _from_user else None
+            if await has_catalog_plans(session, user_id=_uid):
                 await display_catalog_tariffs(event, session, i18n_data, settings)
                 return
         except Exception:

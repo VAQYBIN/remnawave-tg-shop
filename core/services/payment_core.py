@@ -347,10 +347,10 @@ async def create_web_payment(
     if plan_option_id is not None:
         from core.dal.pricing_plan_dal import get_plan_option_by_id
         opt = await get_plan_option_by_id(db, plan_option_id)
-        if opt is None or not opt.is_enabled:
+        if opt is None or not opt.is_enabled or opt.plan is None:
             raise ValueError("Выбранный вариант тарифа недоступен")
-        if not opt.plan.is_enabled:
-            raise ValueError("Тариф недоступен")
+        # plan.is_enabled-guard уносится в can_purchase_plan_option (archived planам
+        # is_enabled принудительно False, но продление владельцу разрешено).
         if opt.price_rub is None:
             raise ValueError("Для данного варианта не задана цена в рублях")
 
@@ -369,6 +369,14 @@ async def create_web_payment(
         months_for_legacy = opt.duration_months or (
             max(1, round(opt.duration_days / 30.0)) if opt.duration_days else 0
         )
+
+        # Единый guard: archived можно купить только как продление своего же тарифа
+        from core.services.plan_purchase_policy import can_purchase_plan_option
+        from core.dal.account_dal import get_account_user_ids
+        _user_ids_for_policy = get_account_user_ids(account) or []
+        allowed, _reason = await can_purchase_plan_option(db, _user_ids_for_policy, opt)
+        if not allowed:
+            raise ValueError("Этот тариф недоступен для покупки")
 
         if opt.plan.plan_kind == "addon":
             # For addon options the price must be prorated against the remaining standalone period.

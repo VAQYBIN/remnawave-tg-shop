@@ -108,6 +108,7 @@ class PricingPlanResponse(BaseModel):
     min_price_stars: Optional[int] = None
     is_trial: bool
     is_enabled: bool
+    is_archived: bool
     sort_order: int
     created_at: UTCDatetime
     updated_at: Optional[UTCDatetime] = None
@@ -119,6 +120,12 @@ class PricingPlanResponse(BaseModel):
 class PricingPlanListResponse(BaseModel):
     items: list[PricingPlanResponse]
     total: int
+
+
+class PlanArchiveResponse(BaseModel):
+    id: int
+    is_archived: bool
+    is_enabled: bool
 
 
 class PricingPlanCreateRequest(BaseModel):

@@ -25,17 +25,35 @@ router = Router(name="catalog_flow_router")
 LEGACY_DEFAULT_SLUG = pricing_plan_dal.LEGACY_DEFAULT_SLUG
 
 
-async def has_catalog_plans(session: AsyncSession) -> bool:
-    """Return True if DB has at least one non-legacy enabled standalone plan."""
+async def has_catalog_plans(session: AsyncSession, user_id: Optional[int] = None) -> bool:
+    """Catalog mode активен, если есть публично доступные standalone-планы
+    ИЛИ у конкретного user_id есть активный standalone-entitlement на архивный
+    тариф — тогда ему нужно дать продлить через catalog flow.
+    """
     try:
         plans = await pricing_plan_dal.get_plans(session, enabled_only=True)
-        return any(
+        if any(
             p.plan_kind == "standalone"
             and not p.is_trial
             and p.slug != LEGACY_DEFAULT_SLUG
             and any(o.is_enabled for o in (p.options or []))
             for p in plans
-        )
+        ):
+            return True
+        if user_id is not None:
+            now = datetime.now(timezone.utc)
+            ent = await plan_entitlement_dal.get_active_standalone_entitlement(
+                session, user_id, now=now
+            )
+            if (
+                ent
+                and ent.plan
+                and ent.plan.is_archived
+                and ent.plan.plan_kind == "standalone"
+                and any(o.is_enabled for o in (ent.plan.options or []))
+            ):
+                return True
+        return False
     except Exception:
         logging.exception("catalog_flow.has_catalog_plans: DB error")
         return False
@@ -73,18 +91,28 @@ async def display_catalog_tariffs(
         and any(o.is_enabled for o in (p.options or []))
     ]
 
-    # Check if user has active standalone (needed to show addons)
+    # Check user's active standalone — нужно и для addons, и для показа архивного плана владельцу
     has_standalone = False
+    own_archived_plan = None
     try:
-        if addon_plans:
-            user_id = event.from_user.id
-            now = datetime.now(timezone.utc)
-            standalone_ent = await plan_entitlement_dal.get_active_standalone_entitlement(
-                session, user_id, now=now
-            )
-            has_standalone = bool(standalone_ent and standalone_ent.ends_at and standalone_ent.ends_at > now)
+        user_id = event.from_user.id
+        now = datetime.now(timezone.utc)
+        standalone_ent = await plan_entitlement_dal.get_active_standalone_entitlement(
+            session, user_id, now=now
+        )
+        has_standalone = bool(standalone_ent and standalone_ent.ends_at and standalone_ent.ends_at > now)
+        if standalone_ent and standalone_ent.plan and standalone_ent.plan.is_archived:
+            # Архивный, но все опции включены и план виден только владельцу для продления
+            archived_plan = await pricing_plan_dal.get_plan_by_id(session, standalone_ent.plan_id)
+            if archived_plan and archived_plan.plan_kind == "standalone" and any(
+                o.is_enabled for o in (archived_plan.options or [])
+            ):
+                own_archived_plan = archived_plan
     except Exception:
         logging.exception("catalog_flow.display_catalog_tariffs: failed to check standalone")
+
+    if own_archived_plan and not any(p.id == own_archived_plan.id for p in standalone_plans):
+        standalone_plans.append(own_archived_plan)
 
     if not standalone_plans:
         text = get_text("no_subscription_options_available")
@@ -137,9 +165,22 @@ async def select_tariff_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
-    if not plan or not plan.is_enabled:
+    if not plan or (not plan.is_enabled and not plan.is_archived):
         await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
         return
+
+    # Архивный план открываем только владельцу активной standalone-подписки на него
+    if plan.is_archived:
+        if plan.plan_kind != "standalone":
+            await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+            return
+        _now_archived_check = datetime.now(timezone.utc)
+        _own_ent = await plan_entitlement_dal.get_active_standalone_entitlement(
+            session, callback.from_user.id, now=_now_archived_check
+        )
+        if not _own_ent or _own_ent.plan_id != plan.id:
+            await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+            return
 
     # Localized name / description
     name = plan.name_ru if current_lang == "ru" else (plan.name_en or plan.name_ru)
@@ -247,13 +288,24 @@ async def subscribe_option_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
-    if not opt or not opt.is_enabled or not opt.plan or not opt.plan.is_enabled:
+    if not opt or not opt.is_enabled or not opt.plan:
         await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
         return
 
     plan = opt.plan
     plan_kind = plan.plan_kind  # "standalone" or "addon"
     now = datetime.now(timezone.utc)
+
+    from core.services.plan_purchase_policy import can_purchase_plan_option
+    # Для archived policy сама пропускает план если у юзера есть active ent.
+    # Для обычных планов требуется plan.is_enabled.
+    if not plan.is_enabled and not plan.is_archived:
+        await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+        return
+    _allowed, _reason = await can_purchase_plan_option(session, [callback.from_user.id], opt, now=now)
+    if not _allowed:
+        await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+        return
 
     price_rub: Optional[float] = None
     price_stars: Optional[int] = None

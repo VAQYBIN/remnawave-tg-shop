@@ -39,12 +39,21 @@ async def resolve_catalog_offer_for_payment(
         return None
 
     opt = await get_plan_option_by_id(session, option_id)
-    if not opt or not opt.is_enabled or not opt.plan or not opt.plan.is_enabled:
+    if not opt or not opt.is_enabled or not opt.plan:
+        return None
+    # plan.is_enabled у archived принудительно False — отдаём guard policy
+    if not opt.plan.is_enabled and not opt.plan.is_archived:
         return None
 
     plan = opt.plan
     plan_kind = plan.plan_kind  # "standalone" or "addon"
     now = datetime.now(timezone.utc)
+
+    # Единый guard: archived можно купить только как продление своего же тарифа
+    from core.services.plan_purchase_policy import can_purchase_plan_option
+    allowed, _reason = await can_purchase_plan_option(session, [user_id], opt, now=now)
+    if not allowed:
+        return None
 
     if plan_kind == "addon":
         standalone = await get_active_standalone_entitlement(session, user_id, now=now)

@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from typing import Optional, List
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db.models import PricingPlan, PricingPlanOption
+from db.models import PricingPlan, PricingPlanOption, UserPlanEntitlement
 
 
 LEGACY_DEFAULT_SLUG = "legacy-default"
@@ -49,13 +49,20 @@ async def get_plan_by_slug(db: AsyncSession, slug: str) -> Optional[PricingPlan]
     return result.scalar_one_or_none()
 
 
-async def get_plans(db: AsyncSession, *, enabled_only: bool = False) -> List[PricingPlan]:
+async def get_plans(
+    db: AsyncSession,
+    *,
+    enabled_only: bool = False,
+    include_archived: bool = False,
+) -> List[PricingPlan]:
     stmt = select(PricingPlan).options(selectinload(PricingPlan.options)).order_by(
         PricingPlan.sort_order,
         PricingPlan.id,
     )
     if enabled_only:
         stmt = stmt.where(PricingPlan.is_enabled == True)
+    if not include_archived:
+        stmt = stmt.where(PricingPlan.is_archived == False)
     result = await db.execute(stmt)
     return list(result.scalars().unique().all())
 
@@ -98,6 +105,25 @@ async def delete_plan(db: AsyncSession, plan_id: int) -> bool:
     return True
 
 
+async def has_any_entitlements(db: AsyncSession, plan_id: int) -> bool:
+    result = await db.execute(
+        select(func.count(UserPlanEntitlement.id)).where(
+            UserPlanEntitlement.plan_id == plan_id,
+        )
+    )
+    return result.scalar_one() > 0
+
+
+async def archive_plan(db: AsyncSession, plan_id: int) -> Optional[PricingPlan]:
+    return await update_plan(db, plan_id, is_archived=True, is_enabled=False)
+
+
+async def unarchive_plan(db: AsyncSession, plan_id: int) -> Optional[PricingPlan]:
+    # Only removes the archived flag; is_enabled stays False so the admin must
+    # explicitly re-publish the plan before users can buy it.
+    return await update_plan(db, plan_id, is_archived=False)
+
+
 async def create_plan_option(db: AsyncSession, **kwargs) -> PricingPlanOption:
     option = PricingPlanOption(**kwargs)
     db.add(option)
@@ -119,7 +145,11 @@ async def get_enabled_plan_options(db: AsyncSession) -> List[PricingPlanOption]:
     result = await db.execute(
         select(PricingPlanOption)
         .join(PricingPlan)
-        .where(PricingPlan.is_enabled == True, PricingPlanOption.is_enabled == True)
+        .where(
+            PricingPlan.is_enabled == True,
+            PricingPlan.is_archived == False,
+            PricingPlanOption.is_enabled == True,
+        )
         .options(selectinload(PricingPlanOption.plan))
         .order_by(PricingPlan.sort_order, PricingPlanOption.sort_order, PricingPlanOption.id)
     )
@@ -207,6 +237,7 @@ async def get_enabled_plans(db: AsyncSession) -> List[LegacyTimePlanView]:
         .where(
             PricingPlan.slug == LEGACY_DEFAULT_SLUG,
             PricingPlan.is_enabled == True,
+            PricingPlan.is_archived == False,
             PricingPlanOption.is_enabled == True,
             PricingPlanOption.duration_months.is_not(None),
         )
@@ -223,6 +254,7 @@ async def get_plan_by_months(db: AsyncSession, duration_months: int) -> Optional
         .where(
             PricingPlan.slug == LEGACY_DEFAULT_SLUG,
             PricingPlan.is_enabled == True,
+            PricingPlan.is_archived == False,
             PricingPlanOption.duration_months == duration_months,
             PricingPlanOption.is_enabled == True,
         )
@@ -248,8 +280,10 @@ def _validate_legacy_enable(plan: PricingPlan, price_rub: object, price_stars: o
 async def create_legacy_time_option(db: AsyncSession, **kwargs) -> LegacyTimePlanView:
     plan = await ensure_legacy_default_plan(db)
     if kwargs.get("is_enabled"):
+        if plan.is_archived:
+            raise ValueError("Нельзя включить опцию архивного тарифа. Сначала восстановите тариф из архива.")
         _validate_legacy_enable(plan, kwargs.get("price_rub"), kwargs.get("price_stars"))
-    plan.is_enabled = bool(kwargs.get("is_enabled", False) or plan.is_enabled)
+    plan.is_enabled = bool(not plan.is_archived and (kwargs.get("is_enabled", False) or plan.is_enabled))
     option = await create_plan_option(
         db,
         plan_id=plan.id,
@@ -274,13 +308,15 @@ async def update_legacy_time_option(
         return None
     allowed = {"duration_months", "price_rub", "price_stars", "is_enabled", "sort_order"}
     if "is_enabled" in kwargs and kwargs["is_enabled"]:
+        if option.plan.is_archived:
+            raise ValueError("Нельзя включить опцию архивного тарифа. Сначала восстановите тариф из архива.")
         price_rub = kwargs.get("price_rub", option.price_rub)
         price_stars = kwargs.get("price_stars", option.price_stars)
         _validate_legacy_enable(option.plan, price_rub, price_stars)
     for key, value in kwargs.items():
         if key in allowed:
             setattr(option, key, value)
-    if "is_enabled" in kwargs and kwargs["is_enabled"]:
+    if "is_enabled" in kwargs and kwargs["is_enabled"] and not option.plan.is_archived:
         option.plan.is_enabled = True
     await db.flush()
     await db.refresh(option)

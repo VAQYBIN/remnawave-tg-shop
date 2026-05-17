@@ -817,6 +817,85 @@ Frontend:
 5. Валидация формы.
 6. Ошибки Remnawave API.
 
+### Фаза 9.5: Архивные тарифы и единый guard покупки (внеплановая)
+
+Появилась в ходе работы над Фазой 9. Изначально планом не предусматривалась —
+изначально планировалось «удаление тарифа с миграцией пользователей», но это
+оказалось дорогим и неудобным сценарием для админа. Вместо удаления вводим
+статус «архивный»:
+
+- если тариф никем не использовался (ни активно, ни исторически) — его можно
+  физически удалить;
+- если хотя бы один пользователь его покупал — тариф можно только перевести
+  в архив; новые пользователи не увидят его в каталоге;
+- активные подписчики архивного тарифа продолжают пользоваться им и могут
+  его продлевать (renewal), пока подписка не истечёт;
+- после истечения архивный тариф пропадает у бывшего владельца.
+
+Главное архитектурное решение: правило «archived можно купить только как
+продление собственной активной standalone-подписки на тот же план»
+инкапсулируется единым guard `core/services/plan_purchase_policy.py`,
+применяемым во всех точках создания платежа. UI/каталоги не дублируют
+проверку, а только используют её.
+
+Backend:
+
+1. Миграция `pricing_plans.is_archived` + индекс.
+2. DAL: `archive_plan`, `unarchive_plan`, `has_any_entitlements`; дефолт
+   `get_plans(include_archived=False)`; публичные query фильтруют
+   `is_archived=False`.
+3. Инвариант: `archive` ставит `is_enabled=False`; `unarchive` снимает только
+   архив-флаг (включение — отдельным действием), чтобы «убрать из архива»
+   и «опубликовать» оставались разными операциями.
+4. Bootstrap и legacy DAL не включают архивные планы автоматически.
+5. Единый guard `can_purchase_plan_option(session, user_ids, option)`:
+   стандартный план — требуется `plan.is_enabled && option.is_enabled`;
+   архивный standalone — разрешён только при активном entitlement того же
+   `plan_id` у переданных user_ids; архивный addon — никогда.
+6. Применение guard:
+   - `core/services/payment_core.py` (web payment create);
+   - `bot/handlers/user/subscription/payments_subscription.py`
+     (`resolve_catalog_offer_for_payment`);
+   - `bot/handlers/user/subscription/catalog_flow.py`
+     (`select_tariff_callback`, `subscribe_option_callback`).
+7. Каталог должен показать архивный план активному владельцу для продления:
+   - Web `/api/subscription/plans` — optional auth (нет токена → None;
+     просроченный токен → 401 для refresh-flow); подклеивает архивный план
+     владельца к каталогу.
+   - Bot `display_catalog_tariffs` — то же поведение.
+   - Bot `has_catalog_plans(session, user_id)` обязан учитывать архивный
+     entitlement пользователя, иначе catalog-роутер уйдёт в legacy flow.
+8. `tariff_activation.create_standalone_entitlement` различает renewal
+   (`plan_renewed`) и смену плана (`plan_switched`) по `existing.plan_id`.
+
+Admin:
+
+1. Web admin: PATCH plan/option с `is_enabled=true` для архивного →
+   409; UI имеет отдельную секцию «Архивные тарифы» с действиями
+   Восстановить/Удалить; DELETE использованного тарифа → 409.
+2. Bot admin: callback `admin_tariff:enable:{id}` для архивного → alert;
+   карточка архивного показывает «Восстановить из архива» вместо
+   enable/disable.
+3. i18n: 12 ключей в `locales/*.json` (bot) + 11 ключей в
+   `frontend/src/i18n.ts` (web). Тексты архивирования упоминают, что
+   подписчики могут продлевать; тексты unarchive — что план остаётся
+   выключенным.
+
+Что это меняет для следующих фаз:
+
+- **Фаза 10 (Auto-renew bundle).** Автопродление архивного тарифа должно
+  работать так же, как обычное (renewal), при условии активного entitlement.
+  Bundled-offer для архивного standalone должен включать только те addon,
+  что прикреплены к этому архивному standalone. Guard `can_purchase_plan_option`
+  должен использоваться и в auto-renew code path при создании платежа.
+- **Фаза 11 (Cleanup).** Cleanup job деактивирует истёкший entitlement —
+  после этого `can_purchase_plan_option` начнёт отказывать бывшему владельцу.
+  Дополнительный шаг: для архивных планов, у которых **не осталось активных
+  entitlements**, имеет смысл логировать кандидата на удаление (но не удалять
+  автоматически — это явное действие админа).
+- **Фаза 12 (Документация).** README и admin docs должны описать различие
+  delete vs archive и инвариант unarchive≠enable.
+
 ### Фаза 10: Автопродление bundle
 
 Цель: standalone + addon renewal bundle. Эту фазу нельзя выкатывать позднее удаления legacy auto-renew. До завершения bundle-логики старый auto-renew должен оставаться включённым для legacy подписок.
