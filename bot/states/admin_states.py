@@ -55,3 +55,10 @@ class AdminStates(StatesGroup):
     tariff_step_opt_more = State()
     tariff_step_confirm = State()
     tariff_step_delete_confirm = State()
+
+    # Trial period management (separate from tariff creation)
+    trial_step_squad = State()
+    trial_step_days = State()
+    trial_step_traffic = State()
+    trial_step_gb_input = State()
+    trial_step_confirm = State()

@@ -31,6 +31,7 @@ async def has_catalog_plans(session: AsyncSession) -> bool:
         plans = await pricing_plan_dal.get_plans(session, enabled_only=True)
         return any(
             p.plan_kind == "standalone"
+            and not p.is_trial
             and p.slug != LEGACY_DEFAULT_SLUG
             and any(o.is_enabled for o in (p.options or []))
             for p in plans
@@ -62,6 +63,7 @@ async def display_catalog_tariffs(
     standalone_plans = [
         p for p in plans
         if p.plan_kind == "standalone"
+        and not p.is_trial
         and p.slug != LEGACY_DEFAULT_SLUG
         and any(o.is_enabled for o in (p.options or []))
     ]

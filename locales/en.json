@@ -601,5 +601,20 @@
 
   "admin_tariff_opt_duration_invalid": "❌ Invalid duration format. Enter a number (months) or d30 (days).",
   "admin_tariff_opt_traffic_invalid": "❌ Invalid format. Enter GB as a number, e.g.: 50",
-  "admin_tariff_opt_price_invalid": "❌ Invalid price format. Enter a number or «skip»."
+  "admin_tariff_opt_price_invalid": "❌ Invalid price format. Enter a number or «skip».",
+
+  "admin_trial_menu_button": "🎁 Trial Period",
+  "admin_trial_configure_button": "⚙️ Configure",
+  "admin_trial_edit_button": "⚙️ Edit",
+  "admin_trial_status_none": "🎁 <b>Trial Period</b>\n\nTrial period is not configured.\n\nPress «Configure» to set parameters.",
+  "admin_trial_status": "🎁 <b>Trial Period</b>\n\nStatus: {status}\nSquad: <code>{squad}</code>\nDuration: {duration}\nTraffic: {traffic}",
+  "admin_trial_toggle_success": "✅ Trial period status updated.",
+  "admin_trial_step_squad": "🎁 Trial Period — Step 1\n\n🔗 Choose an Internal Squad from the panel:",
+  "admin_trial_step_days": "🎁 Trial Period — Step 2\n\n⏱ Enter duration in days (e.g.: 7, 14, 30):",
+  "admin_trial_step_traffic": "🎁 Trial Period — Step 3\n\n📦 Choose traffic type:",
+  "admin_trial_step_gb": "🎁 Trial Period — Step 3\n\n📦 Enter traffic limit in GB (e.g.: 10):",
+  "admin_trial_days_invalid": "❌ Enter a positive integer number of days (e.g.: 7, 14, 30).",
+  "admin_trial_confirm": "🎁 Confirm trial period settings:\n\n{summary}\n\nSave?",
+  "admin_trial_saved": "✅ Trial period configured!",
+  "admin_trial_save_failed": "❌ Save error: {error}"
 }

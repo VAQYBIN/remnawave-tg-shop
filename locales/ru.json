@@ -602,5 +602,20 @@
 
   "admin_tariff_opt_duration_invalid": "❌ Неверный формат срока. Введите число (месяцы) или d30 (дни).",
   "admin_tariff_opt_traffic_invalid": "❌ Неверный формат. Введите число ГБ, например: 50",
-  "admin_tariff_opt_price_invalid": "❌ Неверный формат цены. Введите число или «skip»."
+  "admin_tariff_opt_price_invalid": "❌ Неверный формат цены. Введите число или «skip».",
+
+  "admin_trial_menu_button": "🎁 Пробный период",
+  "admin_trial_configure_button": "⚙️ Настроить",
+  "admin_trial_edit_button": "⚙️ Изменить",
+  "admin_trial_status_none": "🎁 <b>Пробный период</b>\n\nПробный период не настроен.\n\nНажмите «Настроить», чтобы задать параметры.",
+  "admin_trial_status": "🎁 <b>Пробный период</b>\n\nСтатус: {status}\nSquad: <code>{squad}</code>\nДлительность: {duration}\nТрафик: {traffic}",
+  "admin_trial_toggle_success": "✅ Статус пробного периода обновлён.",
+  "admin_trial_step_squad": "🎁 Пробный период — Шаг 1\n\n🔗 Выберите Internal Squad из панели:",
+  "admin_trial_step_days": "🎁 Пробный период — Шаг 2\n\n⏱ Введите длительность в днях (например: 7, 14, 30):",
+  "admin_trial_step_traffic": "🎁 Пробный период — Шаг 3\n\n📦 Выберите тип трафика:",
+  "admin_trial_step_gb": "🎁 Пробный период — Шаг 3\n\n📦 Введите объём трафика в ГБ (например: 10):",
+  "admin_trial_days_invalid": "❌ Введите целое положительное число дней (например: 7, 14, 30).",
+  "admin_trial_confirm": "🎁 Подтвердите настройки пробного периода:\n\n{summary}\n\nСохранить?",
+  "admin_trial_saved": "✅ Пробный период настроен!",
+  "admin_trial_save_failed": "❌ Ошибка сохранения: {error}"
 }
