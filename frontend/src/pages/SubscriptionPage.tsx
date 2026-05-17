@@ -374,13 +374,10 @@ export function SubscriptionPage() {
 
             {/* Addon section — shown only when user has a standalone subscription */}
             {subscription && (
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold">{t('catalog_addons_title')}</h2>
-                <AddonSelector
-                  selectedOptionId={purchaseMode === 'addon' ? selectedAddonOption?.id ?? null : null}
-                  onSelect={handleSelectAddon}
-                />
-              </div>
+              <AddonSelector
+                selectedOptionId={purchaseMode === 'addon' ? selectedAddonOption?.id ?? null : null}
+                onSelect={handleSelectAddon}
+              />
             )}
 
             {/* Payment card */}

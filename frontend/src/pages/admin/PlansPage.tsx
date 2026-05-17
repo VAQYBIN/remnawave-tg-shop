@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Pencil, Trash2, Check, X, GripVertical,
-  Package, Puzzle, ChevronDown, Loader2,
+  Package, Puzzle, ChevronDown, Loader2, Clock,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor,
@@ -367,14 +367,13 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     (plan?.traffic_reset_strategy as ResetStrategy) ?? 'NO_RESET'
   )
   const [squadUuid, setSquadUuid] = useState(plan?.remnawave_squad_uuid ?? '')
-  const [isTrial, setIsTrial] = useState(plan?.is_trial ?? false)
   const [isEnabled, setIsEnabled] = useState(plan?.is_enabled ?? true)
   const [minPriceRub, setMinPriceRub] = useState(plan?.min_price_rub?.toString() ?? '')
   const [minPriceStars, setMinPriceStars] = useState(plan?.min_price_stars?.toString() ?? '')
 
   // Options state
   const [existingOptions, setExistingOptions] = useState<PricingPlanOptionResponse[]>(plan?.options ?? [])
-  const [newOptions, setNewOptions] = useState<OptionDraft[]>(isEdit ? [] : [emptyOption(billingModel, isTrial)])
+  const [newOptions, setNewOptions] = useState<OptionDraft[]>(isEdit ? [] : [emptyOption(billingModel)])
   const [editingOptId, setEditingOptId] = useState<number | null>(null)
   const [editingOptDraft, setEditingOptDraft] = useState<OptionDraft | null>(null)
 
@@ -460,7 +459,6 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
-          is_trial: isTrial,
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : null,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : null,
@@ -480,7 +478,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
-          is_trial: isTrial,
+          is_trial: false,
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : undefined,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : undefined,
@@ -675,16 +673,6 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
 
             <div className="flex flex-wrap gap-5 pt-1">
               <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={isTrial} onChange={e => {
-                  setIsTrial(e.target.checked)
-                  if (e.target.checked && planKind !== 'standalone') setPlanKind('standalone')
-                }} />
-                <span className="text-sm text-[hsl(var(--foreground))]">
-                  {t('admin_plans_is_trial')}
-                  <span className="ml-1 text-[10px] text-[hsl(var(--muted-foreground))] font-mono">{t('admin_plans_is_trial_hint')}</span>
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)} />
                 <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_plans_enabled')}</span>
               </label>
@@ -711,7 +699,6 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                       <OptionRow
                         opt={editingOptDraft}
                         billingModel={billingModel}
-                        isTrial={isTrial}
                         onChange={setEditingOptDraft}
                         onSave={saveEditOption}
                         onCancelEdit={cancelEditOption}
@@ -760,7 +747,6 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                   key={idx}
                   opt={opt}
                   billingModel={billingModel}
-                  isTrial={isTrial}
                   onChange={updated => setNewOptions(prev => prev.map((o, i) => i === idx ? updated : o))}
                   onDelete={() => setNewOptions(prev => prev.filter((_, i) => i !== idx))}
                 />
@@ -769,7 +755,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
 
             <button
               type="button"
-              onClick={() => setNewOptions(prev => [...prev, emptyOption(billingModel, isTrial)])}
+              onClick={() => setNewOptions(prev => [...prev, emptyOption(billingModel)])}
               className="w-full rounded-xl border border-dashed border-[hsl(var(--primary)/0.4)] py-2.5 text-sm text-[hsl(var(--primary))] font-medium hover:bg-[hsl(var(--primary)/0.04)] transition-colors flex items-center justify-center gap-1.5"
             >
               <Plus size={15} />
@@ -940,6 +926,231 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onToggle, disabled }: P
   )
 }
 
+// ── Trial Settings Block ──────────────────────────────────────────────────────
+
+function TrialModal({
+  trialPlan,
+  trialOption,
+  onClose,
+  onSaved,
+}: {
+  trialPlan: PricingPlanResponse | null
+  trialOption: PricingPlanResponse['options'][0] | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useTranslation()
+  const { toast } = useToastContext()
+
+  const [days, setDays] = useState(String(trialOption?.duration_days ?? ''))
+  const [trafficGb, setTrafficGb] = useState(String(trialOption?.traffic_gb ?? ''))
+  const [trafficUnlimited, setTrafficUnlimited] = useState(trialOption?.traffic_unlimited ?? false)
+  const [squadUuid, setSquadUuid] = useState(trialPlan?.remnawave_squad_uuid ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const daysVal = parseInt(days)
+      const trafficVal = parseFloat(trafficGb)
+
+      if (trialPlan) {
+        await updatePlan(trialPlan.id, { remnawave_squad_uuid: squadUuid || null })
+        if (trialOption) {
+          await updatePlanOption(trialPlan.id, trialOption.id, {
+            duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : null,
+            duration_months: null,
+            traffic_gb: !trafficUnlimited && !isNaN(trafficVal) && trafficVal > 0 ? trafficVal : null,
+            traffic_unlimited: trafficUnlimited,
+            price_rub: 0,
+            price_stars: null,
+            is_enabled: true,
+          })
+        } else {
+          await createPlanOption(trialPlan.id, {
+            duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : undefined,
+            traffic_gb: !trafficUnlimited && !isNaN(trafficVal) && trafficVal > 0 ? trafficVal : undefined,
+            traffic_unlimited: trafficUnlimited || undefined,
+            price_rub: 0,
+            is_enabled: true,
+          })
+        }
+      } else {
+        const created = await createPlan({
+          name_ru: 'Пробный период',
+          name_en: 'Trial',
+          plan_kind: 'standalone',
+          billing_model: 'time',
+          traffic_reset_strategy: 'NO_RESET',
+          is_trial: true,
+          is_enabled: false,
+          remnawave_squad_uuid: squadUuid || undefined,
+        })
+        await createPlanOption(created.id, {
+          duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : undefined,
+          traffic_gb: !trafficUnlimited && !isNaN(trafficVal) && trafficVal > 0 ? trafficVal : undefined,
+          traffic_unlimited: trafficUnlimited || undefined,
+          price_rub: 0,
+          is_enabled: true,
+        })
+      }
+
+      onSaved()
+      onClose()
+      toast(t('admin_trial_saved'), 'success')
+    } catch (e: unknown) {
+      toast(e instanceof Error ? e.message : String(e), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-[hsl(var(--foreground))]">{t('admin_trial_title')}</h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{t('admin_trial_subtitle')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-4 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="overflow-y-auto px-5 py-4 space-y-4">
+          {/* Days */}
+          <div>
+            <label className={labelCls}>{t('admin_trial_days')}</label>
+            <input
+              type="number"
+              min="1"
+              className={inputCls}
+              placeholder="Например, 7"
+              value={days}
+              onChange={e => setDays(e.target.value)}
+            />
+          </div>
+
+          {/* Traffic */}
+          <div>
+            <label className={labelCls}>{t('admin_trial_traffic')}</label>
+            <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={trafficUnlimited}
+                onChange={e => setTrafficUnlimited(e.target.checked)}
+              />
+              <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_trial_unlimited')}</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              className={inputCls}
+              placeholder="ГБ"
+              value={trafficGb}
+              onChange={e => setTrafficGb(e.target.value)}
+              disabled={trafficUnlimited}
+            />
+          </div>
+
+          {/* Squad */}
+          <div>
+            <label className={labelCls}>
+              {t('admin_trial_squad')} <span className="text-red-500">*</span>
+            </label>
+            <SquadPicker value={squadUuid} onChange={setSquadUuid} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
+          >
+            {t('admin_cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {t('admin_trial_save')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrialSettingsBlock({
+  allPlans,
+  onOpen,
+}: {
+  allPlans: PricingPlanResponse[]
+  onOpen: () => void
+}) {
+  const { t } = useTranslation()
+
+  const trialPlan = allPlans.find(p => p.is_trial) ?? null
+  const trialOption = trialPlan?.options[0] ?? null
+
+  const hasConfig = trialPlan && trialOption
+
+  const infoParts: string[] = []
+  if (trialOption?.duration_days) infoParts.push(`${trialOption.duration_days} ${t('admin_trial_days_short')}`)
+  if (trialOption?.traffic_unlimited) infoParts.push(t('admin_trial_unlimited'))
+  else if (trialOption?.traffic_gb != null) infoParts.push(`${trialOption.traffic_gb} ГБ`)
+
+  return (
+    <>
+      <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-4 flex items-center gap-4">
+        {/* Icon */}
+        <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--muted))]">
+          <Clock size={16} className="text-[hsl(var(--muted-foreground))]" />
+        </div>
+
+        {/* Title */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_trial_title')}</p>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">{t('admin_trial_subtitle')}</p>
+        </div>
+
+        {/* Status pill */}
+        {!hasConfig ? (
+          <span className="shrink-0 text-xs text-[hsl(var(--muted-foreground))]">
+            {t('admin_trial_not_configured')}
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full bg-[hsl(var(--muted))] px-3 py-1 text-xs font-medium text-[hsl(var(--foreground))]">
+            {infoParts.join(' · ')}
+          </span>
+        )}
+
+        {/* Action button */}
+        <button
+          type="button"
+          onClick={onOpen}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted)/0.5)] transition-colors"
+        >
+          {hasConfig ? t('admin_trial_edit') : t('admin_trial_setup')}
+        </button>
+      </div>
+    </>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function PlansPage() {
@@ -950,6 +1161,7 @@ export function PlansPage() {
   const [localOrder, setLocalOrder] = useState<number[] | null>(null)
   const [dialogPlan, setDialogPlan] = useState<PricingPlanResponse | null | undefined>(undefined)
   // undefined = closed, null = create, PricingPlanResponse = edit
+  const [trialModalOpen, setTrialModalOpen] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'plans'],
@@ -986,8 +1198,9 @@ export function PlansPage() {
 
   const plans = (() => {
     if (!data) return []
-    if (!localOrder) return data
-    return [...data].sort((a, b) => localOrder.indexOf(a.id) - localOrder.indexOf(b.id))
+    const nonTrial = data.filter(p => !p.is_trial)
+    if (!localOrder) return nonTrial
+    return [...nonTrial].sort((a, b) => localOrder.indexOf(a.id) - localOrder.indexOf(b.id))
   })()
 
   function handleDragEnd(event: DragEndEvent) {
@@ -998,12 +1211,12 @@ export function PlansPage() {
     const newIndex = ids.indexOf(over.id as number)
     const newIds = arrayMove(ids, oldIndex, newIndex)
     setLocalOrder(newIds)
-    newIds.forEach((id, idx) => {
-      const plan = data!.find(p => p.id === id)!
-      if (plan.sort_order !== idx + 1) {
-        updateMut.mutate({ id, body: { sort_order: idx + 1 } })
-      }
-    })
+    const updates = newIds
+      .map((id, idx) => ({ id, sort_order: idx + 1 }))
+      .filter(({ id, sort_order }) => data!.find(p => p.id === id)!.sort_order !== sort_order)
+    Promise.all(updates.map(({ id, sort_order }) => updatePlan(id, { sort_order })))
+      .then(() => qc.invalidateQueries({ queryKey: ['admin', 'plans'] }).then(() => setLocalOrder(null)))
+      .catch((e: Error) => { toast(e.message, 'error'); setLocalOrder(null) })
   }
 
   return (
@@ -1031,6 +1244,11 @@ export function PlansPage() {
       )}
 
       {isError && <p className="text-[hsl(var(--muted-foreground))]">{t('admin_plans_load_error')}</p>}
+
+      <TrialSettingsBlock
+        allPlans={data ?? []}
+        onOpen={() => setTrialModalOpen(true)}
+      />
 
       {data && (
         <>
@@ -1102,6 +1320,16 @@ export function PlansPage() {
         <PlanDialog
           plan={dialogPlan ?? undefined}
           onClose={() => setDialogPlan(undefined)}
+        />
+      )}
+
+      {/* Trial settings modal */}
+      {trialModalOpen && (
+        <TrialModal
+          trialPlan={data?.find(p => p.is_trial) ?? null}
+          trialOption={data?.find(p => p.is_trial)?.options[0] ?? null}
+          onClose={() => setTrialModalOpen(false)}
+          onSaved={() => qc.invalidateQueries({ queryKey: ['admin', 'plans'] })}
         />
       )}
 

@@ -276,7 +276,7 @@ async def get_plans(
     # Try DB — catalog mode when non-legacy standalone plans exist
     from core.dal.pricing_plan_dal import get_plans as dal_get_plans, LEGACY_DEFAULT_SLUG
     db_plans = await dal_get_plans(db, enabled_only=True)
-    standalone_plans = [p for p in db_plans if p.plan_kind == "standalone"]
+    standalone_plans = [p for p in db_plans if p.plan_kind == "standalone" and not p.is_trial]
 
     if standalone_plans:
         catalog = [
