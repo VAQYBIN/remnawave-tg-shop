@@ -5,7 +5,7 @@ from aiogram import Router, F, types, Bot
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from typing import Optional, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -335,8 +335,41 @@ async def my_subscription_command_handler(
                 )
             ])
 
-        # 2) Auto-renew toggle (YooKassa only)
-        if not traffic_mode and local_sub and local_sub.provider == "yookassa" and settings.yookassa_autopayments_active:
+        # 2) Auto-renew toggles (catalog entitlements first, legacy subscription fallback)
+        catalog_entitlements = []
+        if not traffic_mode and settings.yookassa_autopayments_active:
+            try:
+                from core.dal.plan_entitlement_dal import get_active_entitlements_for_user
+                catalog_entitlements = await get_active_entitlements_for_user(
+                    session,
+                    event.from_user.id,
+                    now=datetime.now(timezone.utc),
+                )
+            except Exception:
+                logging.exception("Failed to load catalog entitlements for auto-renew buttons")
+
+        if catalog_entitlements:
+            for entitlement in catalog_entitlements:
+                if not entitlement.plan:
+                    continue
+                plan_name = entitlement.plan.name_ru if current_lang == "ru" else (
+                    entitlement.plan.name_en or entitlement.plan.name_ru
+                )
+                key = (
+                    "entitlement_autorenew_disable_button"
+                    if entitlement.auto_renew_enabled
+                    else "entitlement_autorenew_enable_button"
+                )
+                prepend_rows.append([
+                    InlineKeyboardButton(
+                        text=get_text(key, plan=plan_name),
+                        callback_data=(
+                            f"toggle_ent_autorenew:{entitlement.id}:"
+                            f"{1 if not entitlement.auto_renew_enabled else 0}"
+                        ),
+                    )
+                ])
+        elif not traffic_mode and local_sub and local_sub.provider == "yookassa" and settings.yookassa_autopayments_active:
             toggle_text = (
                 get_text("autorenew_disable_button") if local_sub.auto_renew_enabled else get_text("autorenew_enable_button")
             )
@@ -624,6 +657,55 @@ async def toggle_autorenew_handler(
     except Exception as exc:
         logging.debug("Suppressed exception in bot/handlers/user/subscription/core.py: %s", exc)
     return
+
+
+@router.callback_query(F.data.startswith("toggle_ent_autorenew:"))
+async def toggle_entitlement_autorenew_handler(
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
+    panel_service: PanelApiService,
+    bot: Bot,
+):
+    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    i18n: Optional[JsonI18n] = i18n_data.get("i18n_instance")
+    get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
+
+    try:
+        _, entitlement_id_str, enable_str = callback.data.split(":", 2)
+        entitlement_id = int(entitlement_id_str)
+        enable = bool(int(enable_str))
+    except Exception:
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
+
+    from core.dal.plan_entitlement_dal import get_entitlement_by_id
+
+    entitlement = await get_entitlement_by_id(session, entitlement_id)
+    if not entitlement or not entitlement.is_active or entitlement.user_id != callback.from_user.id:
+        await callback.answer(get_text("error_try_again"), show_alert=True)
+        return
+
+    if enable:
+        has_saved_card = await user_billing_dal.user_has_saved_payment_method(session, callback.from_user.id)
+        if not has_saved_card:
+            await callback.answer(get_text("autorenew_enable_requires_card"), show_alert=True)
+            return
+
+    entitlement.auto_renew_enabled = enable
+    await session.commit()
+    await callback.answer(get_text("subscription_autorenew_updated"))
+    await my_subscription_command_handler(
+        callback,
+        i18n_data,
+        settings,
+        panel_service,
+        subscription_service,
+        session,
+        bot,
+    )
 
 
 @router.callback_query(F.data.startswith("autorenew:confirm:"))

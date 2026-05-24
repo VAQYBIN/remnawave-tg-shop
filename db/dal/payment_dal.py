@@ -158,11 +158,14 @@ async def count_user_succeeded_payments(
 
 async def update_provider_payment_and_status(
         session: AsyncSession, payment_db_id: int,
-        provider_payment_id: str, new_status: str) -> Optional[Payment]:
+        provider_payment_id: str, new_status: str,
+        redirect_url: Optional[str] = None) -> Optional[Payment]:
     payment = await get_payment_by_db_id(session, payment_db_id)
     if payment:
         payment.status = new_status
         payment.provider_payment_id = provider_payment_id
+        if redirect_url is not None:
+            payment.redirect_url = redirect_url
         payment.updated_at = func.now()
         await session.flush()
         await session.refresh(payment)

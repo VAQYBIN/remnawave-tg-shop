@@ -72,11 +72,11 @@ async def create_standalone_entitlement(
 
     ends_at = compute_ends_at(opt, starts_at)
 
+    is_renewal = bool(existing_standalone and existing_standalone.plan_id == plan.id)
+
     # Deactivate old standalone — продление того же плана vs смена плана
     if existing_standalone:
-        deactivation_reason = (
-            "plan_renewed" if existing_standalone.plan_id == plan.id else "plan_switched"
-        )
+        deactivation_reason = "plan_renewed" if is_renewal else "plan_switched"
         await plan_entitlement_dal.deactivate_entitlement(
             session,
             existing_standalone.id,
@@ -98,13 +98,22 @@ async def create_standalone_entitlement(
         auto_renew_enabled=True,
     )
 
-    purpose = "trial" if plan.is_trial else "purchase"
+    purpose = "trial" if plan.is_trial else ("renewal" if is_renewal else "purchase")
     await entitlement_payment_dal.create_link(
         session,
         entitlement_id=new_ent.id,
         payment_id=payment.payment_id,
         purpose=purpose,
     )
+
+    if is_renewal and payment.auto_renew_bundle_snapshot:
+        from core.services.tariff_renewal_bundle import apply_bundle_addon_renewals
+        await apply_bundle_addon_renewals(
+            session,
+            payment=payment,
+            new_standalone=new_ent,
+            now=now,
+        )
 
     payment.activation_status = "succeeded"
     await session.flush()

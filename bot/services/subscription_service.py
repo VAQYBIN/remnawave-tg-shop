@@ -1050,13 +1050,13 @@ class SubscriptionService:
         if getattr(self.settings, "traffic_sale_mode", False):
             logging.info("Auto-renew skipped: traffic sale mode enabled")
             return True
-        if not sub.auto_renew_enabled:
-            return True
         # If autopayments are disabled globally, skip charging attempts
         if not self.settings.yookassa_autopayments_active:
             return True
         if sub.provider != "yookassa":
             logging.info("Auto-renew skipped: provider %s does not support auto-renew", sub.provider)
+            return True
+        if not sub.pricing_plan_option_id and not sub.auto_renew_enabled:
             return True
 
         from db.dal.user_billing_dal import get_user_default_payment_method
@@ -1073,6 +1073,110 @@ class SubscriptionService:
         if not yk or not getattr(yk, 'configured', False):
             logging.warning("YooKassa unavailable for auto-renew")
             return False
+
+        if sub.pricing_plan_option_id:
+            from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+            from core.dal.pricing_plan_dal import get_plan_option_by_id
+            from core.services.plan_purchase_policy import can_purchase_plan_option
+            from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+
+            now = datetime.now(timezone.utc)
+            standalone = await get_active_standalone_entitlement(session, sub.user_id, now=now)
+            if not standalone or not standalone.auto_renew_enabled:
+                return True
+
+            option = await get_plan_option_by_id(session, sub.pricing_plan_option_id)
+            if not option or not option.plan or option.plan.plan_kind != "standalone":
+                logging.error("Catalog auto-renew skipped: option missing for subscription %s", sub.subscription_id)
+                return False
+
+            allowed, reason = await can_purchase_plan_option(session, [sub.user_id], option, now=now)
+            if not allowed:
+                logging.warning(
+                    "Catalog auto-renew skipped: option %s not purchasable for user %s (%s)",
+                    option.id,
+                    sub.user_id,
+                    reason,
+                )
+                return False
+
+            amount = float(option.price_rub) if option.price_rub is not None else None
+            if amount is None:
+                logging.error("Catalog auto-renew price missing for option %s", option.id)
+                return False
+
+            bundle = await build_standalone_renewal_bundle(
+                session,
+                user_id=sub.user_id,
+                standalone_option=option,
+                now=now,
+            )
+            bundle_snapshot = None
+            if bundle:
+                if bundle["total_price_rub"] is None:
+                    logging.error("Catalog auto-renew bundle RUB total missing for option %s", option.id)
+                    return False
+                amount = float(bundle["total_price_rub"])
+                bundle_snapshot = bundle["snapshot_json"]
+
+            months = option.duration_months or max(1, round((option.duration_days or 30) / 30.0))
+            payment_description = f"Auto-renewal for catalog plan {option.plan.name_ru}"
+            payment_record = await payment_dal.create_payment_record(
+                session,
+                {
+                    "user_id": sub.user_id,
+                    "amount": amount,
+                    "currency": "RUB",
+                    "status": "pending_yookassa",
+                    "description": payment_description,
+                    "subscription_duration_months": int(months),
+                    "provider": "yookassa",
+                    "pricing_plan_id": option.plan_id,
+                    "pricing_plan_option_id": option.id,
+                    "sale_mode": "standalone",
+                    "duration_months": option.duration_months,
+                    "duration_days": option.duration_days,
+                    "auto_renew_bundle_snapshot": bundle_snapshot,
+                },
+            )
+
+            metadata = {
+                "user_id": str(sub.user_id),
+                "auto_renew_for_subscription_id": str(sub.subscription_id),
+                "auto_renew_for_entitlement_id": str(standalone.id),
+                "subscription_months": str(months),
+                "payment_db_id": str(payment_record.payment_id),
+                "sale_mode": "standalone",
+            }
+            resp = await yk.create_payment(
+                amount=amount,
+                currency="RUB",
+                description=payment_description,
+                metadata=metadata,
+                payment_method_id=default_pm.provider_payment_method_id,
+                save_payment_method=False,
+                capture=True,
+            )
+            if not resp or resp.get("status") not in {"pending", "waiting_for_capture", "succeeded"}:
+                logging.error("Catalog auto-renew create_payment failed: %s", resp)
+                return False
+            provider_payment_id = resp.get("id")
+            if provider_payment_id:
+                await payment_dal.update_provider_payment_and_status(
+                    session,
+                    payment_db_id=payment_record.payment_id,
+                    provider_payment_id=provider_payment_id,
+                    new_status="pending_yookassa",
+                )
+            logging.info(
+                "Catalog auto-renew initiated for user %s payment_id=%s",
+                sub.user_id,
+                resp.get("id"),
+            )
+            return True
+
+        if not sub.auto_renew_enabled:
+            return True
 
         months = sub.duration_months or 1
         amount = self.settings.subscription_options.get(months)

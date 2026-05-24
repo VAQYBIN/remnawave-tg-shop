@@ -452,6 +452,8 @@
   "traffic_no_expiry": "без ограничения",
   "autorenew_enable_button": "🔄 Включить автопродление",
   "autorenew_disable_button": "🛑 Отключить автопродление",
+  "entitlement_autorenew_enable_button": "🔄 Автопродление: {plan}",
+  "entitlement_autorenew_disable_button": "🛑 Автопродление: {plan}",
   "subscription_autorenew_updated": "Настройки автопродления обновлены.",
   "payment_methods_manage_button": "💳 Способы оплаты",
   "payment_methods_title": "💳 <b>Способы оплаты</b>",

@@ -450,6 +450,8 @@
   "traffic_no_expiry": "no limit",
   "autorenew_enable_button": "🔄 Enable auto-renew",
   "autorenew_disable_button": "🛑 Disable auto-renew",
+  "entitlement_autorenew_enable_button": "🔄 Auto-renew: {plan}",
+  "entitlement_autorenew_disable_button": "🛑 Auto-renew: {plan}",
   "subscription_autorenew_updated": "Auto-renew settings updated.",
   "payment_methods_manage_button": "💳 Payment Methods",
   "payment_methods_title": "💳 <b>Payment Methods</b>",

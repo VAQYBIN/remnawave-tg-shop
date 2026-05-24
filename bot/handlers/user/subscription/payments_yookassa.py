@@ -77,6 +77,7 @@ async def _initiate_yk_payment(
     sale_mode: str = "subscription",
     pricing_plan_option_id: Optional[int] = None,
     pricing_plan_id: Optional[int] = None,
+    auto_renew_bundle_snapshot: Optional[str] = None,
     payment_description: Optional[str] = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
@@ -142,6 +143,7 @@ async def _initiate_yk_payment(
         "pricing_plan_option_id": pricing_plan_option_id,
         "pricing_plan_id": pricing_plan_id,
         "sale_mode": sale_mode if pricing_plan_option_id else None,
+        "auto_renew_bundle_snapshot": auto_renew_bundle_snapshot,
     }
 
     db_payment_record = None
@@ -399,6 +401,7 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
     pricing_plan_id = None
     back_callback_value = None
     catalog_payment_description = None
+    auto_renew_bundle_snapshot = None
 
     try:
         _, data_payload = callback.data.split(":", 1)
@@ -425,6 +428,7 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
         sale_mode = catalog_info["sale_mode"]
         pricing_plan_option_id = catalog_info["option_id"]
         pricing_plan_id = catalog_info["pricing_plan_id"]
+        auto_renew_bundle_snapshot = catalog_info.get("auto_renew_bundle_snapshot")
         back_callback_value = catalog_info["back_callback"]
         plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
         catalog_payment_description = get_text("catalog_payment_description", plan_name=plan_name)
@@ -545,6 +549,7 @@ async def pay_yk_callback_handler(callback: types.CallbackQuery, settings: Setti
         sale_mode=sale_mode,
         pricing_plan_option_id=pricing_plan_option_id,
         pricing_plan_id=pricing_plan_id,
+        auto_renew_bundle_snapshot=auto_renew_bundle_snapshot,
         payment_description=catalog_payment_description,
     )
     try:
@@ -583,6 +588,7 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
     pricing_plan_id = None
     back_callback_value = None
     catalog_payment_description = None
+    auto_renew_bundle_snapshot = None
 
     try:
         _, data_payload = callback.data.split(":", 1)
@@ -609,6 +615,7 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
         sale_mode = catalog_info["sale_mode"]
         pricing_plan_option_id = catalog_info["option_id"]
         pricing_plan_id = catalog_info["pricing_plan_id"]
+        auto_renew_bundle_snapshot = catalog_info.get("auto_renew_bundle_snapshot")
         back_callback_value = catalog_info["back_callback"]
         plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
         catalog_payment_description = get_text("catalog_payment_description", plan_name=plan_name)
@@ -681,6 +688,7 @@ async def pay_yk_new_card_handler(callback: types.CallbackQuery, settings: Setti
         sale_mode=sale_mode,
         pricing_plan_option_id=pricing_plan_option_id,
         pricing_plan_id=pricing_plan_id,
+        auto_renew_bundle_snapshot=auto_renew_bundle_snapshot,
         payment_description=catalog_payment_description,
     )
     try:

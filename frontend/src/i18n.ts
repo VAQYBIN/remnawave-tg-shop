@@ -108,6 +108,7 @@ const ru = {
   sub_get_link: 'Получить ссылку',
   sub_auto_renew: 'Автопродление',
   sub_auto_renew_desc: 'Подписка продлится автоматически',
+  sub_entitlement_auto_renew_desc: 'Автопродление тарифа и дополнений настраивается отдельно',
   sub_auto_on: 'Вкл',
   sub_auto_off: 'Выкл',
   sub_renew: 'Продлить подписку',
@@ -144,6 +145,7 @@ const ru = {
   catalog_addon_prorated: 'пропорционально сроку',
   catalog_addon_label: 'Дополнение',
   catalog_standalone_label: 'Тариф',
+  sub_bundle_includes: 'В оплату включены дополнения: {{count}}',
 
   // Entitlements
   entitlement_plan: 'Тариф: {{name}}',
@@ -843,6 +845,7 @@ const en: typeof ru = {
   sub_get_link: 'Get Link',
   sub_auto_renew: 'Auto-renewal',
   sub_auto_renew_desc: 'Subscription will renew automatically',
+  sub_entitlement_auto_renew_desc: 'Plan and add-on auto-renew are configured separately',
   sub_auto_on: 'On',
   sub_auto_off: 'Off',
   sub_renew: 'Renew Subscription',
@@ -879,6 +882,7 @@ const en: typeof ru = {
   catalog_addon_prorated: 'prorated',
   catalog_addon_label: 'Add-on',
   catalog_standalone_label: 'Plan',
+  sub_bundle_includes: 'Included add-ons: {{count}}',
 
   // Entitlements
   entitlement_plan: 'Plan: {{name}}',

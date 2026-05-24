@@ -55,6 +55,8 @@ async def resolve_catalog_offer_for_payment(
     if not allowed:
         return None
 
+    bundle_snapshot_json = None
+
     if plan_kind == "addon":
         standalone = await get_active_standalone_entitlement(session, user_id, now=now)
         if not standalone or not standalone.ends_at or standalone.ends_at <= now:
@@ -77,6 +79,19 @@ async def resolve_catalog_offer_for_payment(
     else:
         price_rub = float(opt.price_rub) if opt.price_rub is not None else None
         price_stars = opt.price_stars
+        from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+        bundle = await build_standalone_renewal_bundle(
+            session,
+            user_id=user_id,
+            standalone_option=opt,
+            now=now,
+        )
+        if bundle:
+            price_rub = bundle["total_price_rub"]
+            price_stars = bundle["total_price_stars"]
+            bundle_snapshot_json = bundle["snapshot_json"]
+        else:
+            bundle_snapshot_json = None
 
     months_for_legacy = opt.duration_months or max(1, round((opt.duration_days or 30) / 30.0))
 
@@ -87,6 +102,7 @@ async def resolve_catalog_offer_for_payment(
         "sale_mode": plan_kind,
         "price_rub": price_rub,
         "price_stars": price_stars,
+        "auto_renew_bundle_snapshot": bundle_snapshot_json if plan_kind == "standalone" else None,
         "months_for_legacy": months_for_legacy,
         "pricing_plan_id": opt.plan_id,
         "back_callback": f"subscribe_option:{option_id}",

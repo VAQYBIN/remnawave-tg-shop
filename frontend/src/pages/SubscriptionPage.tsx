@@ -18,13 +18,17 @@ import {
   getPlans,
   getConnection,
   setAutoRenew,
+  getEntitlements,
+  setEntitlementAutoRenew,
+  getRenewalBundle,
   type PubPlan,
   type PubPlanOption,
   type AddonPlan,
   type AddonPlanOption,
+  type Entitlements,
 } from '@/api/subscription'
 import { createPayment, type PromoApplyResponse } from '@/api/payment'
-import { Copy, Check, RefreshCw, ArrowRight } from 'lucide-react'
+import { Copy, Check, RefreshCw, ArrowRight, Repeat2 } from 'lucide-react'
 import { apiRequest } from '@/api/client'
 import { useToast } from '@/hooks/useToast'
 
@@ -102,12 +106,36 @@ export function SubscriptionPage() {
   const { data: configData } = useAvailableProviders()
   const availableProviders = configData?.available_providers ?? []
 
+  const isCatalogMode = plans?.mode === 'catalog' && (plans.catalog_plans?.length ?? 0) > 0
+
+  const { data: entitlements } = useQuery({
+    queryKey: ['entitlements'],
+    queryFn: getEntitlements,
+    enabled: isCatalogMode && !!subscription,
+  })
+
   const autoRenewMutation = useMutation({
     mutationFn: (enabled: boolean) => setAutoRenew(enabled),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscription'] }),
   })
 
-  const isCatalogMode = plans?.mode === 'catalog' && (plans.catalog_plans?.length ?? 0) > 0
+  const entitlementAutoRenewMutation = useMutation({
+    mutationFn: ({ entitlementId, enabled }: { entitlementId: number; enabled: boolean }) =>
+      setEntitlementAutoRenew(entitlementId, enabled),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['entitlements'] }),
+        qc.invalidateQueries({ queryKey: ['renewal-bundle'] }),
+      ])
+    },
+    onError: (err: Error) => toast.error(err.message || t('sub_error_select')),
+  })
+
+  const { data: renewalBundle } = useQuery({
+    queryKey: ['renewal-bundle', selectedOption?.id],
+    queryFn: () => getRenewalBundle(selectedOption!.id),
+    enabled: isCatalogMode && purchaseMode === 'standalone' && !!selectedOption && !!subscription,
+  })
 
   // Determine current payment item
   const activeOption: PubPlanOption | AddonPlanOption | null =
@@ -134,11 +162,18 @@ export function SubscriptionPage() {
     }
 
     if (purchaseMode === 'standalone' && selectedOption) {
-      const rawRub = selectedOption.price_rub
+      const rawRub = renewalBundle?.has_bundle
+        ? renewalBundle.total_price_rub
+        : selectedOption.price_rub
       const rub = rawRub !== null && discountPct
         ? Math.round(rawRub * (1 - discountPct / 100))
         : rawRub
-      return { rub, stars: selectedOption.price_stars }
+      return {
+        rub,
+        stars: renewalBundle?.has_bundle
+          ? renewalBundle.total_price_stars
+          : selectedOption.price_stars,
+      }
     }
 
     return { rub: null, stars: null }
@@ -319,25 +354,36 @@ export function SubscriptionPage() {
               </CardContent>
             </Card>
 
-            {/* Auto-renew (legacy subscriptions) */}
-            <Card>
-              <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">{t('sub_auto_renew')}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
-                    {t('sub_auto_renew_desc')}
-                  </p>
-                </div>
-                <Button
-                  variant={subscription.auto_renew_enabled ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => autoRenewMutation.mutate(!subscription.auto_renew_enabled)}
-                  disabled={autoRenewMutation.isPending}
-                >
-                  {subscription.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
-                </Button>
-              </CardContent>
-            </Card>
+            {isCatalogMode && entitlements?.standalone ? (
+              <EntitlementAutoRenewCard
+                entitlements={entitlements}
+                lang={i18n.language}
+                t={t}
+                pending={entitlementAutoRenewMutation.isPending}
+                onToggle={(entitlementId, enabled) =>
+                  entitlementAutoRenewMutation.mutate({ entitlementId, enabled })
+                }
+              />
+            ) : (
+              <Card>
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{t('sub_auto_renew')}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                      {t('sub_auto_renew_desc')}
+                    </p>
+                  </div>
+                  <Button
+                    variant={subscription.auto_renew_enabled ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => autoRenewMutation.mutate(!subscription.auto_renew_enabled)}
+                    disabled={autoRenewMutation.isPending}
+                  >
+                    {subscription.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </>
         ) : null}
 
@@ -390,6 +436,11 @@ export function SubscriptionPage() {
                       {purchaseMode === 'addon' ? t('catalog_addon_label') : t('catalog_standalone_label')}
                     </p>
                     <p className="text-sm font-semibold mb-4">{purchaseLabel}</p>
+                    {purchaseMode === 'standalone' && renewalBundle?.has_bundle && (
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mb-4">
+                        {t('sub_bundle_includes', { count: renewalBundle.addons.length })}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -554,5 +605,72 @@ export function SubscriptionPage() {
         )}
       </div>
     </AppShell>
+  )
+}
+
+function EntitlementAutoRenewCard({
+  entitlements,
+  lang,
+  t,
+  pending,
+  onToggle,
+}: {
+  entitlements: Entitlements
+  lang: string
+  t: (key: string, opts?: Record<string, unknown>) => string
+  pending: boolean
+  onToggle: (entitlementId: number, enabled: boolean) => void
+}) {
+  const items = [
+    entitlements.standalone,
+    ...entitlements.addons.filter((addon) => addon.is_active),
+  ].filter(Boolean)
+
+  if (!items.length) return null
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-start gap-2">
+          <Repeat2 size={16} className="mt-0.5 text-[hsl(var(--primary))]" />
+          <div>
+            <p className="font-medium text-sm">{t('sub_auto_renew')}</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              {t('sub_entitlement_auto_renew_desc')}
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {items.map((item) => {
+            if (!item) return null
+            const name = lang === 'ru' ? item.plan_name_ru : (item.plan_name_en ?? item.plan_name_ru)
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-[hsl(var(--border))] px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{name}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                    {item.plan_kind === 'addon'
+                      ? t('catalog_addon_label')
+                      : t('catalog_standalone_label')}
+                  </p>
+                </div>
+                <Button
+                  variant={item.auto_renew_enabled ? 'default' : 'outline'}
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => onToggle(item.id, !item.auto_renew_enabled)}
+                  className="shrink-0"
+                >
+                  {item.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

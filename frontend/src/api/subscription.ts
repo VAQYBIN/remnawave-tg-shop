@@ -90,6 +90,21 @@ export interface Entitlements {
   addons: Entitlement[]
 }
 
+export interface RenewalBundleAddon {
+  entitlement_id: number
+  plan_id: number
+  option_id: number
+  price_rub: number | null
+  price_stars: number | null
+}
+
+export interface RenewalBundle {
+  has_bundle: boolean
+  total_price_rub: number | null
+  total_price_stars: number | null
+  addons: RenewalBundleAddon[]
+}
+
 // ── Addons ─────────────────────────────────────────────────────────────────
 
 export interface AddonPlanOption extends PubPlanOption {
@@ -173,6 +188,10 @@ export function setEntitlementAutoRenew(entitlementId: number, enabled: boolean)
     method: 'PATCH',
     body: JSON.stringify({ enabled }),
   })
+}
+
+export function getRenewalBundle(optionId: number): Promise<RenewalBundle> {
+  return apiRequest<RenewalBundle>(`/subscription/renewal-bundle/${optionId}`)
 }
 
 export function getAddons(): Promise<AddonsList> {

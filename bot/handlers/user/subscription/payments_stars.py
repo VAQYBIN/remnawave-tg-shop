@@ -43,6 +43,7 @@ async def pay_stars_callback_handler(
     pricing_plan_option_id = None
     pricing_plan_id = None
     back_callback_value = None
+    auto_renew_bundle_snapshot = None
 
     try:
         _, data_payload = callback.data.split(":", 1)
@@ -59,6 +60,7 @@ async def pay_stars_callback_handler(
             sale_mode = catalog_info["sale_mode"]
             pricing_plan_option_id = catalog_info["option_id"]
             pricing_plan_id = catalog_info["pricing_plan_id"]
+            auto_renew_bundle_snapshot = catalog_info.get("auto_renew_bundle_snapshot")
             back_callback_value = catalog_info["back_callback"]
             plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
             payment_description = get_text("catalog_payment_description", plan_name=plan_name)
@@ -92,6 +94,7 @@ async def pay_stars_callback_handler(
         promo_code_service=promo_code_service,
         pricing_plan_option_id=pricing_plan_option_id,
         pricing_plan_id=pricing_plan_id,
+        auto_renew_bundle_snapshot=auto_renew_bundle_snapshot,
     )
 
     if payment_db_id:

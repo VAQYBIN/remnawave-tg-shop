@@ -96,6 +96,21 @@ class AutoRenewEntitlementRequest(BaseModel):
     enabled: bool
 
 
+class RenewalBundleAddonResponse(BaseModel):
+    entitlement_id: int
+    plan_id: int
+    option_id: int
+    price_rub: Optional[float]
+    price_stars: Optional[int]
+
+
+class RenewalBundleResponse(BaseModel):
+    has_bundle: bool
+    total_price_rub: Optional[float] = None
+    total_price_stars: Optional[int] = None
+    addons: list[RenewalBundleAddonResponse] = []
+
+
 # ── Addons ─────────────────────────────────────────────────────────────────
 
 class AddonPlanOptionResponse(PubPlanOptionResponse):

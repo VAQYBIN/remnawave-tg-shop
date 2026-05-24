@@ -344,6 +344,10 @@ async def create_web_payment(
     duration_months_val: Optional[int] = None
     duration_days_val: Optional[int] = None
 
+    from core.dal.account_dal import get_effective_payment_user_id
+    user_id = await get_effective_payment_user_id(db, account)
+    bundle_snapshot_json: Optional[str] = None
+
     if plan_option_id is not None:
         from core.dal.pricing_plan_dal import get_plan_option_by_id
         opt = await get_plan_option_by_id(db, plan_option_id)
@@ -408,6 +412,17 @@ async def create_web_payment(
             price_rub = prorated_rub
         else:
             price_rub = float(opt.price_rub)
+            from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+            bundle = await build_standalone_renewal_bundle(
+                db,
+                user_id=user_id,
+                standalone_option=opt,
+            )
+            if bundle:
+                if bundle["total_price_rub"] is None:
+                    raise ValueError("Не удалось рассчитать стоимость bundled-продления")
+                price_rub = float(bundle["total_price_rub"])
+                bundle_snapshot_json = bundle["snapshot_json"]
     elif months is not None:
         price_rub_maybe = await get_plan_price_db(db, settings, months)
         if price_rub_maybe is None:
@@ -420,8 +435,6 @@ async def create_web_payment(
     else:
         raise ValueError("Укажите months или plan_option_id")
 
-    from core.dal.account_dal import get_effective_payment_user_id
-    user_id = await get_effective_payment_user_id(db, account)
     original_amount = float(price_rub)
     final_amount = original_amount
     discount_amount: Optional[float] = None
@@ -476,6 +489,7 @@ async def create_web_payment(
         "sale_mode": sale_mode,
         "duration_months": duration_months_val,
         "duration_days": duration_days_val,
+        "auto_renew_bundle_snapshot": bundle_snapshot_json,
     }
 
     payment = await payment_dal.create_payment_record(db, payment_data)

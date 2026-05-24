@@ -603,22 +603,32 @@
 
 ### Ручные проверки
 
-- [ ] Архивирование тарифа без активных entitlements: тариф пропадает из публичного web `/plans` и bot catalog, появляется в админской секции «Архив».
-- [ ] Архивирование тарифа с активными подписками: подписчики продолжают видеть и могут продлить (web /plans/bot catalog показывают именно им).
-- [ ] После expiry архивного entitlement тариф пропадает из catalog у бывшего владельца.
-- [ ] Прямое нажатие старой inline-кнопки `subscribe_option:{id}` на архивный план у не-владельца отдаёт `catalog_error_option_not_found`.
-- [ ] Прямой POST `/api/payment/create` с `plan_option_id` от архивного плана не-владельцем возвращает 400.
-- [ ] Web admin: попытка PATCH `is_enabled=true` для архивного плана возвращает 409.
-- [ ] Bot admin: попытка «Включить» архивный план показывает алерт.
-- [ ] Удаление тарифа с историческими entitlements (даже без активных) возвращает 409.
-- [ ] Unarchive переводит план в `is_archived=false`, `is_enabled=false`; повторное включение требует отдельного действия.
-- [ ] Auto-renew архивного тарифа у активного владельца проходит как обычное продление; `deactivation_reason="plan_renewed"`.
-- [ ] При смене plan_id `deactivation_reason="plan_switched"`.
+- [x] Архивирование тарифа без активных entitlements: тариф пропадает из публичного web `/plans` и bot catalog, появляется в админской секции «Архив».
+- [x] Архивирование тарифа с активными подписками: подписчики продолжают видеть и могут продлить (web /plans/bot catalog показывают именно им).
+- [x] После expiry архивного entitlement тариф пропадает из catalog у бывшего владельца.
+- [x] Прямое нажатие старой inline-кнопки `subscribe_option:{id}` на архивный план у не-владельца отдаёт `catalog_error_option_not_found`.
+- [x] Прямой POST `/api/payment/create` с `plan_option_id` от архивного плана не-владельцем возвращает 400.
+- [x] Web admin: попытка PATCH `is_enabled=true` для архивного плана возвращает 409.
+- [x] Bot admin: попытка «Включить» архивный план показывает алерт.
+- [x] Удаление тарифа с историческими entitlements (даже без активных) возвращает 409.
+- [x] Unarchive переводит план в `is_archived=false`, `is_enabled=false`; повторное включение требует отдельного действия.
+- [x] Auto-renew архивного тарифа у активного владельца проходит как обычное продление; `deactivation_reason="plan_renewed"`.
+- [x] При смене plan_id `deactivation_reason="plan_switched"`.
 
 ### Статус выполнения фазы
 
-Backend и frontend реализованы и проходят автоматические проверки. Требуется
-прохождение ручных проверок на dev-стенде.
+Фаза 9.5 полностью реализована и проверена.
+
+Подтверждено:
+
+- Архивные тарифы скрываются из публичных каталогов для новых пользователей.
+- Активные владельцы архивных standalone-тарифов видят их в web и bot catalog и могут продлевать.
+- После истечения entitlement архивный тариф пропадает из catalog у бывшего владельца.
+- Прямые попытки покупки архивного тарифа не-владельцем блокируются в bot и web payment flow.
+- Web admin и bot admin блокируют включение архивного тарифа без восстановления.
+- Удаление тарифа с историческими entitlements возвращает 409.
+- `unarchive` снимает только `is_archived`, не включая тариф автоматически.
+- `deactivation_reason` корректно различает продление того же тарифа (`plan_renewed`) и смену тарифа (`plan_switched`).
 
 ---
 
@@ -626,18 +636,18 @@ Backend и frontend реализованы и проходят автомати�
 
 ### Задачи
 
-- [ ] До готовности bundle не удалять legacy YooKassa auto-renew для старых подписок.
-- [ ] Расширить auto-renew service для entitlements.
-- [ ] Рассчитывать сумму standalone + enabled addon.
-- [ ] При ручном продлении standalone формировать bundled-offer с active addon, у которых `auto_renew_enabled=true`.
-- [ ] Сохранять `auto_renew_bundle_snapshot`.
-- [ ] Формат `auto_renew_bundle_snapshot` содержит standalone object и addons array с `entitlement_id`, `plan_id`, `option_id`, `price_rub`, `price_stars`.
-- [ ] Продлевать standalone после успешной оплаты.
-- [ ] Продлевать addon с `auto_renew_enabled=true`.
-- [ ] Не продлевать addon с `auto_renew_enabled=false`.
-- [ ] Обновить bot UI toggle.
-- [ ] Обновить web UI toggle.
-- [ ] Обновить историю платежей.
+- [x] До готовности bundle не удалять legacy YooKassa auto-renew для старых подписок.
+- [x] Расширить auto-renew service для entitlements.
+- [x] Рассчитывать сумму standalone + enabled addon.
+- [x] При ручном продлении standalone формировать bundled-offer с active addon, у которых `auto_renew_enabled=true`.
+- [x] Сохранять `auto_renew_bundle_snapshot`.
+- [x] Формат `auto_renew_bundle_snapshot` содержит standalone object и addons array с `entitlement_id`, `plan_id`, `option_id`, `price_rub`, `price_stars`.
+- [x] Продлевать standalone после успешной оплаты.
+- [x] Продлевать addon с `auto_renew_enabled=true`.
+- [x] Не продлевать addon с `auto_renew_enabled=false`.
+- [x] Обновить bot UI toggle.
+- [x] Обновить web UI toggle.
+- [x] Обновить историю платежей. _(платежи bundle сохраняют итоговую сумму, provider и snapshot в `payments`; отдельная визуализация состава bundle в истории не добавлялась)_
 
 ### Автоматические проверки
 
@@ -654,6 +664,30 @@ Backend и frontend реализованы и проходят автомати�
 - [ ] Отключённый addon остаётся активным до конца текущего срока.
 - [ ] После автопродления включённые addon продлены до нового конца standalone.
 - [ ] Remnawave squads после автопродления корректны.
+
+### Статус выполнения фазы
+
+Основная реализация Фазы 10 добавлена. Требуются mock-тесты и ручная проверка
+на dev-стенде.
+
+Реализовано:
+
+- `core/services/tariff_renewal_bundle.py` собирает bundle snapshot и считает
+  сумму standalone + addon с `auto_renew_enabled=true`.
+- Web payment creation и bot payment flows сохраняют
+  `auto_renew_bundle_snapshot`.
+- После успешной оплаты standalone renewal продлевает включённые addon до нового
+  конца standalone; addon с отключённым auto-renew не входит в snapshot и
+  остаётся до старой даты.
+- YooKassa auto-renew поддерживает catalog entitlements и сохраняет legacy
+  subscription auto-renew для старых подписок.
+- Web UI и bot UI получили toggle автопродления по отдельным entitlements.
+
+Автоматически проверено:
+
+- `python -m py_compile` для изменённых backend/bot/web Python-файлов.
+- `python -m json.tool` для `locales/ru.json` и `locales/en.json`.
+- `npm run build` для frontend.
 
 ---
 

@@ -58,7 +58,8 @@ class StarsService:
     async def create_invoice(self, session: AsyncSession, user_id: int, months: float,
                              stars_price: int, description: str, sale_mode: str = "subscription",
                              promo_code_service=None, pricing_plan_option_id: Optional[int] = None,
-                             pricing_plan_id: Optional[int] = None) -> Optional[int]:
+                             pricing_plan_id: Optional[int] = None,
+                             auto_renew_bundle_snapshot: Optional[str] = None) -> Optional[int]:
         if pricing_plan_option_id is not None:
             # Catalog option — price is already validated server-side by resolve_catalog_offer_for_payment
             original_stars_price = int(stars_price)
@@ -123,6 +124,7 @@ class StarsService:
             "pricing_plan_option_id": pricing_plan_option_id,
             "pricing_plan_id": pricing_plan_id,
             "sale_mode": sale_mode if pricing_plan_option_id else None,
+            "auto_renew_bundle_snapshot": auto_renew_bundle_snapshot,
         }
         try:
             db_payment_record = await payment_dal.create_payment_record(

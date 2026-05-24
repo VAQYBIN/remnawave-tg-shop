@@ -14,6 +14,8 @@ from web.schemas.subscription import (
     AutoRenewResponse,
     AutoRenewEntitlementRequest,
     ConnectionResponse,
+    RenewalBundleResponse,
+    RenewalBundleAddonResponse,
     TimePlan,
     TrialEligibilityResponse,
     TrafficPlan,
@@ -432,6 +434,52 @@ async def toggle_entitlement_auto_renew(
     await db.refresh(e)
 
     return _entitlement_to_response(e)
+
+
+@router.get("/renewal-bundle/{option_id}", response_model=RenewalBundleResponse)
+async def get_renewal_bundle(
+    option_id: int,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> RenewalBundleResponse:
+    from core.dal.pricing_plan_dal import get_plan_option_by_id
+    from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return RenewalBundleResponse(has_bundle=False)
+
+    option = await get_plan_option_by_id(db, option_id)
+    if option is None or option.plan is None or option.plan.plan_kind != "standalone":
+        raise HTTPException(status_code=404, detail="Option not found")
+
+    now = datetime.now(timezone.utc)
+    for user_id in user_ids:
+        bundle = await build_standalone_renewal_bundle(
+            db,
+            user_id=user_id,
+            standalone_option=option,
+            now=now,
+        )
+        if bundle:
+            snapshot = bundle["snapshot"]
+            return RenewalBundleResponse(
+                has_bundle=True,
+                total_price_rub=bundle["total_price_rub"],
+                total_price_stars=bundle["total_price_stars"],
+                addons=[
+                    RenewalBundleAddonResponse(
+                        entitlement_id=item["entitlement_id"],
+                        plan_id=item["plan_id"],
+                        option_id=item["option_id"],
+                        price_rub=item.get("price_rub"),
+                        price_stars=item.get("price_stars"),
+                    )
+                    for item in snapshot.get("addons", [])
+                ],
+            )
+
+    return RenewalBundleResponse(has_bundle=False)
 
 
 @router.get("/addons", response_model=AddonsListResponse)

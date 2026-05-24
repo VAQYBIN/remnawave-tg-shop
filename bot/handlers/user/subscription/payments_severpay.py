@@ -51,6 +51,7 @@ async def pay_severpay_callback_handler(
     pricing_plan_option_id = None
     pricing_plan_id = None
     back_callback_value = None
+    auto_renew_bundle_snapshot = None
 
     try:
         _, data_payload = callback.data.split(":", 1)
@@ -72,6 +73,7 @@ async def pay_severpay_callback_handler(
             sale_mode = catalog_info["sale_mode"]
             pricing_plan_option_id = catalog_info["option_id"]
             pricing_plan_id = catalog_info["pricing_plan_id"]
+            auto_renew_bundle_snapshot = catalog_info.get("auto_renew_bundle_snapshot")
             back_callback_value = catalog_info["back_callback"]
             if price_rub is None:
                 logging.warning("SeverPay: catalog option %s has no RUB price", pricing_plan_option_id)
@@ -133,6 +135,7 @@ async def pay_severpay_callback_handler(
         "pricing_plan_option_id": pricing_plan_option_id,
         "pricing_plan_id": pricing_plan_id,
         "sale_mode": sale_mode if pricing_plan_option_id else None,
+        "auto_renew_bundle_snapshot": auto_renew_bundle_snapshot,
     }
 
     try:
