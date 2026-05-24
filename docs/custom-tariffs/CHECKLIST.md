@@ -651,10 +651,10 @@
 
 ### Автоматические проверки
 
-- [ ] Mock-тест расчёта bundle.
-- [ ] Mock-тест ручного bundled renewal.
-- [ ] Mock-тест отключённого addon.
-- [ ] Mock-тест повторного webhook.
+- [x] Mock-тест расчёта bundle.
+- [x] Mock-тест ручного bundled renewal.
+- [x] Mock-тест отключённого addon.
+- [x] Mock-тест повторного webhook.
 
 ### Ручные проверки
 
@@ -667,8 +667,8 @@
 
 ### Статус выполнения фазы
 
-Основная реализация Фазы 10 добавлена. Требуются mock-тесты и ручная проверка
-на dev-стенде.
+Основная реализация Фазы 10 добавлена. Mock-тесты проходят. Требуется ручная
+проверка на dev-стенде.
 
 Реализовано:
 
@@ -688,6 +688,7 @@
 - `python -m py_compile` для изменённых backend/bot/web Python-файлов.
 - `python -m json.tool` для `locales/ru.json` и `locales/en.json`.
 - `npm run build` для frontend.
+- `python -m pytest tests\test_phase10_renewal_bundle.py -q` — 4 passed.
 
 ---
 
