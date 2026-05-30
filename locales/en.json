@@ -511,6 +511,7 @@
   "admin_logs_csv_no_data": "No data to export.",
   "admin_promo_creation_cancelled": "Promo creation cancelled.",
   "admin_promo_invalid_number": "❌ Invalid number. Enter a number greater than 0.",
+  "admin_promo_invalid_discount_percentage": "❌ Discount percentage must be between 1 and 100.",
   "admin_sync_errors": "\n🚫 Synchronization errors: {count}",
   "error_applying_promo_discount": "❌ Error applying promo discount. Please try again later.",
   "error_generating_referral_link": "Error generating referral link. Please try again later.",

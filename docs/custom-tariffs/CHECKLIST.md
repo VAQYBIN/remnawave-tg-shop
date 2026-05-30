@@ -747,24 +747,24 @@
 
 ### Задачи
 
-- [ ] Обновить README.
-- [ ] Описать migration guide для open-source пользователей.
-- [ ] Обновить `.env.example`.
-- [ ] Пометить legacy tariff env-поля deprecated.
-- [ ] Описать Remnawave v2.7.4 requirement.
-- [ ] Описать настройку тарифов в web admin.
-- [ ] Описать настройку тарифов в bot admin.
-- [ ] Проверить ru/en i18n.
-- [ ] Финальный backend build/test.
-- [ ] Финальный frontend build.
+- [x] Обновить README. _(добавлены Custom Tariffs в features, раздел «🧩 Custom Tariffs», обновлены справочники API)_
+- [x] Описать migration guide для open-source пользователей. _(раздел «Миграция существующих установок» в README)_
+- [x] Обновить `.env.example`. _(deprecated-пометки legacy tariff полей + добавлены `MIN_PRORATED_PRICE_RUB/STARS`)_
+- [x] Пометить legacy tariff env-поля deprecated. _(`RUB_PRICE_*`/`STARS_PRICE_*`/`TRAFFIC_PACKAGES`/`USER_SQUAD_UUIDS` в `.env.example` и README)_
+- [x] Описать Remnawave v2.7.4 requirement. _(в README — требование 2.7.4 и Internal Squads API)_
+- [x] Описать настройку тарифов в web admin. _(раздел «Настройка тарифов в web admin»)_
+- [x] Описать настройку тарифов в bot admin. _(раздел «Настройка тарифов в bot admin»)_
+- [x] Проверить ru/en i18n. _(bot locales выровнены 624/624 — добавлен `admin_promo_invalid_discount_percentage` в en; frontend паритет гарантирован `const en: typeof ru`)_
+- [x] Финальный backend build/test. _(`compileall` core/bot/web/db/config/alembic — OK; `configure_mappers` — OK; `pytest tests/` — 8 passed)_
+- [x] Финальный frontend build. _(`npm run build` — built in ~12.6s, без ошибок)_
 
 ### Автоматические проверки
 
-- [ ] Backend стартует.
-- [ ] Bot стартует.
-- [ ] `npm run build` проходит.
-- [ ] Alembic migrations проходят с нуля.
-- [ ] Alembic migrations проходят на существующей БД.
+- [ ] Backend стартует. _(требует Docker/dev-стенд: на хосте отсутствуют runtime-зависимости `jwt`/PyJWT; `compileall` и `configure_mappers` проходят)_
+- [ ] Bot стартует. _(требует Docker/dev-стенд: на хосте отсутствует `yookassa`; `compileall` проходит)_
+- [x] `npm run build` проходит. _(built in ~12.6s)_
+- [ ] Alembic migrations проходят с нуля. _(требует Postgres — проверка на dev-стенде; `alembic heads` показывает один head `77d18bb308d7`)_
+- [ ] Alembic migrations проходят на существующей БД. _(требует Postgres — проверка на dev-стенде)_
 
 ### Ручные проверки
 
@@ -779,6 +779,32 @@
 - [ ] Remnawave user получает ожидаемые `activeInternalSquads`.
 - [ ] Remnawave user получает ожидаемый `expireAt`.
 - [ ] Remnawave user получает ожидаемый `trafficLimitBytes`.
+
+### Статус выполнения фазы
+
+Фаза 12 реализована (документация). Автоматические проверки, не требующие живого
+стека, пройдены. Старт backend/bot и alembic-миграции на БД требуют ручной
+проверки на dev-стенде (Docker).
+
+Реализовано:
+
+- README: новый раздел «🧩 Custom Tariffs» (понятия standalone/addon/trial,
+  billing models, squads), migration guide для open-source, инструкции по
+  настройке тарифов в web admin и bot admin, требование Remnawave 2.7.4,
+  обновлённые справочники публичных и admin API-эндпоинтов.
+- `.env.example`: legacy tariff поля (`RUB_PRICE_*`, `STARS_PRICE_*`,
+  `TRAFFIC_PACKAGES`, `USER_SQUAD_UUIDS`) помечены deprecated; добавлены
+  `MIN_PRORATED_PRICE_RUB`/`MIN_PRORATED_PRICE_STARS`.
+- i18n: bot ru/en выровнены до 624/624 ключей.
+
+Автоматически проверено:
+
+- `python -m compileall core bot web db config alembic -q` — OK.
+- `configure_mappers()` — OK.
+- `python -m pytest tests/ -q` — 8 passed.
+- `python -m json.tool` (ru.json/en.json через `json.load`) — OK, паритет 624/624.
+- `npm run build` (frontend) — OK.
+- `alembic heads` — один head `77d18bb308d7`.
 
 ---
 

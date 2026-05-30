@@ -355,16 +355,18 @@ export function SubscriptionPage() {
             </Card>
 
             {isCatalogMode && entitlements?.standalone ? (
-              <EntitlementAutoRenewCard
-                entitlements={entitlements}
-                lang={i18n.language}
-                t={t}
-                pending={entitlementAutoRenewMutation.isPending}
-                onToggle={(entitlementId, enabled) =>
-                  entitlementAutoRenewMutation.mutate({ entitlementId, enabled })
-                }
-              />
-            ) : (
+              entitlements.auto_renew_available ? (
+                <EntitlementAutoRenewCard
+                  entitlements={entitlements}
+                  lang={i18n.language}
+                  t={t}
+                  pending={entitlementAutoRenewMutation.isPending}
+                  onToggle={(entitlementId, enabled) =>
+                    entitlementAutoRenewMutation.mutate({ entitlementId, enabled })
+                  }
+                />
+              ) : null
+            ) : subscription.auto_renew_available ? (
               <Card>
                 <CardContent className="p-6 flex items-center justify-between">
                   <div>
@@ -383,7 +385,7 @@ export function SubscriptionPage() {
                   </Button>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
           </>
         ) : null}
 

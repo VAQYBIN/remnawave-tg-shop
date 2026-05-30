@@ -10,6 +10,7 @@ export interface Subscription {
   traffic_limit_bytes: number | null
   traffic_used_bytes: number | null
   auto_renew_enabled: boolean
+  auto_renew_available: boolean
   provider: string | null
   panel_user_uuid: string
   panel_subscription_uuid: string | null
@@ -88,6 +89,7 @@ export interface Entitlement {
 export interface Entitlements {
   standalone: Entitlement | null
   addons: Entitlement[]
+  auto_renew_available: boolean
 }
 
 export interface RenewalBundleAddon {

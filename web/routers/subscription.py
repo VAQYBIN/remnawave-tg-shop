@@ -202,6 +202,7 @@ async def get_subscription(
         traffic_limit_bytes=traffic_limit,
         traffic_used_bytes=traffic_used,
         auto_renew_enabled=sub.auto_renew_enabled,
+        auto_renew_available=settings.yookassa_autopayments_active,
         provider=sub.provider,
         panel_user_uuid=sub.panel_user_uuid,
         panel_subscription_uuid=sub.panel_subscription_uuid,
@@ -257,6 +258,7 @@ async def activate_trial(
         traffic_limit_bytes=result.get("traffic_limit_bytes"),
         traffic_used_bytes=result.get("traffic_used_bytes"),
         auto_renew_enabled=False,
+        auto_renew_available=settings.yookassa_autopayments_active,
         provider=result.get("provider"),
         panel_user_uuid=result["panel_user_uuid"],
         panel_subscription_uuid=result.get("panel_subscription_uuid"),
@@ -387,12 +389,15 @@ async def get_plans(
 async def get_entitlements(
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> EntitlementsResponse:
     from core.dal.plan_entitlement_dal import get_active_entitlements_for_user
 
+    auto_renew_available = settings.yookassa_autopayments_active
+
     user_ids = get_account_user_ids(account)
     if not user_ids:
-        return EntitlementsResponse(standalone=None, addons=[])
+        return EntitlementsResponse(standalone=None, addons=[], auto_renew_available=auto_renew_available)
 
     now = datetime.now(timezone.utc)
     standalone = None
@@ -408,7 +413,11 @@ async def get_entitlements(
             else:
                 addons.append(resp)
 
-    return EntitlementsResponse(standalone=standalone, addons=addons)
+    return EntitlementsResponse(
+        standalone=standalone,
+        addons=addons,
+        auto_renew_available=auto_renew_available,
+    )
 
 
 @router.patch("/entitlements/{entitlement_id}/auto-renew", response_model=EntitlementResponse)
@@ -417,8 +426,12 @@ async def toggle_entitlement_auto_renew(
     body: AutoRenewEntitlementRequest,
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> EntitlementResponse:
     from core.dal.plan_entitlement_dal import get_entitlement_by_id
+
+    if body.enabled and not settings.yookassa_autopayments_active:
+        raise HTTPException(status_code=403, detail="Auto-renew is disabled")
 
     e = await get_entitlement_by_id(db, entitlement_id)
     if e is None or not e.is_active:
@@ -616,6 +629,10 @@ async def toggle_auto_renew(
         raise HTTPException(status_code=404, detail="No subscription found")
 
     from core.dal.subscription_dal import set_auto_renew
+
+    if body.enabled and not settings.yookassa_autopayments_active:
+        raise HTTPException(status_code=403, detail="Auto-renew is disabled")
+
     sub = await _get_account_active_subscription(db, account, settings)
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")

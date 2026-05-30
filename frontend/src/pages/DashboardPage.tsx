@@ -155,7 +155,7 @@ export function DashboardPage() {
           <>
             <SubscriptionCard subscription={subscription} />
             {/* Catalog entitlements block */}
-            {isCatalogMode && entitlements?.standalone && (
+            {isCatalogMode && entitlements?.standalone && entitlements.auto_renew_available && (
               <EntitlementsBlock
                 entitlements={entitlements}
                 lang={i18n.language}

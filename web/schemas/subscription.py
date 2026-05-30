@@ -14,6 +14,7 @@ class SubscriptionResponse(BaseModel):
     traffic_limit_bytes: Optional[int]
     traffic_used_bytes: Optional[int]
     auto_renew_enabled: bool
+    auto_renew_available: bool = False
     provider: Optional[str]
     panel_user_uuid: str
     panel_subscription_uuid: Optional[str]
@@ -90,6 +91,7 @@ class EntitlementResponse(BaseModel):
 class EntitlementsResponse(BaseModel):
     standalone: Optional[EntitlementResponse]
     addons: list[EntitlementResponse]
+    auto_renew_available: bool = False
 
 
 class AutoRenewEntitlementRequest(BaseModel):
