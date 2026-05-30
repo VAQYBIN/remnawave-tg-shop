@@ -1,26 +1,17 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
 import { TrialBanner } from '@/components/subscription/TrialBanner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/auth/useAuth'
-import {
-  getSubscription,
-  getPlans,
-  getEntitlements,
-  setEntitlementAutoRenew,
-  type Entitlements,
-} from '@/api/subscription'
+import { getSubscription } from '@/api/subscription'
 import { getProfile } from '@/api/profile'
 import { getPaymentsCount, getPendingPayment, type PaymentStatus } from '@/api/payment'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
-import { CreditCard, Receipt, ArrowRight, AlertCircle, X, Package } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/useToast'
+import { CreditCard, Receipt, ArrowRight, AlertCircle, X } from 'lucide-react'
 
 const PAYMENT_EXPIRY_MS = 65 * 60 * 1000
 
@@ -37,10 +28,8 @@ function isPendingPaymentExpired(payment: PaymentStatus): boolean {
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { branding } = useBrandingContext()
-  const qc = useQueryClient()
-  const toast = useToast()
   const navigate = useNavigate()
   const [bannerDismissed, setBannerDismissed] = useState(
     () => sessionStorage.getItem('pending_payment_banner_dismissed') === '1'
@@ -54,29 +43,6 @@ export function DashboardPage() {
   const { data: subscription, isLoading: subLoading } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscription,
-  })
-
-  const { data: plans } = useQuery({
-    queryKey: ['plans'],
-    queryFn: getPlans,
-  })
-
-  const isCatalogMode =
-    plans?.mode === 'catalog' && (plans.catalog_plans?.length ?? 0) > 0
-
-  const { data: entitlements } = useQuery({
-    queryKey: ['entitlements'],
-    queryFn: getEntitlements,
-    enabled: isCatalogMode,
-  })
-
-  const entitlementAutoRenewMutation = useMutation({
-    mutationFn: ({ entitlementId, enabled }: { entitlementId: number; enabled: boolean }) =>
-      setEntitlementAutoRenew(entitlementId, enabled),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['entitlements'] })
-    },
-    onError: (err: Error) => toast.error(err.message),
   })
 
   const { data: paymentsCount } = useQuery({
@@ -152,21 +118,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         ) : subscription ? (
-          <>
-            <SubscriptionCard subscription={subscription} />
-            {/* Catalog entitlements block */}
-            {isCatalogMode && entitlements?.standalone && entitlements.auto_renew_available && (
-              <EntitlementsBlock
-                entitlements={entitlements}
-                lang={i18n.language}
-                t={t}
-                pending={entitlementAutoRenewMutation.isPending}
-                onToggle={(entitlementId, enabled) =>
-                  entitlementAutoRenewMutation.mutate({ entitlementId, enabled })
-                }
-              />
-            )}
-          </>
+          <SubscriptionCard subscription={subscription} />
         ) : (
           <Card>
             <CardContent className="p-6 text-center space-y-3">
@@ -220,74 +172,5 @@ export function DashboardPage() {
         </div>
       </div>
     </AppShell>
-  )
-}
-
-// ── Entitlements block shown on dashboard when catalog mode is active ──────
-
-function EntitlementsBlock({
-  entitlements,
-  lang,
-  t,
-  pending,
-  onToggle,
-}: {
-  entitlements: Entitlements
-  lang: string
-  t: (key: string, opts?: Record<string, unknown>) => string
-  pending: boolean
-  onToggle: (entitlementId: number, enabled: boolean) => void
-}) {
-  const { standalone, addons } = entitlements
-  if (!standalone) return null
-
-  const standaloneName =
-    lang === 'ru' ? standalone.plan_name_ru : (standalone.plan_name_en ?? standalone.plan_name_ru)
-
-  const activeAddons = addons.filter((a) => a.is_active)
-
-  return (
-    <Card>
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Package size={15} className="text-[hsl(var(--primary))] shrink-0" />
-            <p className="text-sm font-medium truncate">{t('entitlement_plan', { name: standaloneName })}</p>
-          </div>
-          <Button
-            variant={standalone.auto_renew_enabled ? 'default' : 'outline'}
-            size="sm"
-            disabled={pending}
-            onClick={() => onToggle(standalone.id, !standalone.auto_renew_enabled)}
-            className="shrink-0"
-          >
-            {standalone.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
-          </Button>
-        </div>
-        {activeAddons.length > 0 && (
-          <div className="space-y-2 pl-5">
-            {activeAddons.map((a) => {
-              const name = lang === 'ru' ? a.plan_name_ru : (a.plan_name_en ?? a.plan_name_ru)
-              return (
-                <div key={a.id} className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-xs font-normal truncate">
-                    + {name}
-                  </Badge>
-                  <Button
-                    variant={a.auto_renew_enabled ? 'default' : 'outline'}
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => onToggle(a.id, !a.auto_renew_enabled)}
-                    className="h-7 shrink-0 text-xs"
-                  >
-                    {a.auto_renew_enabled ? t('sub_auto_on') : t('sub_auto_off')}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   )
 }
