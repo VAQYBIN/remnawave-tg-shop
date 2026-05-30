@@ -199,3 +199,9 @@ export function getRenewalBundle(optionId: number): Promise<RenewalBundle> {
 export function getAddons(): Promise<AddonsList> {
   return apiRequest<AddonsList>('/subscription/addons')
 }
+
+// Full-price addon catalog for the combined "standalone + addon" purchase flow.
+// Period aligns to the freshly-bought standalone; no active subscription required.
+export function getAddonsCatalog(): Promise<AddonsList> {
+  return apiRequest<AddonsList>('/subscription/addons/catalog')
+}

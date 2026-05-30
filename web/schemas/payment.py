@@ -28,12 +28,15 @@ class CreatePaymentRequest(BaseModel):
     provider: str
     months: Optional[int] = Field(default=None, ge=1, le=120)
     plan_option_id: Optional[int] = Field(default=None, ge=1)
+    addon_option_id: Optional[int] = Field(default=None, ge=1)
     promo_code: Optional[str] = None
 
     @model_validator(mode="after")
     def check_months_or_option(self) -> "CreatePaymentRequest":
         if self.months is None and self.plan_option_id is None:
             raise ValueError("Укажите months или plan_option_id")
+        if self.addon_option_id is not None and self.plan_option_id is None:
+            raise ValueError("Дополнение можно добавить только к каталожному тарифу")
         return self
 
 

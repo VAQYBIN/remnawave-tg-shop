@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { getAddons, type AddonPlan, type AddonPlanOption } from '@/api/subscription'
+import { getAddons, getAddonsCatalog, type AddonPlan, type AddonPlanOption } from '@/api/subscription'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
@@ -8,6 +8,10 @@ import { Loader2 } from 'lucide-react'
 interface AddonSelectorProps {
   selectedOptionId: number | null
   onSelect: (plan: AddonPlan, option: AddonPlanOption) => void
+  // 'bundle': bought together with a standalone plan in this purchase — full price,
+  //           period aligned to the standalone (uses /subscription/addons/catalog).
+  // 'topup':  added to an already-active subscription — prorated (uses /subscription/addons).
+  mode?: 'bundle' | 'topup'
 }
 
 function formatDuration(option: AddonPlanOption, isRu: boolean): string {
@@ -26,14 +30,14 @@ function formatDuration(option: AddonPlanOption, isRu: boolean): string {
   return ''
 }
 
-export function AddonSelector({ selectedOptionId, onSelect }: AddonSelectorProps) {
+export function AddonSelector({ selectedOptionId, onSelect, mode = 'topup' }: AddonSelectorProps) {
   const { i18n, t } = useTranslation()
   const isRu = i18n.language === 'ru'
   const lang = i18n.language
 
   const { data: addonsList, isLoading } = useQuery({
-    queryKey: ['addons'],
-    queryFn: getAddons,
+    queryKey: ['addons', mode],
+    queryFn: mode === 'bundle' ? getAddonsCatalog : getAddons,
   })
 
   if (isLoading) {
@@ -120,9 +124,11 @@ export function AddonSelector({ selectedOptionId, onSelect }: AddonSelectorProps
                       {stars != null && (
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">⭐ {stars}</p>
                       )}
-                      <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                        {t('catalog_addon_prorated')}
-                      </p>
+                      {mode === 'topup' && (
+                        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                          {t('catalog_addon_prorated')}
+                        </p>
+                      )}
                     </div>
                   )
                 })}

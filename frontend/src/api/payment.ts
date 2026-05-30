@@ -24,6 +24,7 @@ export interface CreatePaymentRequest {
   provider: string
   months?: number
   plan_option_id?: number
+  addon_option_id?: number
   promo_code?: string
 }
 

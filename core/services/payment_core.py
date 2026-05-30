@@ -322,6 +322,7 @@ async def create_web_payment(
     provider: str,
     months: Optional[int] = None,
     plan_option_id: Optional[int] = None,
+    addon_option_id: Optional[int] = None,
     promo_code: Optional[str] = None,
 ) -> Tuple[int, str]:
     """
@@ -383,6 +384,8 @@ async def create_web_payment(
             raise ValueError("Этот тариф недоступен для покупки")
 
         if opt.plan.plan_kind == "addon":
+            if addon_option_id is not None:
+                raise ValueError("Дополнение нельзя добавить к покупке дополнения")
             # For addon options the price must be prorated against the remaining standalone period.
             from core.dal.account_dal import get_effective_payment_user_id as _get_uid
             from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
@@ -412,7 +415,10 @@ async def create_web_payment(
             price_rub = prorated_rub
         else:
             price_rub = float(opt.price_rub)
-            from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+            from core.services.tariff_renewal_bundle import (
+                build_standalone_renewal_bundle,
+                add_new_addon_to_snapshot,
+            )
             bundle = await build_standalone_renewal_bundle(
                 db,
                 user_id=user_id,
@@ -423,7 +429,36 @@ async def create_web_payment(
                     raise ValueError("Не удалось рассчитать стоимость bundled-продления")
                 price_rub = float(bundle["total_price_rub"])
                 bundle_snapshot_json = bundle["snapshot_json"]
+
+            # Совместная покупка: основной тариф + одно новое дополнение в этом же платеже.
+            if addon_option_id is not None:
+                addon_opt = await get_plan_option_by_id(db, addon_option_id)
+                if addon_opt is None or not addon_opt.is_enabled or addon_opt.plan is None:
+                    raise ValueError("Выбранное дополнение недоступно")
+                if addon_opt.plan.plan_kind != "addon":
+                    raise ValueError("Выбранный вариант не является дополнением")
+                if addon_opt.price_rub is None:
+                    raise ValueError("Для дополнения не задана цена в рублях")
+
+                addon_allowed, _addon_reason = await can_purchase_plan_option(
+                    db, _user_ids_for_policy, addon_opt
+                )
+                if not addon_allowed:
+                    raise ValueError("Это дополнение недоступно для покупки")
+
+                addon_bundle = add_new_addon_to_snapshot(
+                    bundle["snapshot"] if bundle else None,
+                    standalone_option=opt,
+                    addon_option=addon_opt,
+                )
+                if addon_bundle["addon_price_rub"] is None:
+                    raise ValueError("Не удалось рассчитать стоимость дополнения")
+                bundle_snapshot_json = addon_bundle["snapshot_json"]
+                price_rub = float(price_rub) + float(addon_bundle["addon_price_rub"])
+                description += f" + дополнение «{addon_opt.plan.name_ru}»"
     elif months is not None:
+        if addon_option_id is not None:
+            raise ValueError("Дополнение доступно только для каталожных тарифов")
         price_rub_maybe = await get_plan_price_db(db, settings, months)
         if price_rub_maybe is None:
             raise ValueError(f"Тариф на {months} мес. недоступен")

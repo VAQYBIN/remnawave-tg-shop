@@ -105,6 +105,7 @@ async def create_payment(
             provider=body.provider,
             months=body.months,
             plan_option_id=body.plan_option_id,
+            addon_option_id=body.addon_option_id,
             promo_code=body.promo_code,
         )
     except ValueError as e:

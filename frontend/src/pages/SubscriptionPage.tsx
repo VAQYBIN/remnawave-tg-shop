@@ -32,8 +32,6 @@ import { Copy, Check, RefreshCw, ArrowRight, Repeat2 } from 'lucide-react'
 import { apiRequest } from '@/api/client'
 import { useToast } from '@/hooks/useToast'
 
-type PurchaseMode = 'none' | 'standalone' | 'addon'
-
 function useAvailableProviders() {
   return useQuery({
     queryKey: ['config'],
@@ -76,8 +74,8 @@ export function SubscriptionPage() {
   // Legacy flow state
   const [selectedMonths, setSelectedMonths] = useState<number | null>(null)
 
-  // Catalog flow state
-  const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>('none')
+  // Catalog flow state — standalone and addon selections are independent so the user
+  // can buy/renew a plan and add one addon in the same payment.
   const [selectedPlan, setSelectedPlan] = useState<PubPlan | null>(null)
   const [selectedOption, setSelectedOption] = useState<PubPlanOption | null>(null)
   const [selectedAddonPlan, setSelectedAddonPlan] = useState<AddonPlan | null>(null)
@@ -131,52 +129,40 @@ export function SubscriptionPage() {
     onError: (err: Error) => toast.error(err.message || t('sub_error_select')),
   })
 
+  // Standalone is "active" when an option is chosen in this purchase; the addon is then
+  // bundled at full price aligned to the standalone. Without a standalone option the addon
+  // (if any) is a prorated top-up to the existing subscription.
+  const standaloneActive = isCatalogMode && selectedOption !== null
+  const addonActive = isCatalogMode && selectedAddonOption !== null
+  const addonMode: 'bundle' | 'topup' = standaloneActive ? 'bundle' : 'topup'
+
   const { data: renewalBundle } = useQuery({
     queryKey: ['renewal-bundle', selectedOption?.id],
     queryFn: () => getRenewalBundle(selectedOption!.id),
-    enabled: isCatalogMode && purchaseMode === 'standalone' && !!selectedOption && !!subscription,
+    enabled: isCatalogMode && standaloneActive && !!subscription,
   })
-
-  // Determine current payment item
-  const activeOption: PubPlanOption | AddonPlanOption | null =
-    purchaseMode === 'standalone' ? selectedOption :
-    purchaseMode === 'addon' ? selectedAddonOption :
-    null
 
   const discountPct = appliedPromo?.discount_percentage
 
-  // Price for the payment section
+  // Sum the selected standalone (with its existing-addon renewal bundle) and the selected
+  // addon, then apply the promo discount to the rub total (matches backend price math).
   const computeDisplayPrice = (): { rub: number | null; stars: number | null } => {
-    if (!activeOption) return { rub: null, stars: null }
+    let rub: number | null = null
+    let stars: number | null = null
+    const add = (acc: number | null, v: number | null | undefined): number | null =>
+      v == null ? acc : (acc ?? 0) + v
 
-    if (purchaseMode === 'addon') {
-      const ao = selectedAddonOption!
-      const rawRub = ao.prorated_price_rub ?? ao.price_rub
-      const rub = rawRub !== null && discountPct
-        ? Math.round(rawRub * (1 - discountPct / 100))
-        : rawRub
-      return {
-        rub,
-        stars: ao.prorated_price_stars ?? ao.price_stars,
-      }
+    if (standaloneActive && selectedOption) {
+      rub = add(rub, renewalBundle?.has_bundle ? renewalBundle.total_price_rub : selectedOption.price_rub)
+      stars = add(stars, renewalBundle?.has_bundle ? renewalBundle.total_price_stars : selectedOption.price_stars)
+    }
+    if (addonActive && selectedAddonOption) {
+      rub = add(rub, selectedAddonOption.prorated_price_rub ?? selectedAddonOption.price_rub)
+      stars = add(stars, selectedAddonOption.prorated_price_stars ?? selectedAddonOption.price_stars)
     }
 
-    if (purchaseMode === 'standalone' && selectedOption) {
-      const rawRub = renewalBundle?.has_bundle
-        ? renewalBundle.total_price_rub
-        : selectedOption.price_rub
-      const rub = rawRub !== null && discountPct
-        ? Math.round(rawRub * (1 - discountPct / 100))
-        : rawRub
-      return {
-        rub,
-        stars: renewalBundle?.has_bundle
-          ? renewalBundle.total_price_stars
-          : selectedOption.price_stars,
-      }
-    }
-
-    return { rub: null, stars: null }
+    if (rub !== null && discountPct) rub = Math.round(rub * (1 - discountPct / 100))
+    return { rub, stars }
   }
 
   const { rub: displayRub, stars: displayStars } = computeDisplayPrice()
@@ -200,12 +186,24 @@ export function SubscriptionPage() {
 
       // Catalog mode payment
       if (isCatalogMode) {
-        if (!activeOption) throw new Error(t('sub_error_select'))
-        return createPayment({
-          provider: selectedProvider,
-          plan_option_id: activeOption.id,
-          promo_code: appliedPromo?.promo_code,
-        })
+        // Standalone (optionally bundled with one new addon)
+        if (standaloneActive && selectedOption) {
+          return createPayment({
+            provider: selectedProvider,
+            plan_option_id: selectedOption.id,
+            addon_option_id: addonActive ? selectedAddonOption!.id : undefined,
+            promo_code: appliedPromo?.promo_code,
+          })
+        }
+        // Addon-only top-up to an existing subscription
+        if (addonActive && selectedAddonOption) {
+          return createPayment({
+            provider: selectedProvider,
+            plan_option_id: selectedAddonOption.id,
+            promo_code: appliedPromo?.promo_code,
+          })
+        }
+        throw new Error(t('sub_error_select'))
       }
 
       // Legacy mode payment
@@ -237,8 +235,7 @@ export function SubscriptionPage() {
   const handleSelectStandalonePlan = (plan: PubPlan) => {
     setSelectedPlan(plan)
     setSelectedOption(null)
-    setPurchaseMode('none')
-    // Clear addon selection
+    // Reset addon — its price context (topup vs bundle) depends on the standalone choice
     setSelectedAddonPlan(null)
     setSelectedAddonOption(null)
     setSelectedProvider(null)
@@ -246,10 +243,14 @@ export function SubscriptionPage() {
   }
 
   const handleSelectStandaloneOption = (option: PubPlanOption) => {
+    const wasBundle = selectedOption !== null
     setSelectedOption(option)
-    setPurchaseMode('standalone')
-    setSelectedAddonPlan(null)
-    setSelectedAddonOption(null)
+    // Entering bundle mode from no-standalone: any previously chosen addon was priced as a
+    // top-up — clear it so it is re-picked at full (bundle) price.
+    if (!wasBundle) {
+      setSelectedAddonPlan(null)
+      setSelectedAddonOption(null)
+    }
     setSelectedProvider(null)
     setPaymentError(null)
   }
@@ -257,18 +258,21 @@ export function SubscriptionPage() {
   const handleBackToPlans = () => {
     setSelectedPlan(null)
     setSelectedOption(null)
-    setPurchaseMode('none')
+    setSelectedAddonPlan(null)
+    setSelectedAddonOption(null)
     setSelectedProvider(null)
     setPaymentError(null)
   }
 
   const handleSelectAddon = (plan: AddonPlan, option: AddonPlanOption) => {
-    setSelectedAddonPlan(plan)
-    setSelectedAddonOption(option)
-    setPurchaseMode('addon')
-    // Clear standalone selection
-    setSelectedPlan(null)
-    setSelectedOption(null)
+    // Toggle off when the same option is tapped again
+    if (selectedAddonOption?.id === option.id) {
+      setSelectedAddonPlan(null)
+      setSelectedAddonOption(null)
+    } else {
+      setSelectedAddonPlan(plan)
+      setSelectedAddonOption(option)
+    }
     setSelectedProvider(null)
     setPaymentError(null)
   }
@@ -280,7 +284,7 @@ export function SubscriptionPage() {
 
   // Determine if payment section should be visible
   const showPaymentSection =
-    (isCatalogMode && activeOption !== null) ||
+    (isCatalogMode && (standaloneActive || addonActive)) ||
     (!isCatalogMode && selectedMonths !== null)
 
   // Price to show in the payment section total
@@ -295,18 +299,19 @@ export function SubscriptionPage() {
     return selectedLegacyPrice !== null ? `${selectedLegacyPrice} ₽` : null
   })()
 
-  // Label for what we're paying for
-  const purchaseLabel = (() => {
-    if (!isCatalogMode) return null
-    if (purchaseMode === 'addon' && selectedAddonPlan) {
-      const name = isRu ? selectedAddonPlan.name_ru : (selectedAddonPlan.name_en ?? selectedAddonPlan.name_ru)
-      return `${name}: ${formatOptionLabel(selectedAddonOption!, isRu)}`
-    }
-    if (purchaseMode === 'standalone' && selectedPlan && selectedOption) {
+  // Lines describing what we're paying for (standalone and/or addon)
+  const purchaseLines: { kind: 'standalone' | 'addon'; label: string }[] = (() => {
+    if (!isCatalogMode) return []
+    const lines: { kind: 'standalone' | 'addon'; label: string }[] = []
+    if (standaloneActive && selectedPlan && selectedOption) {
       const name = isRu ? selectedPlan.name_ru : (selectedPlan.name_en ?? selectedPlan.name_ru)
-      return `${name}: ${formatOptionLabel(selectedOption, isRu)}`
+      lines.push({ kind: 'standalone', label: `${name}: ${formatOptionLabel(selectedOption, isRu)}` })
     }
-    return null
+    if (addonActive && selectedAddonPlan && selectedAddonOption) {
+      const name = isRu ? selectedAddonPlan.name_ru : (selectedAddonPlan.name_en ?? selectedAddonPlan.name_ru)
+      lines.push({ kind: 'addon', label: `${name}: ${formatOptionLabel(selectedAddonOption, isRu)}` })
+    }
+    return lines
   })()
 
   return (
@@ -420,10 +425,12 @@ export function SubscriptionPage() {
               />
             )}
 
-            {/* Addon section — shown only when user has a standalone subscription */}
-            {subscription && (
+            {/* Addon section — available when the user has an active subscription (top-up)
+                or has chosen a standalone plan in this purchase (bundle, full price). */}
+            {(subscription || standaloneActive) && (
               <AddonSelector
-                selectedOptionId={purchaseMode === 'addon' ? selectedAddonOption?.id ?? null : null}
+                mode={addonMode}
+                selectedOptionId={selectedAddonOption?.id ?? null}
                 onSelect={handleSelectAddon}
               />
             )}
@@ -432,13 +439,17 @@ export function SubscriptionPage() {
             {showPaymentSection && (
               <Card className="border-[hsl(var(--border))] overflow-hidden">
                 {/* What we're paying for */}
-                {purchaseLabel && (
+                {purchaseLines.length > 0 && (
                   <div className="px-5 pt-5 pb-0">
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium uppercase tracking-wide mb-1">
-                      {purchaseMode === 'addon' ? t('catalog_addon_label') : t('catalog_standalone_label')}
-                    </p>
-                    <p className="text-sm font-semibold mb-4">{purchaseLabel}</p>
-                    {purchaseMode === 'standalone' && renewalBundle?.has_bundle && (
+                    {purchaseLines.map((line) => (
+                      <div key={line.kind} className="mb-4">
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium uppercase tracking-wide mb-1">
+                          {line.kind === 'addon' ? t('catalog_addon_label') : t('catalog_standalone_label')}
+                        </p>
+                        <p className="text-sm font-semibold">{line.label}</p>
+                      </div>
+                    ))}
+                    {standaloneActive && renewalBundle?.has_bundle && (
                       <p className="text-xs text-[hsl(var(--muted-foreground))] mb-4">
                         {t('sub_bundle_includes', { count: renewalBundle.addons.length })}
                       </p>

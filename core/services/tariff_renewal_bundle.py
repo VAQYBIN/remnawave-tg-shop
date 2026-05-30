@@ -107,6 +107,50 @@ async def build_standalone_renewal_bundle(
     }
 
 
+def add_new_addon_to_snapshot(
+    snapshot: Optional[dict[str, Any]],
+    *,
+    standalone_option: PricingPlanOption,
+    addon_option: PricingPlanOption,
+) -> dict[str, Any]:
+    """Augment (or create) a purchase snapshot with one freshly-purchased addon.
+
+    Used when a standalone plan is bought/renewed together with a brand-new addon in
+    the same payment. The addon is priced at its full option price and its period is
+    aligned to the standalone end at activation time (see tariff_activation).
+
+    Returns a dict with keys: ``snapshot``, ``snapshot_json``, ``addon_price_rub``,
+    ``addon_price_stars``. When ``snapshot`` is None a minimal base is created so the
+    flow works for first-time buyers without any auto-renew addons to bundle.
+    """
+    base: dict[str, Any] = snapshot if snapshot is not None else {
+        "standalone": {
+            "plan_id": standalone_option.plan_id,
+            "option_id": standalone_option.id,
+            "price_rub": float(standalone_option.price_rub)
+            if standalone_option.price_rub is not None else None,
+            "price_stars": standalone_option.price_stars,
+        },
+        "addons": [],
+    }
+
+    addon_rub = float(addon_option.price_rub) if addon_option.price_rub is not None else None
+    addon_stars = addon_option.price_stars
+    base["new_addons"] = [{
+        "plan_id": addon_option.plan_id,
+        "option_id": addon_option.id,
+        "price_rub": addon_rub,
+        "price_stars": addon_stars,
+    }]
+
+    return {
+        "snapshot": base,
+        "snapshot_json": json.dumps(base, ensure_ascii=False, separators=(",", ":")),
+        "addon_price_rub": addon_rub,
+        "addon_price_stars": addon_stars,
+    }
+
+
 def parse_bundle_snapshot(payment: Payment) -> Optional[dict[str, Any]]:
     raw = payment.auto_renew_bundle_snapshot
     if not raw:

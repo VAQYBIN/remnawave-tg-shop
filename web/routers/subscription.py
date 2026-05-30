@@ -575,6 +575,63 @@ async def get_addons(
     return AddonsListResponse(addons=result, standalone_ends_at=standalone_ends_at)
 
 
+@router.get("/addons/catalog", response_model=AddonsListResponse)
+async def get_addons_catalog(
+    db: AsyncSession = Depends(get_db),
+) -> AddonsListResponse:
+    """List purchasable addon plans at FULL price (no proration, no active-standalone
+    requirement). Used for the combined "standalone + addon" purchase flow, where the
+    addon period is aligned to the freshly-bought standalone end at activation time.
+
+    Unlike GET /subscription/addons (top-up to an existing subscription, prorated),
+    this endpoint returns full option prices so a first-time buyer can bundle an addon
+    with their initial purchase.
+    """
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans
+
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
+    addon_plans = [p for p in db_plans if p.plan_kind == "addon"]
+
+    result: list[AddonPlanResponse] = []
+    for plan in addon_plans:
+        enabled_options = [opt for opt in plan.options if opt.is_enabled]
+        if not enabled_options:
+            continue
+
+        priced_options = [
+            AddonPlanOptionResponse(
+                id=opt.id,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                traffic_gb=opt.traffic_gb,
+                traffic_unlimited=opt.traffic_unlimited,
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                sort_order=opt.sort_order,
+                prorated_price_rub=opt.price_rub,
+                prorated_price_stars=opt.price_stars,
+            )
+            for opt in enabled_options
+        ]
+
+        result.append(AddonPlanResponse(
+            id=plan.id,
+            slug=plan.slug,
+            name_ru=plan.name_ru,
+            name_en=plan.name_en,
+            description_ru=plan.description_ru,
+            description_en=plan.description_en,
+            billing_model=plan.billing_model,
+            traffic_reset_strategy=plan.traffic_reset_strategy,
+            min_price_rub=plan.min_price_rub,
+            min_price_stars=plan.min_price_stars,
+            is_trial=plan.is_trial,
+            options=priced_options,
+        ))
+
+    return AddonsListResponse(addons=result, standalone_ends_at=None)
+
+
 @router.get("/connection", response_model=ConnectionResponse)
 async def get_connection(
     account: Account = Depends(get_current_account),
