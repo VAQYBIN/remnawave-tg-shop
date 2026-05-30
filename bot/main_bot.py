@@ -167,6 +167,19 @@ async def on_startup_configured(dispatcher: Dispatcher):
             exc_info=True,
         )
 
+    # Initialize entitlement cleanup worker (Phase 11)
+    try:
+        from bot.services.background_tasks import periodic_entitlement_cleanup
+        asyncio.create_task(
+            periodic_entitlement_cleanup(async_session_factory, panel_service)
+        )
+        logging.info("STARTUP: Entitlement cleanup worker scheduled")
+    except Exception as e:
+        logging.error(
+            f"STARTUP: Failed to schedule entitlement cleanup worker: {e}",
+            exc_info=True,
+        )
+
     # Automatic sync on startup
     try:
         logging.info("STARTUP: Running automatic panel sync...")

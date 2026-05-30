@@ -696,20 +696,22 @@
 
 ### Задачи
 
-- [ ] Добавить job поиска истёкших entitlements.
-- [ ] Деактивировать истёкшие addon.
-- [ ] Деактивировать истёкший standalone.
-- [ ] Пересобирать Remnawave squads после cleanup.
-- [ ] Синхронизировать `subscriptions`.
-- [ ] Логировать ошибки Remnawave.
-- [ ] Не падать при временно недоступном Remnawave.
-- [ ] Добавить retry или повторную попытку следующего цикла.
+- [x] Добавить job поиска истёкших entitlements. _(`periodic_entitlement_cleanup` в `bot/services/background_tasks.py`, hourly)_
+- [x] Деактивировать истёкшие addon. _(reason="expired" при активном standalone)_
+- [x] Деактивировать истёкший standalone. _(reason="expired", каскад на addon с reason="standalone_expired")_
+- [x] Пересобирать Remnawave squads после cleanup. _(`reconcile_user_after_cleanup` → `sync_entitlements_to_panel` при активном standalone)_
+- [x] Синхронизировать `subscriptions`. _(истёкшая подписка с `end_date` в прошлом уже исключена из всех активных query — отдельная запись не нужна; при отсутствии standalone полагаемся на Remnawave `expireAt`)_
+- [x] Логировать ошибки Remnawave. _(try/except с exc_info вокруг panel-вызовов)_
+- [x] Не падать при временно недоступном Remnawave. _(ошибки panel ловятся per-user, локальная деактивация уже закоммичена)_
+- [x] Добавить retry или повторную попытку следующего цикла. _(panel_failures не блокируют commit; следующий цикл cleanup довершает синхронизацию)_
 
 ### Автоматические проверки
 
-- [ ] Mock-тест истечения addon.
-- [ ] Mock-тест истечения standalone.
-- [ ] Mock-тест Remnawave unavailable.
+- [x] Mock-тест истечения addon. _(`test_addon_expiry_while_standalone_active`)_
+- [x] Mock-тест истечения standalone. _(`test_standalone_expiry_cascades_to_addons`)_
+- [x] Mock-тест Remnawave unavailable. _(`test_run_cleanup_survives_remnawave_unavailable`)_
+- [x] Mock-тест orphan addon без standalone. _(`test_orphan_addon_without_standalone`)_
+- [x] `python -m pytest tests/ -q` — 8 passed (4 phase10 + 4 phase11).
 
 ### Ручные проверки
 
@@ -718,6 +720,26 @@
 - [ ] При активных addon без standalone система приводит состояние к корректному.
 - [ ] Если Remnawave временно недоступен, локальный job не ломает процесс.
 - [ ] После восстановления Remnawave sync доводит состояние до ожидаемого.
+
+### Статус выполнения фазы
+
+Фаза 11 реализована (backend). Mock-тесты проходят. Требуется ручная проверка
+на dev-стенде с реальным Remnawave.
+
+Реализовано:
+
+- `core/dal/plan_entitlement_dal.py` — `get_expired_active_entitlements`,
+  `get_all_active_entitlements_for_user`.
+- `core/services/tariff_cleanup.py`:
+  - `cleanup_expired_entitlements` — локальная деактивация истёкших entitlements
+    (standalone каскадит на addon; orphan addon без standalone снимается).
+  - `reconcile_user_after_cleanup` — пересборка Remnawave squads (single PATCH)
+    при активном standalone (panel_user_uuid из `user_dal.get_user_by_id`); при
+    отсутствии standalone полагается на Remnawave `expireAt`.
+  - `run_entitlement_cleanup` — полный цикл с per-user обработкой ошибок panel.
+- `bot/services/background_tasks.py` — `periodic_entitlement_cleanup` (hourly).
+- `bot/main_bot.py` — задача подключена в `on_startup_configured`.
+- `tests/test_phase11_cleanup.py` — 4 mock-теста.
 
 ---
 

@@ -80,6 +80,50 @@ async def get_active_standalone_entitlement(
     return result.scalar_one_or_none()
 
 
+async def get_expired_active_entitlements(
+    db: AsyncSession,
+    now: datetime,
+) -> List[UserPlanEntitlement]:
+    """Return active entitlements whose ends_at has passed (ends_at <= now).
+
+    Entitlements with ends_at IS NULL (perpetual) are never returned.
+    """
+    result = await db.execute(
+        select(UserPlanEntitlement)
+        .where(
+            UserPlanEntitlement.is_active == True,
+            UserPlanEntitlement.ends_at.is_not(None),
+            UserPlanEntitlement.ends_at <= now,
+        )
+        .options(
+            selectinload(UserPlanEntitlement.plan),
+            selectinload(UserPlanEntitlement.plan_option),
+        )
+        .order_by(UserPlanEntitlement.user_id)
+    )
+    return list(result.scalars().all())
+
+
+async def get_all_active_entitlements_for_user(
+    db: AsyncSession,
+    user_id: int,
+) -> List[UserPlanEntitlement]:
+    """Return all is_active entitlements for a user, ignoring ends_at."""
+    result = await db.execute(
+        select(UserPlanEntitlement)
+        .where(
+            UserPlanEntitlement.user_id == user_id,
+            UserPlanEntitlement.is_active == True,
+        )
+        .options(
+            selectinload(UserPlanEntitlement.plan),
+            selectinload(UserPlanEntitlement.plan_option),
+        )
+        .order_by(UserPlanEntitlement.created_at)
+    )
+    return list(result.scalars().all())
+
+
 async def create_entitlement(
     db: AsyncSession,
     **kwargs,
