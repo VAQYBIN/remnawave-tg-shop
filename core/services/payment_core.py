@@ -159,7 +159,12 @@ async def _create_platega_payment(
 
     data = resp.json()
     provider_id = str(data.get("id") or data.get("transactionId") or payment_db_id)
-    redirect_url = data.get("redirectUrl") or data.get("paymentUrl") or data.get("url")
+    redirect_url = (
+            data.get("redirect")
+            or data.get("url")
+            or data.get("paymentUrl")
+            or data.get("redirectUrl")
+        )
     if not redirect_url:
         raise RuntimeError("Platega: no redirect URL in response")
     return provider_id, redirect_url
