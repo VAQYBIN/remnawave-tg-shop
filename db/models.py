@@ -81,8 +81,12 @@ class Subscription(Base):
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)
     auto_renew_enabled = Column(Boolean, default=True, index=True)
+    pricing_plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="SET NULL"), nullable=True, index=True)
+    pricing_plan_option_id = Column(Integer, ForeignKey("pricing_plan_options.id", ondelete="SET NULL"), nullable=True, index=True)
 
     user = relationship("User", back_populates="subscriptions")
+    pricing_plan = relationship("PricingPlan")
+    pricing_plan_option = relationship("PricingPlanOption")
 
     def __repr__(self):
         return f"<Subscription(id={self.subscription_id}, user_id={self.user_id}, panel_uuid='{self.panel_user_uuid}', ends='{self.end_date}')>"
@@ -114,6 +118,15 @@ class Payment(Base):
     description = Column(String, nullable=True)
     redirect_url = Column(Text, nullable=True)
     subscription_duration_months = Column(Integer, nullable=True)
+    pricing_plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="SET NULL"), nullable=True, index=True)
+    pricing_plan_option_id = Column(Integer, ForeignKey("pricing_plan_options.id", ondelete="SET NULL"), nullable=True, index=True)
+    sale_mode = Column(String(20), nullable=True)
+    traffic_gb = Column(Float, nullable=True)
+    duration_months = Column(Integer, nullable=True)
+    duration_days = Column(Integer, nullable=True)
+    auto_renew_bundle_snapshot = Column(Text, nullable=True)
+    activation_status = Column(String(30), nullable=True)
+    needs_panel_sync = Column(Boolean, nullable=False, default=False)
     promo_code_id = Column(Integer,
                            ForeignKey("promo_codes.promo_code_id"),
                            nullable=True)
@@ -125,6 +138,8 @@ class Payment(Base):
     user = relationship("User", back_populates="payments")
     promo_code_used = relationship("PromoCode",
                                    back_populates="payments_where_used")
+    pricing_plan = relationship("PricingPlan")
+    pricing_plan_option = relationship("PricingPlanOption")
 
 
 class UserBilling(Base):
@@ -449,9 +464,9 @@ class ChannelPost(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-class PricingPlan(Base):
-    """Time-based subscription pricing plans managed via admin panel."""
-    __tablename__ = "pricing_plans"
+class LegacyPricingPlan(Base):
+    """Old time-based pricing table preserved for migration/audit only."""
+    __tablename__ = "pricing_plans_legacy"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     duration_months: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -462,6 +477,128 @@ class PricingPlan(Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class PricingPlan(Base):
+    """Custom tariff product shared by bot and web flows."""
+    __tablename__ = "pricing_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    name_ru: Mapped[str] = mapped_column(String(150), nullable=False)
+    name_en: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    description_ru: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    remnawave_squad_uuid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    remnawave_squad_name_snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    plan_kind: Mapped[str] = mapped_column(String(20), nullable=False, default="standalone", index=True)
+    billing_model: Mapped[str] = mapped_column(String(20), nullable=False, default="time")
+    traffic_reset_strategy: Mapped[str] = mapped_column(String(30), nullable=False, default="NO_RESET")
+    min_price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    min_price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    options: Mapped[list["PricingPlanOption"]] = relationship(
+        "PricingPlanOption",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="PricingPlanOption.sort_order",
+    )
+
+
+class PricingPlanOption(Base):
+    """Purchasable variant of a tariff."""
+    __tablename__ = "pricing_plan_options"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("pricing_plans.id", ondelete="CASCADE"), nullable=False, index=True)
+    duration_months: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    duration_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    traffic_gb: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    traffic_unlimited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    plan: Mapped["PricingPlan"] = relationship("PricingPlan", back_populates="options")
+    entitlement_payments: Mapped[list["UserPlanEntitlement"]] = relationship(
+        "UserPlanEntitlement",
+        back_populates="plan_option",
+    )
+
+
+class UserPlanEntitlement(Base):
+    """Active or historical user access right for one tariff."""
+    __tablename__ = "user_plan_entitlements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("pricing_plans.id"), nullable=False, index=True)
+    plan_option_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("pricing_plan_options.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    traffic_limit_bytes_added: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    auto_renew_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    deactivated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    deactivation_reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    user = relationship("User")
+    plan: Mapped["PricingPlan"] = relationship("PricingPlan")
+    plan_option: Mapped[Optional["PricingPlanOption"]] = relationship(
+        "PricingPlanOption",
+        back_populates="entitlement_payments",
+    )
+    payments: Mapped[list["EntitlementPayment"]] = relationship(
+        "EntitlementPayment",
+        back_populates="entitlement",
+        cascade="all, delete-orphan",
+    )
+
+
+class EntitlementPayment(Base):
+    """History link between tariff entitlements and payments."""
+    __tablename__ = "entitlement_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entitlement_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("user_plan_entitlements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    payment_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("payments.payment_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    purpose: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    entitlement: Mapped["UserPlanEntitlement"] = relationship(
+        "UserPlanEntitlement",
+        back_populates="payments",
+    )
+    payment: Mapped["Payment"] = relationship("Payment")
+
+    __table_args__ = (
+        UniqueConstraint("entitlement_id", "payment_id", "purpose", name="uq_entitlement_payment_purpose"),
+    )
 
 
 class PaymentProviderConfig(Base):

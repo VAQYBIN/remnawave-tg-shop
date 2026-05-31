@@ -654,6 +654,15 @@ class Settings(BaseSettings):
         default=None,
         description="Telegram OIDC Client Secret from BotFather OAuth Settings (separate from BOT_TOKEN)",
     )
+    MIN_PRORATED_PRICE_RUB: Optional[float] = Field(
+        default=None,
+        description="Global minimum prorated addon price in RUB (overridden by per-plan min_price_rub)",
+    )
+    MIN_PRORATED_PRICE_STARS: Optional[int] = Field(
+        default=None,
+        description="Global minimum prorated addon price in Stars (overridden by per-plan min_price_stars)",
+    )
+
     WEB_JWT_SECRET: Optional[str] = Field(default=None, description="Secret key for JWT signing")
     WEB_JWT_ACCESS_EXPIRE_MINUTES: int = Field(default=15)
     WEB_JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)

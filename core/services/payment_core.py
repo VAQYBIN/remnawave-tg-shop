@@ -159,7 +159,12 @@ async def _create_platega_payment(
 
     data = resp.json()
     provider_id = str(data.get("id") or data.get("transactionId") or payment_db_id)
-    redirect_url = data.get("redirectUrl") or data.get("paymentUrl") or data.get("url")
+    redirect_url = (
+            data.get("redirect")
+            or data.get("url")
+            or data.get("paymentUrl")
+            or data.get("redirectUrl")
+        )
     if not redirect_url:
         raise RuntimeError("Platega: no redirect URL in response")
     return provider_id, redirect_url
@@ -320,13 +325,16 @@ async def create_web_payment(
     *,
     account,
     provider: str,
-    months: int,
+    months: Optional[int] = None,
+    plan_option_id: Optional[int] = None,
+    addon_option_id: Optional[int] = None,
     promo_code: Optional[str] = None,
 ) -> Tuple[int, str]:
     """
     Create a pending Payment record and call the provider API.
     Returns (payment_db_id, redirect_url).
     Raises ValueError for invalid input, RuntimeError for provider errors.
+    Accepts either months (legacy) or plan_option_id (new catalog flow).
     """
     from core.dal import payment_dal, active_discount_dal, promo_code_dal
     from core.services.promo_core import validate_discount_promo_code, calculate_discounted_price
@@ -335,12 +343,138 @@ async def create_web_payment(
     if provider not in available:
         raise ValueError(f"Провайдер '{provider}' недоступен")
 
-    price_rub = await get_plan_price_db(db, settings, months)
-    if price_rub is None:
-        raise ValueError(f"Тариф на {months} мес. недоступен")
+    # ── Resolve price and metadata from plan_option_id or months ──────────
+    pricing_plan_id: Optional[int] = None
+    pricing_plan_option_id_val: Optional[int] = None
+    sale_mode: Optional[str] = None
+    duration_months_val: Optional[int] = None
+    duration_days_val: Optional[int] = None
 
     from core.dal.account_dal import get_effective_payment_user_id
     user_id = await get_effective_payment_user_id(db, account)
+    bundle_snapshot_json: Optional[str] = None
+
+    if plan_option_id is not None:
+        from core.dal.pricing_plan_dal import get_plan_option_by_id
+        opt = await get_plan_option_by_id(db, plan_option_id)
+        if opt is None or not opt.is_enabled or opt.plan is None:
+            raise ValueError("Выбранный вариант тарифа недоступен")
+        # plan.is_enabled-guard уносится в can_purchase_plan_option (archived planам
+        # is_enabled принудительно False, но продление владельцу разрешено).
+        if opt.price_rub is None:
+            raise ValueError("Для данного варианта не задана цена в рублях")
+
+        pricing_plan_id = opt.plan_id
+        pricing_plan_option_id_val = opt.id
+        sale_mode = opt.plan.plan_kind  # "standalone" | "addon"
+        duration_months_val = opt.duration_months
+        duration_days_val = opt.duration_days
+        duration_display = (
+            f"{opt.duration_months} мес." if opt.duration_months
+            else f"{opt.duration_days} дн." if opt.duration_days
+            else ""
+        )
+        description = f"Оплата тарифа «{opt.plan.name_ru}»" + (f" — {duration_display}" if duration_display else "")
+        # Ensure a non-None integer for legacy metadata (day-based options use day/30 approx)
+        months_for_legacy = opt.duration_months or (
+            max(1, round(opt.duration_days / 30.0)) if opt.duration_days else 0
+        )
+
+        # Единый guard: archived можно купить только как продление своего же тарифа
+        from core.services.plan_purchase_policy import can_purchase_plan_option
+        from core.dal.account_dal import get_account_user_ids
+        _user_ids_for_policy = get_account_user_ids(account) or []
+        allowed, _reason = await can_purchase_plan_option(db, _user_ids_for_policy, opt)
+        if not allowed:
+            raise ValueError("Этот тариф недоступен для покупки")
+
+        if opt.plan.plan_kind == "addon":
+            if addon_option_id is not None:
+                raise ValueError("Дополнение нельзя добавить к покупке дополнения")
+            # For addon options the price must be prorated against the remaining standalone period.
+            from core.dal.account_dal import get_effective_payment_user_id as _get_uid
+            from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+            from core.services.tariff_pricing import prorate_option
+            from datetime import datetime, timezone as _tz
+
+            _user_id_for_prorate = await _get_uid(db, account)
+            standalone_ent = await get_active_standalone_entitlement(db, _user_id_for_prorate)
+            if standalone_ent is None or standalone_ent.ends_at is None:
+                raise ValueError("Для покупки дополнения необходима активная подписка")
+
+            _now = datetime.now(_tz.utc)
+            prorated_rub, _prorated_stars = prorate_option(
+                price_rub=float(opt.price_rub),
+                price_stars=opt.price_stars,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                plan_min_price_rub=float(opt.plan.min_price_rub) if opt.plan.min_price_rub is not None else None,
+                plan_min_price_stars=opt.plan.min_price_stars,
+                standalone_ends_at=standalone_ent.ends_at,
+                now=_now,
+                global_min_rub=getattr(settings, "MIN_PRORATED_PRICE_RUB", None),
+                global_min_stars=getattr(settings, "MIN_PRORATED_PRICE_STARS", None),
+            )
+            if prorated_rub is None:
+                raise ValueError("Не удалось рассчитать стоимость дополнения")
+            price_rub = prorated_rub
+        else:
+            price_rub = float(opt.price_rub)
+            from core.services.tariff_renewal_bundle import (
+                build_standalone_renewal_bundle,
+                add_new_addon_to_snapshot,
+            )
+            bundle = await build_standalone_renewal_bundle(
+                db,
+                user_id=user_id,
+                standalone_option=opt,
+            )
+            if bundle:
+                if bundle["total_price_rub"] is None:
+                    raise ValueError("Не удалось рассчитать стоимость bundled-продления")
+                price_rub = float(bundle["total_price_rub"])
+                bundle_snapshot_json = bundle["snapshot_json"]
+
+            # Совместная покупка: основной тариф + одно новое дополнение в этом же платеже.
+            if addon_option_id is not None:
+                addon_opt = await get_plan_option_by_id(db, addon_option_id)
+                if addon_opt is None or not addon_opt.is_enabled or addon_opt.plan is None:
+                    raise ValueError("Выбранное дополнение недоступно")
+                if addon_opt.plan.plan_kind != "addon":
+                    raise ValueError("Выбранный вариант не является дополнением")
+                if addon_opt.price_rub is None:
+                    raise ValueError("Для дополнения не задана цена в рублях")
+
+                addon_allowed, _addon_reason = await can_purchase_plan_option(
+                    db, _user_ids_for_policy, addon_opt
+                )
+                if not addon_allowed:
+                    raise ValueError("Это дополнение недоступно для покупки")
+
+                addon_bundle = add_new_addon_to_snapshot(
+                    bundle["snapshot"] if bundle else None,
+                    standalone_option=opt,
+                    addon_option=addon_opt,
+                )
+                if addon_bundle["addon_price_rub"] is None:
+                    raise ValueError("Не удалось рассчитать стоимость дополнения")
+                bundle_snapshot_json = addon_bundle["snapshot_json"]
+                price_rub = float(price_rub) + float(addon_bundle["addon_price_rub"])
+                description += f" + дополнение «{addon_opt.plan.name_ru}»"
+    elif months is not None:
+        if addon_option_id is not None:
+            raise ValueError("Дополнение доступно только для каталожных тарифов")
+        price_rub_maybe = await get_plan_price_db(db, settings, months)
+        if price_rub_maybe is None:
+            raise ValueError(f"Тариф на {months} мес. недоступен")
+        price_rub = float(price_rub_maybe)
+        sale_mode = "legacy"
+        duration_months_val = months
+        months_for_legacy = months
+        description = f"Оплата подписки на {months} мес."
+    else:
+        raise ValueError("Укажите months или plan_option_id")
+
     original_amount = float(price_rub)
     final_amount = original_amount
     discount_amount: Optional[float] = None
@@ -377,9 +511,6 @@ async def create_web_payment(
             promo_code_db_id = active_disc.promo_code_id
 
     idempotency_key = str(uuid.uuid4())
-    description = (
-        f"Оплата подписки на {months} мес."
-    )
 
     payment_data: dict = {
         "user_id": user_id,
@@ -389,10 +520,16 @@ async def create_web_payment(
         "currency": "RUB",
         "status": "pending",
         "description": description,
-        "subscription_duration_months": months,
+        "subscription_duration_months": months_for_legacy,
         "provider": provider,
         "idempotence_key": idempotency_key,
         "promo_code_id": promo_code_db_id,
+        "pricing_plan_id": pricing_plan_id,
+        "pricing_plan_option_id": pricing_plan_option_id_val,
+        "sale_mode": sale_mode,
+        "duration_months": duration_months_val,
+        "duration_days": duration_days_val,
+        "auto_renew_bundle_snapshot": bundle_snapshot_json,
     }
 
     payment = await payment_dal.create_payment_record(db, payment_data)
@@ -408,7 +545,7 @@ async def create_web_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 user_id=user_id,
-                months=months,
+                months=months_for_legacy,
                 amount=final_amount,
                 description=description,
                 return_url=return_url,
@@ -442,7 +579,7 @@ async def create_web_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 user_id=user_id,
-                months=months,
+                months=months_for_legacy or 0,
                 amount=final_amount,
                 description=description,
                 return_url=return_url,

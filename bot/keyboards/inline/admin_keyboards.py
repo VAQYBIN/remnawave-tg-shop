@@ -12,19 +12,23 @@ def get_admin_panel_keyboard(i18n_instance, lang: str,
                              settings: Settings) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    
+
     # Статистика и мониторинг
     builder.button(text=_(key="admin_stats_and_monitoring_section"),
                    callback_data="admin_section:stats_monitoring")
-    
-    # Управление пользователями  
+
+    # Управление пользователями
     builder.button(text=_(key="admin_user_management_section"),
                    callback_data="admin_section:user_management")
-    
+
     # Промокоды и маркетинг
     builder.button(text=_(key="admin_promo_marketing_section"),
                    callback_data="admin_section:promo_marketing")
-    
+
+    # Тарифы
+    builder.button(text=_(key="admin_tariffs_section"),
+                   callback_data="admin_tariff:list")
+
     # Реклама
     builder.button(text=_(key="admin_ads_section"),
                    callback_data="admin_action:ads")
@@ -32,7 +36,7 @@ def get_admin_panel_keyboard(i18n_instance, lang: str,
     # Системные функции
     builder.button(text=_(key="admin_system_functions_section"),
                    callback_data="admin_section:system_functions")
-    
+
     builder.adjust(1)
     return builder.as_markup()
 

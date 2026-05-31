@@ -83,7 +83,7 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
           </div>
         )}
 
-        {sub.auto_renew_enabled && (
+        {sub.auto_renew_enabled && sub.auto_renew_available && (
           <p className="text-xs text-[hsl(var(--muted-foreground))]">
             {t('subcard_auto_renew')}
           </p>
