@@ -63,6 +63,11 @@ def get_main_menu_inline_keyboard(
             InlineKeyboardButton(text=_(key="menu_terms_button"),
                                  url=settings.TERMS_OF_SERVICE_URL))
 
+    if settings.PRIVACY_POLICY_URL:
+        builder.row(
+            InlineKeyboardButton(text=_(key="menu_privacy_button"),
+                                 url=settings.PRIVACY_POLICY_URL))
+
     return builder.as_markup()
 
 
