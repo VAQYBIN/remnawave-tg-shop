@@ -52,7 +52,7 @@ export function LegalPage() {
           {t('legal_back')}
         </Link>
 
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-6 md:p-8">
+        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] shadow-[var(--shadow-sm)] p-6 md:p-8">
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-6">{title}</h1>
 
           {!docUrl && (
@@ -68,7 +68,7 @@ export function LegalPage() {
           )}
 
           {docUrl && isError && (
-            <p className="text-red-600 text-sm">{t('legal_load_error')}</p>
+            <p className="text-[var(--danger)] text-sm">{t('legal_load_error')}</p>
           )}
 
           {data?.content && (

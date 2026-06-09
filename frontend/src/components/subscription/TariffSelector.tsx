@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { PubPlan } from '@/api/subscription'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Check } from 'lucide-react'
 
 interface TariffSelectorProps {
   plans: PubPlan[]
@@ -50,8 +51,8 @@ export function TariffSelector({ plans, selectedPlanId, onSelect }: TariffSelect
             className={cn(
               'relative rounded-xl border-2 p-4 cursor-pointer transition-all select-none',
               selected
-                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/8%)] shadow-md'
-                : 'border-[hsl(var(--border))] bg-white hover:border-[hsl(var(--primary)/50%)] hover:shadow-sm',
+                ? 'border-[hsl(var(--primary))] bg-[color-mix(in_srgb,hsl(var(--primary))_6%,white)] shadow-[var(--shadow-md)]'
+                : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[color-mix(in_srgb,hsl(var(--primary))_45%,transparent)] hover:shadow-[var(--shadow-sm)]',
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -59,7 +60,12 @@ export function TariffSelector({ plans, selectedPlanId, onSelect }: TariffSelect
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <span className="font-semibold text-base">{name}</span>
                   {plan.is_trial && (
-                    <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0">{t('catalog_trial')}</Badge>
+                    <Badge variant="success">{t('catalog_trial')}</Badge>
+                  )}
+                  {selected && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                      <Check size={12} strokeWidth={3} />
+                    </span>
                   )}
                 </div>
                 {desc && (
@@ -78,7 +84,7 @@ export function TariffSelector({ plans, selectedPlanId, onSelect }: TariffSelect
 
               <div className="shrink-0 text-right">
                 {isFree ? (
-                  <span className="text-base font-extrabold text-green-600">{t('catalog_free')}</span>
+                  <span className="text-base font-extrabold text-[var(--success)]">{t('catalog_free')}</span>
                 ) : rub !== null ? (
                   <>
                     <p className={cn(

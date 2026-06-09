@@ -54,7 +54,7 @@ export function ColorPickerField({ label, description, value, onChange, defaultV
           )}
         </div>
         {hasContrastWarning && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold flex-shrink-0 mt-0.5">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--warning-bg)] text-[#a06a12] text-[10px] font-semibold flex-shrink-0 mt-0.5">
             <AlertTriangle size={10} />
             <span>Низкий контраст</span>
           </div>
@@ -105,7 +105,7 @@ export function ColorPickerField({ label, description, value, onChange, defaultV
           className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] hover:bg-[hsl(var(--muted))] transition-colors text-[hsl(var(--muted-foreground))]"
         >
           {copied
-            ? <span className="text-[10px] font-bold text-green-600">✓</span>
+            ? <span className="text-[10px] font-bold text-[var(--success)]">✓</span>
             : <Copy size={14} />
           }
         </button>

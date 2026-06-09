@@ -43,9 +43,9 @@ export function BrandingPreview({
           {brandName || 'Brand'}
         </span>
         <div className="ml-auto flex gap-1">
-          <div className="w-2 h-2 rounded-full bg-red-400" />
-          <div className="w-2 h-2 rounded-full bg-yellow-400" />
-          <div className="w-2 h-2 rounded-full bg-green-400" />
+          <div className="w-2 h-2 rounded-full bg-[var(--danger)]" />
+          <div className="w-2 h-2 rounded-full bg-[var(--warning)]" />
+          <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
         </div>
       </div>
 

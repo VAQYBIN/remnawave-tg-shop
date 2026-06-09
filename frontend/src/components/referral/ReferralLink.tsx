@@ -55,7 +55,7 @@ export function ReferralLink({ referralCode, referralLink }: ReferralLinkProps) 
               onClick={() => copyToClipboard(referralLink, 'link')}
               className="shrink-0"
             >
-              {copiedLink ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
+              {copiedLink ? <Check size={15} className="text-[var(--success)]" /> : <Copy size={15} />}
             </Button>
           </div>
         </div>
@@ -72,7 +72,7 @@ export function ReferralLink({ referralCode, referralLink }: ReferralLinkProps) 
               onClick={() => copyToClipboard(referralCode, 'code')}
               className="shrink-0"
             >
-              {copiedCode ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
+              {copiedCode ? <Check size={15} className="text-[var(--success)]" /> : <Copy size={15} />}
             </Button>
           </div>
         </div>

@@ -33,10 +33,10 @@ export function TrialBanner() {
   if (!eligibility?.eligible) return null
 
   return (
-    <div className="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-4 py-4 sm:px-5">
+    <div className="rounded-xl border border-[color-mix(in_srgb,hsl(var(--primary))_25%,transparent)] bg-[var(--primary-soft)] px-4 py-4 shadow-[var(--shadow-sm)] sm:px-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] bg-[hsl(var(--primary))] text-white">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
             <Gift size={19} />
           </div>
           <div className="min-w-0">

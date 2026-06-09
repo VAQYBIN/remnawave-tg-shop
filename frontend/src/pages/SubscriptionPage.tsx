@@ -343,7 +343,7 @@ export function SubscriptionPage() {
                   <div className="h-10 bg-[hsl(var(--muted))] rounded animate-pulse" />
                 ) : connection ? (
                   <div className="flex gap-2">
-                    <code className="flex-1 text-xs bg-[hsl(var(--muted))] rounded px-3 py-2.5 break-all font-mono">
+                    <code className="flex-1 font-mono text-xs bg-[hsl(var(--muted))] rounded-lg p-3 break-all">
                       {connection.link}
                     </code>
                     <Button size="sm" variant="outline" onClick={handleCopy} className="shrink-0">
@@ -496,7 +496,7 @@ export function SubscriptionPage() {
                     </span>
                   </div>
                   {paymentError && (
-                    <p className="text-xs text-red-500">{paymentError}</p>
+                    <p className="text-xs text-[var(--danger)]">{paymentError}</p>
                   )}
                   <Button
                     className="w-full h-11 font-bold text-base"
@@ -591,7 +591,7 @@ export function SubscriptionPage() {
                     </span>
                   </div>
                   {paymentError && (
-                    <p className="text-xs text-red-500">{paymentError}</p>
+                    <p className="text-xs text-[var(--danger)]">{paymentError}</p>
                   )}
                   <Button
                     className="w-full h-11 font-bold text-base"

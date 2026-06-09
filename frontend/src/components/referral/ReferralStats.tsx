@@ -39,8 +39,8 @@ export function ReferralStats({ invitedCount, purchasedCount, bonusDaysPerMonth 
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <ShoppingCart size={18} className="text-green-600" />
+              <div className="p-2 bg-[var(--success-bg)] rounded-lg">
+                <ShoppingCart size={18} className="text-[var(--success)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{purchasedCount}</p>

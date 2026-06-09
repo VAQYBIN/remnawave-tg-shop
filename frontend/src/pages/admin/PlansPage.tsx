@@ -26,6 +26,10 @@ import type {
 import { getSquads } from '@/api/admin/remnawave'
 import { useTranslation } from 'react-i18next'
 import { useToastContext } from '@/lib/toast-context'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Tabs } from '@/components/ui/tabs'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -37,29 +41,23 @@ type ResetStrategy = typeof RESET_STRATEGIES[number]
 function KindBadge({ kind }: { kind: string }) {
   const isAddon = kind === 'addon'
   return (
-    <span className={[
-      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide',
-      isAddon ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700',
-    ].join(' ')}>
+    <Badge variant={isAddon ? 'secondary' : 'info'} className="uppercase tracking-wide">
       {isAddon ? <Puzzle size={10} /> : <Package size={10} />}
       {kind}
-    </span>
+    </Badge>
   )
 }
 
 function BillingBadge({ model }: { model: string }) {
-  const colors: Record<string, string> = {
-    time: 'bg-sky-100 text-sky-700',
-    traffic: 'bg-orange-100 text-orange-700',
-    hybrid: 'bg-teal-100 text-teal-700',
+  const variants: Record<string, 'info' | 'warning' | 'success'> = {
+    time: 'info',
+    traffic: 'warning',
+    hybrid: 'success',
   }
   return (
-    <span className={[
-      'inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide',
-      colors[model] ?? 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
-    ].join(' ')}>
+    <Badge variant={variants[model] ?? 'secondary'} className="uppercase tracking-wide">
       {model}
-    </span>
+    </Badge>
   )
 }
 
@@ -114,9 +112,9 @@ function SquadPicker({ value, onChange }: { value: string; onChange: (v: string)
         </button>
       </div>
       {open && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-lg">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[var(--shadow-md)]">
           {isError && (
-            <p className="px-3 py-2 text-xs text-red-500">{t('admin_plans_squad_error')}</p>
+            <p className="px-3 py-2 text-xs text-[var(--danger)]">{t('admin_plans_squad_error')}</p>
           )}
           {isFetching && (
             <p className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_squad_loading')}</p>
@@ -210,11 +208,10 @@ function OptionRow({
 
   const trafficField = (
     <div>
-      <label className="flex items-center gap-1.5 cursor-pointer select-none mb-1.5">
-        <input
-          type="checkbox"
+      <label className="flex items-center gap-2 cursor-pointer select-none mb-1.5">
+        <Switch
           checked={opt.traffic_unlimited}
-          onChange={e => onChange({ ...opt, traffic_unlimited: e.target.checked, traffic_gb: e.target.checked ? '' : opt.traffic_gb })}
+          onCheckedChange={checked => onChange({ ...opt, traffic_unlimited: checked, traffic_gb: checked ? '' : opt.traffic_gb })}
         />
         <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_unlimited')}</span>
       </label>
@@ -245,25 +242,24 @@ function OptionRow({
             Период и трафик
           </span>
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Switch
                 checked={opt.is_enabled}
-                onChange={e => onChange({ ...opt, is_enabled: e.target.checked })}
+                onCheckedChange={checked => onChange({ ...opt, is_enabled: checked })}
               />
               <span className="text-[11px] text-[hsl(var(--muted-foreground))]">{t('admin_plans_option_enabled')}</span>
             </label>
             {onSave && (
               <>
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onClick={onSave}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[hsl(var(--primary))] text-white text-[11px] font-medium hover:opacity-90 disabled:opacity-50"
+                  isLoading={isPending}
                 >
-                  {isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+                  {!isPending && <Check size={10} />}
                   {saveLabel ?? t('admin_plans_save')}
-                </button>
+                </Button>
                 {onCancelEdit && (
                   <button type="button" onClick={onCancelEdit} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
                     <X size={14} />
@@ -272,7 +268,7 @@ function OptionRow({
               </>
             )}
             {onDelete && !onSave && (
-              <button type="button" onClick={onDelete} className="text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors">
+              <button type="button" onClick={onDelete} className="text-[hsl(var(--muted-foreground))] hover:text-[var(--danger)] transition-colors">
                 <X size={14} />
               </button>
             )}
@@ -563,8 +559,8 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-xl mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+      <div className="bg-[hsl(var(--card))] rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-xl mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
         <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
           <h2 className="text-base font-semibold text-[hsl(var(--foreground))]">
             {isEdit ? t('admin_plans_edit') : t('admin_plans_create')}
@@ -578,7 +574,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
 
           {/* ── Section 1: Basic info ─────────────────────────────────── */}
           <div className="px-5 py-4 space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[hsl(var(--muted-foreground))]">
               Основная информация
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -607,24 +603,34 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
 
           {/* ── Section 2: Billing & Type ─────────────────────────────── */}
           <div className="px-5 py-4 space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[hsl(var(--muted-foreground))]">
               Биллинг и тип
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>{t('admin_plans_kind')}</label>
-                <select className={inputCls} value={planKind} onChange={e => setPlanKind(e.target.value)}>
-                  <option value="standalone">{t('admin_plans_kind_standalone')}</option>
-                  <option value="addon">{t('admin_plans_kind_addon')}</option>
-                </select>
+                <Tabs
+                  value={planKind}
+                  onValueChange={setPlanKind}
+                  className="flex w-full"
+                  items={[
+                    { value: 'standalone', label: t('admin_plans_kind_standalone') },
+                    { value: 'addon', label: t('admin_plans_kind_addon') },
+                  ]}
+                />
               </div>
               <div>
                 <label className={labelCls}>{t('admin_plans_billing')}</label>
-                <select className={inputCls} value={billingModel} onChange={e => handleBillingModelChange(e.target.value)}>
-                  <option value="time">{t('admin_plans_billing_time')}</option>
-                  <option value="traffic">{t('admin_plans_billing_traffic')}</option>
-                  <option value="hybrid">{t('admin_plans_billing_hybrid')}</option>
-                </select>
+                <Tabs
+                  value={billingModel}
+                  onValueChange={handleBillingModelChange}
+                  className="flex w-full"
+                  items={[
+                    { value: 'time', label: t('admin_plans_billing_time') },
+                    { value: 'traffic', label: t('admin_plans_billing_traffic') },
+                    { value: 'hybrid', label: t('admin_plans_billing_hybrid') },
+                  ]}
+                />
               </div>
             </div>
 
@@ -644,7 +650,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
             <div>
               <label className={labelCls}>
                 {t('admin_plans_squad_uuid')}
-                {planKind === 'standalone' && <span className="text-red-500 ml-0.5">*</span>}
+                {planKind === 'standalone' && <span className="text-[var(--danger)] ml-0.5">*</span>}
               </label>
               <SquadPicker value={squadUuid} onChange={setSquadUuid} />
             </div>
@@ -673,8 +679,8 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
             </div>
 
             <div className="flex flex-wrap gap-5 pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)} />
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
                 <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_plans_enabled')}</span>
               </label>
             </div>
@@ -685,7 +691,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           {/* ── Section 3: Options ───────────────────────────────────── */}
           <div className="px-5 py-4 space-y-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--primary))] mb-0.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[hsl(var(--muted-foreground))] mb-0.5">
                 Опции подписки
               </p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">Каждая опция — отдельный вариант срока и стоимости</p>
@@ -714,7 +720,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                           onClick={() => toggleOptMut.mutate({ optId: opt.id, enabled: !opt.is_enabled })}
                           className={[
                             'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0',
-                            opt.is_enabled ? 'bg-green-100 text-green-700' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
+                            opt.is_enabled ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
                           ].join(' ')}
                         >
                           {opt.is_enabled ? <Check size={10} /> : <X size={10} />}
@@ -730,7 +736,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                         <button
                           type="button"
                           onClick={() => delOptMut.mutate({ optId: opt.id })}
-                          className="shrink-0 text-[hsl(var(--muted-foreground))] hover:text-red-500 p-0.5 transition-colors"
+                          className="shrink-0 text-[hsl(var(--muted-foreground))] hover:text-[var(--danger)] p-0.5 transition-colors"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -766,21 +772,12 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
 
           {/* ── Footer ───────────────────────────────────────────────── */}
           <div className="flex justify-end gap-3 px-5 py-4 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
-            >
+            <Button type="button" variant="outline" onClick={onClose}>
               {t('admin_cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {saving && <Loader2 size={14} className="animate-spin" />}
+            </Button>
+            <Button type="submit" isLoading={saving}>
               {t('admin_plans_save')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -824,7 +821,7 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, d
           <span className="font-medium text-[hsl(var(--foreground))]">
             {plan.name_ru}
             {plan.is_trial && (
-              <span className="ml-1.5 text-[10px] font-semibold uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">trial</span>
+              <span className="ml-1.5 inline-flex items-center text-[10px] font-bold uppercase bg-[var(--warning-bg)] text-[#a06a12] px-1.5 py-0.5 rounded">trial</span>
             )}
           </span>
           <div className="flex items-center gap-1.5">
@@ -836,7 +833,7 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, d
       <td className="px-4 py-3 text-sm text-[hsl(var(--muted-foreground))]">
         {plan.options.length > 0 ? `${plan.options.length} opt.` : '—'}
       </td>
-      <td className="px-4 py-3 text-sm text-[hsl(var(--foreground))]">{optionPriceSummary(plan)}</td>
+      <td className="px-4 py-3 text-sm font-extrabold text-[hsl(var(--foreground))]">{optionPriceSummary(plan)}</td>
       <td className="px-4 py-3">
         <button
           onClick={() => onToggle(plan)}
@@ -844,7 +841,7 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, d
           className={[
             'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
             plan.is_enabled
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              ? 'bg-[var(--success-bg)] text-[var(--success)] hover:opacity-90'
               : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--border))]',
           ].join(' ')}
         >
@@ -858,11 +855,11 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, d
             <Pencil size={15} />
           </button>
           {onArchive && (
-            <button onClick={() => onArchive(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-amber-600 hover:bg-amber-50" title="В архив">
+            <button onClick={() => onArchive(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[#a06a12] hover:bg-[var(--warning-bg)]" title="В архив">
               <Archive size={15} />
             </button>
           )}
-          <button onClick={() => onDelete(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50">
+          <button onClick={() => onDelete(plan.id)} className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[var(--danger)] hover:bg-[var(--danger-bg)]">
             <Trash2 size={15} />
           </button>
         </div>
@@ -874,7 +871,7 @@ function SortablePlanRow({ plan, index, onEdit, onDelete, onArchive, onToggle, d
 function PlanMobileCard({ plan, index, onEdit, onDelete, onArchive, onToggle, disabled }: PlanRowProps) {
   const { t } = useTranslation()
   return (
-    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[var(--shadow-sm)] p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] mb-1">
@@ -883,7 +880,7 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onArchive, onToggle, di
           <h3 className="text-base font-semibold leading-snug text-[hsl(var(--foreground))]">
             {plan.name_ru}
             {plan.is_trial && (
-              <span className="ml-1.5 text-[10px] font-semibold uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">trial</span>
+              <span className="ml-1.5 inline-flex items-center text-[10px] font-bold uppercase bg-[var(--warning-bg)] text-[#a06a12] px-1.5 py-0.5 rounded">trial</span>
             )}
           </h3>
           <div className="flex items-center gap-1.5 mt-1">
@@ -896,7 +893,7 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onArchive, onToggle, di
           disabled={disabled}
           className={[
             'shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
-            plan.is_enabled ? 'bg-green-100 text-green-700' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
+            plan.is_enabled ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]',
           ].join(' ')}
         >
           {plan.is_enabled ? <Check size={12} /> : <X size={12} />}
@@ -910,33 +907,27 @@ function PlanMobileCard({ plan, index, onEdit, onDelete, onArchive, onToggle, di
         </div>
         <div className="rounded-lg bg-[hsl(var(--muted)/0.45)] px-3 py-2">
           <div className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_price_rub')}</div>
-          <div className="mt-0.5 font-semibold text-[hsl(var(--foreground))]">{optionPriceSummary(plan)}</div>
+          <div className="mt-0.5 font-extrabold text-[hsl(var(--foreground))]">{optionPriceSummary(plan)}</div>
         </div>
       </div>
       <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
-        <button
-          onClick={() => onEdit(plan)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[hsl(var(--border))] px-3 py-2 text-xs font-medium text-[hsl(var(--foreground))]"
-        >
+        <Button variant="outline" size="sm" onClick={() => onEdit(plan)}>
           <Pencil size={14} />
           {t('admin_edit')}
-        </button>
+        </Button>
         {onArchive && (
           <button
             onClick={() => onArchive(plan.id)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-xs font-medium text-amber-600"
+            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-[hsl(var(--border))] px-3 h-8 text-xs font-semibold text-[#a06a12] hover:bg-[var(--warning-bg)] transition-colors"
           >
             <Archive size={14} />
             {t('admin_plans_archive_submit')}
           </button>
         )}
-        <button
-          onClick={() => onDelete(plan.id)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600"
-        >
+        <Button variant="destructive" size="sm" onClick={() => onDelete(plan.id)}>
           <Trash2 size={14} />
           {t('admin_delete')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -978,7 +969,7 @@ function ArchivedPlanRow({
           <button
             onClick={() => onUnarchive(plan.id)}
             disabled={disabled}
-            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-green-600 hover:bg-green-50 disabled:opacity-40"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[var(--success)] hover:bg-[var(--success-bg)] disabled:opacity-40"
             title={t('admin_plans_unarchive_submit')}
           >
             <ArchiveRestore size={15} />
@@ -986,7 +977,7 @@ function ArchivedPlanRow({
           <button
             onClick={() => onDelete(plan.id)}
             disabled={disabled}
-            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] disabled:opacity-40"
           >
             <Trash2 size={15} />
           </button>
@@ -1024,19 +1015,15 @@ function ArchivedPlanCard({
         <button
           onClick={() => onUnarchive(plan.id)}
           disabled={disabled}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 px-3 py-2 text-xs font-medium text-green-700 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-[var(--radius)] border border-[hsl(var(--border))] px-3 h-8 text-xs font-semibold text-[var(--success)] hover:bg-[var(--success-bg)] transition-colors disabled:opacity-40"
         >
           <ArchiveRestore size={14} />
           {t('admin_plans_unarchive_submit')}
         </button>
-        <button
-          onClick={() => onDelete(plan.id)}
-          disabled={disabled}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 disabled:opacity-40"
-        >
+        <Button variant="destructive" size="sm" onClick={() => onDelete(plan.id)} disabled={disabled}>
           <Trash2 size={14} />
           {t('admin_delete')}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1122,8 +1109,8 @@ function TrialModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+      <div className="bg-[hsl(var(--card))] rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm mx-auto flex flex-col" style={{ maxHeight: '90vh' }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4">
           <div>
@@ -1158,11 +1145,7 @@ function TrialModal({
           <div>
             <label className={labelCls}>{t('admin_trial_traffic')}</label>
             <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={trafficUnlimited}
-                onChange={e => setTrafficUnlimited(e.target.checked)}
-              />
+              <Switch checked={trafficUnlimited} onCheckedChange={setTrafficUnlimited} />
               <span className="text-sm text-[hsl(var(--foreground))]">{t('admin_trial_unlimited')}</span>
             </label>
             <input
@@ -1180,7 +1163,7 @@ function TrialModal({
           {/* Squad */}
           <div>
             <label className={labelCls}>
-              {t('admin_trial_squad')} <span className="text-red-500">*</span>
+              {t('admin_trial_squad')} <span className="text-[var(--danger)]">*</span>
             </label>
             <SquadPicker value={squadUuid} onChange={setSquadUuid} />
           </div>
@@ -1188,22 +1171,12 @@ function TrialModal({
 
         {/* Footer */}
         <div className="flex justify-end gap-3 px-5 py-4 border-t border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.3)]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
+          </Button>
+          <Button type="button" onClick={handleSave} isLoading={saving}>
             {t('admin_trial_save')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1231,10 +1204,10 @@ function TrialSettingsBlock({
 
   return (
     <>
-      <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-5 py-4 flex items-center gap-4">
+      <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[var(--shadow-sm)] px-5 py-4 flex items-center gap-4">
         {/* Icon */}
-        <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--muted))]">
-          <Clock size={16} className="text-[hsl(var(--muted-foreground))]" />
+        <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary-soft)]">
+          <Clock size={16} className="text-[var(--primary-press)]" />
         </div>
 
         {/* Title */}
@@ -1255,13 +1228,9 @@ function TrialSettingsBlock({
         )}
 
         {/* Action button */}
-        <button
-          type="button"
-          onClick={onOpen}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted)/0.5)] transition-colors"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onOpen} className="shrink-0">
           {hasConfig ? t('admin_trial_edit') : t('admin_trial_setup')}
-        </button>
+        </Button>
       </div>
     </>
   )
@@ -1372,13 +1341,10 @@ export function PlansPage() {
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_plans_title')}</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 max-w-2xl">{t('admin_plans_subtitle')}</p>
         </div>
-        <button
-          onClick={() => setDialogPlan(null)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-        >
+        <Button onClick={() => setDialogPlan(null)} className="w-full sm:w-auto">
           <Plus size={16} />
           {t('admin_plans_add')}
-        </button>
+        </Button>
       </div>
 
       {isLoading && (
@@ -1399,7 +1365,7 @@ export function PlansPage() {
       {data && (
         <>
           {/* Desktop table */}
-          <div className="hidden bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden sm:block">
+          <div className="hidden bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] shadow-[var(--shadow-sm)] overflow-hidden sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.5)]">
@@ -1466,13 +1432,13 @@ export function PlansPage() {
       {/* Archived plans section */}
       {archivedPlans.length > 0 && (
         <div className="space-y-3 mt-2">
-          <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide flex items-center gap-2">
+          <h2 className="text-[11px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-[0.06em] flex items-center gap-2">
             <Archive size={14} />
             {t('admin_plans_archived_section')}
           </h2>
 
           {/* Desktop */}
-          <div className="hidden bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden sm:block">
+          <div className="hidden bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] shadow-[var(--shadow-sm)] overflow-hidden sm:block">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-[hsl(var(--border))]">
                 {archivedPlans.map(plan => (
@@ -1523,21 +1489,21 @@ export function PlansPage() {
 
       {/* Archive confirm */}
       {archiveId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="bg-[hsl(var(--card))] rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm mx-auto p-6">
             <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{t('admin_plans_archive_confirm')}</h3>
             <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{t('admin_plans_archive_description')}</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setArchiveId(null)} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+              <Button variant="outline" onClick={() => setArchiveId(null)}>
                 {t('admin_cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => archiveMut.mutate(archiveId)}
-                disabled={archiveMut.isPending}
-                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+                isLoading={archiveMut.isPending}
+                className="bg-[var(--warning)] text-white hover:opacity-90"
               >
-                {archiveMut.isPending ? <Loader2 size={14} className="animate-spin inline" /> : t('admin_plans_archive_submit')}
-              </button>
+                {t('admin_plans_archive_submit')}
+              </Button>
             </div>
           </div>
         </div>
@@ -1545,21 +1511,21 @@ export function PlansPage() {
 
       {/* Unarchive confirm */}
       {unarchiveId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="bg-[hsl(var(--card))] rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm mx-auto p-6">
             <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{t('admin_plans_unarchive_confirm')}</h3>
             <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{t('admin_plans_unarchive_description')}</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setUnarchiveId(null)} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+              <Button variant="outline" onClick={() => setUnarchiveId(null)}>
                 {t('admin_cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => unarchiveMut.mutate(unarchiveId)}
-                disabled={unarchiveMut.isPending}
-                className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                isLoading={unarchiveMut.isPending}
+                className="bg-[var(--success)] text-white hover:opacity-90"
               >
-                {unarchiveMut.isPending ? <Loader2 size={14} className="animate-spin inline" /> : t('admin_plans_unarchive_submit')}
-              </button>
+                {t('admin_plans_unarchive_submit')}
+              </Button>
             </div>
           </div>
         </div>
@@ -1567,21 +1533,21 @@ export function PlansPage() {
 
       {/* Delete confirm */}
       {deleteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-[hsl(var(--card))] rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="bg-[hsl(var(--card))] rounded-2xl shadow-[var(--shadow-lg)] w-full max-w-sm mx-auto p-6">
             <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{t('admin_plans_delete_confirm')}</h3>
             <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{t('admin_plans_delete_description')}</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeleteId(null)} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+              <Button variant="outline" onClick={() => setDeleteId(null)}>
                 {t('admin_cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={() => deleteMut.mutate(deleteId)}
-                disabled={deleteMut.isPending}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                isLoading={deleteMut.isPending}
               >
                 {deleteMut.isPending ? t('admin_deleting') : t('admin_delete')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

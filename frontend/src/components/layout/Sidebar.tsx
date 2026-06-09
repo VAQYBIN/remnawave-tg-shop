@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
 import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage } from '@/api/profile'
 import { getAdminMe } from '@/api/admin'
@@ -18,7 +17,8 @@ import {
   User,
   LogOut,
   Newspaper,
-  Settings,
+  Shield,
+  Globe,
 } from 'lucide-react'
 
 function FitText({ text }: { text: string }) {
@@ -27,7 +27,7 @@ function FitText({ text }: { text: string }) {
   useEffect(() => {
     const el = spanRef.current
     if (!el) return
-    let size = 20
+    let size = 18
     el.style.fontSize = `${size}px`
     while (el.scrollWidth > el.offsetWidth && size > 11) {
       size -= 1
@@ -39,7 +39,7 @@ function FitText({ text }: { text: string }) {
     <span
       ref={spanRef}
       style={{ whiteSpace: 'nowrap', overflow: 'hidden', display: 'block' }}
-      className="font-bold text-[hsl(var(--primary))]"
+      className="font-extrabold tracking-[-0.01em] text-[hsl(var(--primary))]"
     >
       {text}
     </span>
@@ -60,13 +60,22 @@ function LangToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] transition-colors"
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
     >
-      <span className="text-base leading-none">{current === 'ru' ? '🇷🇺' : '🇬🇧'}</span>
-      {current === 'ru' ? 'Русский' : 'English'}
+      <Globe size={18} />
+      <span>{current === 'ru' ? 'Русский' : 'English'}</span>
+      <span className="ml-auto text-base leading-none">{current === 'ru' ? '🇷🇺' : '🇬🇧'}</span>
     </button>
   )
 }
+
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
+    isActive
+      ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-semibold'
+      : 'text-[hsl(var(--muted-foreground))] font-medium hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
+  ].join(' ')
 
 export function Sidebar() {
   const { logout, user } = useAuth()
@@ -82,6 +91,9 @@ export function Sidebar() {
     staleTime: 5 * 60 * 1000,
   })
   const isAdmin = !!adminData?.is_admin
+  const logo = resolveLogoUrl(branding?.logo_url)
+  const email = user?.email ?? ''
+  const initial = (email[0] ?? 'U').toUpperCase()
 
   const NAV_ITEMS = [
     { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard') },
@@ -94,65 +106,61 @@ export function Sidebar() {
   ]
 
   return (
-    <aside className="hidden md:flex flex-col w-64 sticky top-0 h-screen overflow-y-auto bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] p-4">
-      <div className="mb-8 px-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {resolveLogoUrl(branding?.logo_url) && (
-            <img src={resolveLogoUrl(branding?.logo_url)!} alt={branding?.brand_name} className="h-8 w-8 object-contain flex-shrink-0" />
-          )}
-          <div className="min-w-0 flex-1">
-            <FitText text={branding?.brand_name ?? ''} />
-          </div>
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 md:flex">
+      {/* Brand */}
+      <div className="mb-4 flex items-center gap-2.5 px-2 py-2">
+        {logo && <img src={logo} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[var(--shadow-xs)]" />}
+        <div className="min-w-0 flex-1">
+          <FitText text={branding?.brand_name ?? ''} />
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1 flex-1">
+      {/* User card */}
+      <div className="mb-2 flex items-center gap-2.5 rounded-[10px] bg-[hsl(var(--background))] p-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-sm font-extrabold text-[var(--primary-press)]">
+          {initial}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-bold leading-tight text-[hsl(var(--foreground))]">
+            {email || t('nav_profile')}
+          </div>
+          {isAdmin && (
+            <div className="text-[11px] leading-tight text-[hsl(var(--muted-foreground))]">
+              {t('admin_title')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-3 pb-1.5 pt-3 text-[10px] font-bold uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]">
+        {t('personal_cabinet')}
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
-              ].join(' ')
-            }
-          >
+          <NavLink key={to} to={to} className={navClass}>
             <Icon size={18} />
             {label}
           </NavLink>
         ))}
       </nav>
 
-      <div className="space-y-1 mt-2 pt-2 border-t border-[hsl(var(--border))]">
+      <div className="mt-2 flex flex-col gap-0.5 border-t border-[hsl(var(--border))] pt-2">
         {isAdmin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
-              ].join(' ')
-            }
-          >
-            <Settings size={18} />
-            Админка
+          <NavLink to="/admin" className={navClass}>
+            <Shield size={18} />
+            {t('admin_title')}
           </NavLink>
         )}
         <LangToggle />
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           onClick={() => setConfirmOpen(true)}
-          className="w-full justify-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
         >
           <LogOut size={18} />
           {t('nav_logout')}
-        </Button>
+        </button>
       </div>
 
       <ConfirmDialog

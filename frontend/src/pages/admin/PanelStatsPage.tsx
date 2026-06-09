@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { Cpu, HardDrive, Radio, Server, Users } from 'lucide-react'
 import { StatsCard } from '@/components/admin/StatsCard'
+import { Card } from '@/components/ui/card'
 import {
   getPanelBandwidth,
   getPanelHwidStats,
@@ -100,7 +101,7 @@ export function PanelStatsPage() {
   const realtime = realtimeQuery.data?.data ?? {}
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_panel_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
@@ -127,8 +128,8 @@ export function PanelStatsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_bandwidth_nodes')}</h2>
+        <Card className="xl:col-span-2 p-5">
+          <h2 className="text-sm font-bold mb-4">{t('admin_panel_bandwidth_nodes')}</h2>
           {chartData.length === 0 ? (
             <div className="h-64 flex items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">
               {t('admin_no_data')}
@@ -153,10 +154,10 @@ export function PanelStatsPage() {
               </AreaChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_top_nodes')}</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-bold mb-4">{t('admin_panel_top_nodes')}</h2>
           <div className="space-y-3">
             {topNodes.map((node) => (
               <div key={getString(node, 'uuid')} className="flex items-center justify-between gap-3 text-sm">
@@ -167,37 +168,37 @@ export function PanelStatsPage() {
                   />
                   <span className="font-medium truncate">{getString(node, 'name')}</span>
                 </div>
-                <span className="text-[hsl(var(--muted-foreground))]">{formatBytes(node.total)}</span>
+                <span className="font-bold tabular-nums text-[hsl(var(--muted-foreground))]">{formatBytes(node.total)}</span>
               </div>
             ))}
             {topNodes.length === 0 && <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_no_data')}</p>}
           </div>
-        </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_nodes_now')}</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-bold mb-4">{t('admin_panel_nodes_now')}</h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>{t('admin_panel_total_online')}</span><strong>{getNumber(nodes, 'totalOnline')}</strong></div>
-            <div className="flex justify-between"><span>Lifetime traffic</span><strong>{formatBytes(nodes.totalBytesLifetime)}</strong></div>
-            <div className="flex justify-between"><span>RX/s</span><strong>{formatBytes(getNumber(realtime, 'totalRxBytesPerSec'))}/s</strong></div>
-            <div className="flex justify-between"><span>TX/s</span><strong>{formatBytes(getNumber(realtime, 'totalTxBytesPerSec'))}/s</strong></div>
-            <div className="flex justify-between"><span>{t('admin_panel_active_metrics')}</span><strong>{realtimeNodes.length}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">{t('admin_panel_total_online')}</span><strong className="tabular-nums">{getNumber(nodes, 'totalOnline')}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">Lifetime traffic</span><strong className="tabular-nums">{formatBytes(nodes.totalBytesLifetime)}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">RX/s</span><strong className="tabular-nums">{formatBytes(getNumber(realtime, 'totalRxBytesPerSec'))}/s</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">TX/s</span><strong className="tabular-nums">{formatBytes(getNumber(realtime, 'totalTxBytesPerSec'))}/s</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">{t('admin_panel_active_metrics')}</span><strong className="tabular-nums">{realtimeNodes.length}</strong></div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">HWID</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-bold mb-4">HWID</h2>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>{t('admin_panel_unique_devices')}</span><strong>{getNumber(hwid, 'totalUniqueDevices')}</strong></div>
-            <div className="flex justify-between"><span>{t('admin_panel_hwid_total')}</span><strong>{getNumber(hwid, 'totalHwidDevices')}</strong></div>
-            <div className="flex justify-between"><span>{t('admin_panel_avg_per_user')}</span><strong>{getNumber(hwid, 'averageHwidDevicesPerUser').toFixed(1)}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">{t('admin_panel_unique_devices')}</span><strong className="tabular-nums">{getNumber(hwid, 'totalUniqueDevices')}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">{t('admin_panel_hwid_total')}</span><strong className="tabular-nums">{getNumber(hwid, 'totalHwidDevices')}</strong></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--muted-foreground))]">{t('admin_panel_avg_per_user')}</span><strong className="tabular-nums">{getNumber(hwid, 'averageHwidDevicesPerUser').toFixed(1)}</strong></div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">{t('admin_panel_7days')}</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-bold mb-4">{t('admin_panel_7days')}</h2>
           <ResponsiveContainer width="100%" height={130}>
             <BarChart data={lastSevenDaysByDate}>
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
@@ -205,7 +206,7 @@ export function PanelStatsPage() {
               <Bar dataKey="totalBytes" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
       </div>
     </div>
   )

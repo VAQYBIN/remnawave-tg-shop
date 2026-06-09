@@ -66,7 +66,7 @@ export function PaymentCallbackPage() {
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-[var(--shadow-md)]">
         <CardContent className="p-8 text-center space-y-4">
           {status === 'polling' && (
             <>
@@ -80,7 +80,7 @@ export function PaymentCallbackPage() {
 
           {status === 'succeeded' && (
             <>
-              <CheckCircle size={48} className="mx-auto text-green-500" />
+              <CheckCircle size={48} className="mx-auto text-[var(--success)]" />
               <p className="font-semibold text-lg">Оплата успешна!</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">{message}</p>
               <Button onClick={() => navigate('/subscription')} className="w-full">
@@ -91,7 +91,7 @@ export function PaymentCallbackPage() {
 
           {(status === 'failed' || status === 'error') && (
             <>
-              <XCircle size={48} className="mx-auto text-red-500" />
+              <XCircle size={48} className="mx-auto text-[var(--danger)]" />
               <p className="font-semibold text-lg">
                 {status === 'failed' ? 'Платёж не завершён' : 'Ошибка'}
               </p>

@@ -22,6 +22,11 @@ import {
 } from '@/api/admin/users'
 import type { AdminUserDetailResponse, AdminPaymentItem } from '@/api/admin/users'
 import { useToast } from '@/hooks/useToast'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Tabs } from '@/components/ui/tabs'
 import { useTranslation } from 'react-i18next'
 
 function formatDate(iso: string | null | undefined): string {
@@ -53,16 +58,12 @@ const STATUS_LABELS: Record<string, string> = {
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation()
   const label = STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : status
-  const cls =
-    status === 'succeeded'
-      ? 'bg-green-100 text-green-700'
-      : status === 'failed'
-      ? 'bg-red-100 text-red-700'
-      : 'bg-yellow-100 text-yellow-700'
+  const variant: BadgeProps['variant'] =
+    status === 'succeeded' ? 'success' : status === 'failed' ? 'danger' : 'warning'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+    <Badge variant={variant} dot>
       {label}
-    </span>
+    </Badge>
   )
 }
 
@@ -92,21 +93,16 @@ function ConfirmModal({
         <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{title}</h3>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{description}</p>
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]"
-          >
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={danger ? 'destructive' : 'default'}
             onClick={onConfirm}
-            disabled={isLoading}
-            className={`px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 ${
-              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[hsl(var(--primary))] hover:opacity-90'
-            }`}
+            isLoading={isLoading}
           >
             {isLoading ? t('admin_loading_action') : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -132,29 +128,22 @@ function AddDaysModal({
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            {t('admin_promos_label_bonus_days')}
-          </label>
-          <input
+          <Input
+            label={t('admin_promos_label_bonus_days')}
             type="number"
             min={1}
             max={3650}
             value={days}
             onChange={(e) => setDays(Math.max(1, Number(e.target.value)))}
-            className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
           />
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
-            onClick={() => onSubmit(days)}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={() => onSubmit(days)} isLoading={isLoading}>
             {isLoading ? t('admin_loading_action') : t('admin_users_add_days_button', { count: days })}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -180,29 +169,22 @@ function AddTrafficModal({
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            GB
-          </label>
-          <input
+          <Input
+            label="GB"
             type="number"
             min={1}
             max={10240}
             value={gb}
             onChange={(e) => setGb(Math.max(1, Number(e.target.value)))}
-            className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
           />
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
-            onClick={() => onSubmit(gb)}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={() => onSubmit(gb)} isLoading={isLoading}>
             {isLoading ? t('admin_loading_action') : t('admin_users_add_traffic_button', { count: gb })}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -283,7 +265,7 @@ export function AdminUserDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-4">
+      <div className="px-4 py-6 sm:p-8 space-y-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-16 bg-[hsl(var(--muted))] rounded-xl animate-pulse" />
         ))}
@@ -293,8 +275,8 @@ export function AdminUserDetailPage() {
 
   if (isError || !user) {
     return (
-      <div className="p-8">
-        <p className="text-red-600 text-sm">{t('admin_error')}</p>
+      <div className="px-4 py-6 sm:p-8">
+        <p className="text-[var(--danger)] text-sm">{t('admin_error')}</p>
       </div>
     )
   }
@@ -313,7 +295,7 @@ export function AdminUserDetailPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-3xl">
+    <div className="px-4 py-6 sm:p-8 space-y-6 max-w-3xl">
       {/* Header */}
       <div className="flex items-start gap-4">
         <button
@@ -326,10 +308,10 @@ export function AdminUserDetailPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{displayName}</h1>
             {user.is_banned && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+              <Badge variant="danger">
                 <ShieldAlert size={12} />
                 {t('admin_users_banned')}
-              </span>
+              </Badge>
             )}
           </div>
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-0.5">
@@ -340,73 +322,49 @@ export function AdminUserDetailPage() {
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           {user.is_banned ? (
-            <button
-              onClick={() => setModal('unban')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
-            >
+            <Button size="sm" onClick={() => setModal('unban')}>
               <ShieldCheck size={15} />
               {t('admin_users_unban')}
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={() => setModal('ban')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700"
-            >
+            <Button variant="destructive" size="sm" onClick={() => setModal('ban')}>
               <ShieldAlert size={15} />
               {t('admin_users_ban')}
-            </button>
+            </Button>
           )}
           {user.panel_user_uuid && (
             <>
-              <button
-                onClick={() => setModal('add-days')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-              >
+              <Button variant="outline" size="sm" onClick={() => setModal('add-days')}>
                 <CalendarPlus size={15} />
                 {t('admin_users_add_days')}
-              </button>
-              <button
-                onClick={() => setModal('add-traffic')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-              >
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setModal('add-traffic')}>
                 <Database size={15} />
                 {t('admin_users_add_traffic')}
-              </button>
+              </Button>
             </>
           )}
-          <button
-            onClick={() => setModal('reset-trial')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-          >
+          <Button variant="outline" size="sm" onClick={() => setModal('reset-trial')}>
             <RotateCcw size={15} />
             {t('admin_users_reset_trial')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[hsl(var(--border))]">
-        {(['info', 'subscription', 'payments'] as const).map((tab) => {
-          const labels = { info: t('admin_user_detail_info'), subscription: t('admin_user_detail_subscription'), payments: t('admin_user_detail_payments') }
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {labels[tab]}
-            </button>
-          )
-        })}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'info' | 'subscription' | 'payments')}
+        items={[
+          { value: 'info', label: t('admin_user_detail_info') },
+          { value: 'subscription', label: t('admin_user_detail_subscription') },
+          { value: 'payments', label: t('admin_user_detail_payments') },
+        ]}
+      />
 
       {/* Tab: Info */}
       {activeTab === 'info' && (
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
+        <Card className="p-5">
           <InfoRow label={t('admin_user_detail_first_name')} value={[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'} />
           <InfoRow
             label={t('admin_user_detail_username')}
@@ -451,14 +409,14 @@ export function AdminUserDetailPage() {
               </span>
             }
           />
-        </div>
+        </Card>
       )}
 
       {/* Tab: Subscription */}
       {activeTab === 'subscription' && (
         <div className="space-y-4">
           {user.subscription ? (
-            <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
+            <Card className="p-5">
               <InfoRow label={t('admin_status')} value={user.subscription.is_active ? t('admin_user_detail_subscription_active') : t('admin_user_detail_subscription_inactive')} />
               <InfoRow label="Start" value={formatDate(user.subscription.start_date)} />
               <InfoRow label={t('admin_user_detail_subscription_end')} value={formatDate(user.subscription.end_date)} />
@@ -479,7 +437,7 @@ export function AdminUserDetailPage() {
                 label="Traffic used"
                 value={formatBytes(user.subscription.traffic_used_bytes)}
               />
-            </div>
+            </Card>
           ) : (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_subscription_inactive')}</p>
           )}
@@ -507,27 +465,27 @@ export function AdminUserDetailPage() {
           {user.recent_payments.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_no_payments')}</p>
           ) : (
-            <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.5)]">
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_status')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">ID</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_status')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[hsl(var(--border))]">
+                <tbody>
                   {user.recent_payments.map((p: AdminPaymentItem) => (
-                    <tr key={p.payment_id} className="hover:bg-[hsl(var(--muted)/0.3)]">
-                      <td className="px-4 py-3 font-mono text-xs text-[hsl(var(--muted-foreground))]">#{p.payment_id}</td>
-                      <td className="px-4 py-3 font-medium">
+                    <tr key={p.payment_id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted)/0.5)]">
+                      <td className="px-4 py-3.5 font-mono text-xs text-[hsl(var(--muted-foreground))]">#{p.payment_id}</td>
+                      <td className="px-4 py-3.5 font-bold text-[hsl(var(--primary))] tabular-nums">
                         {p.amount.toLocaleString('ru-RU', { style: 'currency', currency: p.currency })}
                       </td>
-                      <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">{p.provider || '—'}</td>
-                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-3 text-xs text-[hsl(var(--muted-foreground))]">
+                      <td className="px-4 py-3.5 text-[hsl(var(--muted-foreground))]">{p.provider || '—'}</td>
+                      <td className="px-4 py-3.5"><StatusBadge status={p.status} /></td>
+                      <td className="px-4 py-3.5 text-xs text-[hsl(var(--muted-foreground))]">
                         {formatDate(p.created_at)}
                       </td>
                     </tr>

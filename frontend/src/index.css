@@ -1,23 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-@keyframes slide-in-down {
-  from {
-    opacity: 0;
-    transform: translateY(-16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ── Nunito — variable font, shipped locally (wght 200–1000) ───────────── */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/fonts/Nunito-VariableFont_wght.ttf') format('truetype-variations'),
+       url('/fonts/Nunito-VariableFont_wght.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: italic;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/fonts/Nunito-Italic-VariableFont_wght.ttf') format('truetype-variations'),
+       url('/fonts/Nunito-Italic-VariableFont_wght.ttf') format('truetype');
 }
 
-.animate-slide-in-down {
-  animation: slide-in-down 0.4s ease-out forwards;
-}
-
+/* ──────────────────────────────────────────────────────────────────────
+   Design tokens. Base brand colors (--primary, --background, …) are HSL
+   channel triplets so they stay compatible with the existing
+   hsl(var(--token)) usage and with BrandingProvider's runtime overrides.
+   primary-press / primary-soft are DERIVED from --primary so they follow
+   whatever accent the admin picks. Semantic colors are fixed.
+   ────────────────────────────────────────────────────────────────────── */
 @layer base {
   :root {
+    /* Brand (overridable at runtime by BrandingProvider) */
     --primary: 197 74% 52%;
     --primary-foreground: 0 0% 100%;
     --background: 40 11% 95%;
@@ -28,6 +38,27 @@
     --muted-foreground: 0 0% 40%;
     --border: 30 8% 85%;
     --radius: 0.5rem;
+
+    /* Derived accent shades — follow the brand primary */
+    --primary-press: color-mix(in srgb, hsl(var(--primary)) 82%, black);
+    --primary-soft: color-mix(in srgb, hsl(var(--primary)) 10%, white);
+
+    /* Semantic colors (fixed, not branded) */
+    --success: #1fab6a;
+    --success-bg: #e4f6ec;
+    --warning: #d89221;
+    --warning-bg: #fbefd6;
+    --danger: #dc4040;
+    --danger-bg: #fbe5e5;
+    --info: hsl(var(--primary));
+    --info-bg: var(--primary-soft);
+
+    /* Soft, warm shadows */
+    --shadow-xs: 0 1px 2px rgba(43, 43, 43, 0.04);
+    --shadow-sm: 0 1px 3px rgba(43, 43, 43, 0.06), 0 1px 2px rgba(43, 43, 43, 0.04);
+    --shadow-md: 0 4px 12px rgba(43, 43, 43, 0.08);
+    --shadow-lg: 0 12px 32px rgba(43, 43, 43, 0.12);
+    --ring-primary: 0 0 0 3px color-mix(in srgb, hsl(var(--primary)) 28%, transparent);
   }
 
   * {
@@ -35,9 +66,74 @@
   }
 
   body {
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     margin: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 }
+
+/* ── Tailwind theme: expose tokens as utilities (bg-primary, text-success,
+   shadow-card, …) while keeping the hsl(var()) backing. ───────────────── */
+@theme inline {
+  --font-sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, monospace;
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-press: var(--primary-press);
+  --color-primary-soft: var(--primary-soft);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-secondary: hsl(var(--secondary));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-card: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ── Keyframes / small reusable animations ────────────────────────────── */
+@keyframes slide-in-down {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(31, 171, 106, 0.45); }
+  100% { box-shadow: 0 0 0 12px rgba(31, 171, 106, 0); }
+}
+
+.animate-slide-in-down { animation: slide-in-down 0.4s ease-out forwards; }
+.animate-fade-in { animation: fade-in 0.15s ease-out; }
+.animate-slide-up { animation: slide-up 0.2s ease-out; }
+
+/* Numeric tables / prices line up nicely */
+.tabular-nums { font-variant-numeric: tabular-nums; }

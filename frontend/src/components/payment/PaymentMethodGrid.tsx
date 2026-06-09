@@ -47,11 +47,11 @@ export function PaymentMethodGrid({
           disabled={disabled}
           onClick={() => onSelect(p.id)}
           className={cn(
-            'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap',
-            'hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/5%)]',
+            'flex items-center gap-2 rounded-[10px] border px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap',
+            'hover:border-[color-mix(in_srgb,hsl(var(--primary))_50%,transparent)] hover:bg-[var(--primary-soft)]',
             selectedProvider === p.id
-              ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/10%)] ring-1 ring-[hsl(var(--primary))]'
-              : 'border-[hsl(var(--border))] bg-white',
+              ? 'border-[hsl(var(--primary))] bg-[var(--primary-soft)] ring-2 ring-inset ring-[color-mix(in_srgb,hsl(var(--primary))_35%,transparent)]'
+              : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]',
             disabled && 'opacity-50 cursor-not-allowed',
           )}
         >

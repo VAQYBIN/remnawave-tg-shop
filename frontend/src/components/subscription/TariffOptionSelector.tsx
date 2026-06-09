@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { PubPlan, PubPlanOption } from '@/api/subscription'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 
 interface TariffOptionSelectorProps {
   plan: PubPlan
@@ -76,10 +76,15 @@ export function TariffOptionSelector({
               className={cn(
                 'relative rounded-xl border-2 p-4 cursor-pointer transition-all select-none space-y-1',
                 selected
-                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/8%)] shadow-md'
-                  : 'border-[hsl(var(--border))] bg-white hover:border-[hsl(var(--primary)/50%)] hover:shadow-sm',
+                  ? 'border-[hsl(var(--primary))] bg-[color-mix(in_srgb,hsl(var(--primary))_6%,white)] shadow-[var(--shadow-md)]'
+                  : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[color-mix(in_srgb,hsl(var(--primary))_45%,transparent)] hover:shadow-[var(--shadow-sm)]',
               )}
             >
+              {selected && (
+                <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+              )}
               {duration && (
                 <p className="font-semibold text-sm leading-tight">{duration}</p>
               )}
@@ -89,7 +94,7 @@ export function TariffOptionSelector({
 
               <div className="pt-1">
                 {isFree ? (
-                  <span className="text-lg font-extrabold text-green-600">{t('catalog_free')}</span>
+                  <span className="text-lg font-extrabold text-[var(--success)]">{t('catalog_free')}</span>
                 ) : displayRub !== null ? (
                   <div className="flex items-baseline gap-1.5">
                     <span className={cn(

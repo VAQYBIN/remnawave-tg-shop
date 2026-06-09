@@ -48,7 +48,7 @@ export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: Pro
   if (appliedPromo) {
     return (
       <div className="flex items-center gap-2">
-        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-sm px-3 py-1">
+        <Badge variant="success" className="text-sm px-3 py-1">
           🎉 {appliedPromo.promo_code} — скидка {appliedPromo.discount_percentage}%
         </Badge>
         <button
@@ -87,7 +87,7 @@ export function PromoInput({ appliedPromo, onPromoApplied, onPromoRemoved }: Pro
           {loading ? '...' : t('promo_apply')}
         </Button>
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
     </div>
   )
 }

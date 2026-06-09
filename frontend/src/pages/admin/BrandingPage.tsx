@@ -9,6 +9,9 @@ import { ColorPickerField } from '@/components/admin/ColorPickerField'
 import { BrandingPreview } from '@/components/admin/BrandingPreview'
 import { BrandingPresets, type ColorPreset } from '@/components/admin/BrandingPresets'
 import { FontSelect } from '@/components/admin/FontSelect'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 const COLOR_DEFAULTS = {
   primary_color: '#2AACDF',
@@ -135,16 +138,16 @@ export function BrandingPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-4">
+      <div className="px-4 py-6 sm:p-8 space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 bg-[hsl(var(--muted))] rounded-lg animate-pulse" />
+          <div key={i} className="h-12 bg-[hsl(var(--muted))] rounded-xl animate-pulse" />
         ))}
       </div>
     )
   }
 
   return (
-    <div className="p-6 xl:p-8">
+    <div className="px-4 py-6 sm:p-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_branding_title')}</h1>
@@ -157,8 +160,8 @@ export function BrandingPage() {
         <div className="flex-1 min-w-0 space-y-6">
 
           {/* Logo */}
-          <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_logo')}</h2>
+          <Card className="p-5 space-y-4">
+            <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_logo')}</h2>
             <div className="flex items-center gap-4">
               {resolveLogoUrl(data?.logo_url) ? (
                 <img
@@ -172,14 +175,13 @@ export function BrandingPage() {
                 </div>
               )}
               <div>
-                <button
+                <Button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  disabled={logoMutation.isPending}
-                  className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  isLoading={logoMutation.isPending}
                 >
                   {logoMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_logo')}
-                </button>
+                </Button>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_logo_hint')}</p>
               </div>
             </div>
@@ -199,14 +201,15 @@ export function BrandingPage() {
                 </div>
               )}
               <div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => faviconRef.current?.click()}
-                  disabled={faviconMutation.isPending}
-                  className="px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm font-medium hover:bg-[hsl(var(--muted))] transition-colors disabled:opacity-50"
+                  isLoading={faviconMutation.isPending}
                 >
                   {faviconMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_favicon')}
-                </button>
+                </Button>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_favicon_hint')}</p>
               </div>
             </div>
@@ -217,36 +220,32 @@ export function BrandingPage() {
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) faviconMutation.mutate(f) }}
             />
-          </div>
+          </Card>
 
           {/* Brand name + font */}
-          <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_main_settings')}</h2>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[hsl(var(--foreground))]">{t('admin_branding_brand_name')}</label>
-              <input
-                type="text"
-                value={form.brand_name}
-                onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))}
-                className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm"
-                placeholder="My VPN Shop"
-              />
-            </div>
+          <Card className="p-5 space-y-4">
+            <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_main_settings')}</h2>
+            <Input
+              label={t('admin_branding_brand_name')}
+              value={form.brand_name}
+              onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))}
+              placeholder="My VPN Shop"
+            />
             <FontSelect
               label={t('admin_branding_font')}
               description={t('admin_branding_font_desc')}
               value={form.font_family}
               onChange={v => setForm(f => ({ ...f, font_family: v }))}
             />
-          </div>
+          </Card>
 
           {/* Presets */}
           <BrandingPresets onApply={handleApplyPreset} currentPrimary={form.primary_color} />
 
           {/* Colors */}
-          <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-5">
+          <Card className="p-5 space-y-5">
             <div>
-              <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_colors')}</h2>
+              <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_colors')}</h2>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{t('admin_branding_colors_hint')}</p>
             </div>
             <div className="grid grid-cols-1 gap-5">
@@ -294,24 +293,24 @@ export function BrandingPage() {
                 defaultValue={COLOR_DEFAULTS.border_color}
               />
             </div>
-          </div>
+          </Card>
 
           {/* Custom CSS */}
-          <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_custom_css')}</h2>
+          <Card className="p-5 space-y-4">
+            <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_custom_css')}</h2>
             <textarea
               value={form.custom_css}
               onChange={e => setForm(f => ({ ...f, custom_css: e.target.value }))}
               rows={6}
-              className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm font-mono resize-y"
+              className="w-full px-3 py-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white text-sm font-mono text-[hsl(var(--foreground))] resize-y transition-[border-color,box-shadow] duration-150 focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
               placeholder={t('admin_branding_custom_css_placeholder')}
             />
-          </div>
+          </Card>
 
           {/* Legal documents */}
-          <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5 space-y-4">
+          <Card className="p-5 space-y-4">
             <div>
-              <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_branding_legal_title')}</h2>
+              <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_legal_title')}</h2>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_legal_hint')}</p>
             </div>
             {(
@@ -322,33 +321,31 @@ export function BrandingPage() {
                 ['refund_policy_url', 'admin_branding_legal_refund'] as const,
               ] as const
             ).map(([field, labelKey]) => (
-              <div key={field} className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[hsl(var(--foreground))]">{t(labelKey)}</label>
-                <input
-                  type="url"
-                  value={form[field]}
-                  onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                  className="px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm"
-                  placeholder="https://telegra.ph/..."
-                />
-              </div>
+              <Input
+                key={field}
+                type="url"
+                label={t(labelKey)}
+                value={form[field]}
+                onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                placeholder="https://telegra.ph/..."
+              />
             ))}
-          </div>
+          </Card>
 
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={handleSave}
-            disabled={saveMutation.isPending}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[hsl(var(--primary))] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            isLoading={saveMutation.isPending}
           >
             <Save size={16} />
             {saveMutation.isPending ? t('admin_saving') : t('admin_save')}
-          </button>
+          </Button>
         </div>
 
         {/* ── Right: sticky preview ── */}
         <div className="hidden xl:flex flex-col w-80 flex-shrink-0 sticky top-6 self-start">
-          <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-3">
+          <p className="text-[10px] font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-[0.08em] mb-3">
             {t('admin_branding_preview')}
           </p>
           <BrandingPreview

@@ -65,16 +65,19 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     [
-      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
       isActive
-        ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]'
-        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
+        ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-semibold'
+        : 'text-[hsl(var(--muted-foreground))] font-medium hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
     ].join(' ')
+
+  const groupLabelClass = 'mt-4 mb-1 px-3'
+  const groupLabelText = 'text-[10px] font-bold uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]'
 
   const sidebarContent = (
     <aside className="flex flex-col w-64 h-full bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] p-4">
       <div className="mb-8 px-2 flex items-center justify-between">
-        <span className="text-xl font-bold text-[hsl(var(--primary))]">⚙️ {t('admin_title')}</span>
+        <span className="text-xl font-extrabold text-[hsl(var(--primary))]">{t('admin_title')}</span>
         {/* Close button — only shown in mobile drawer */}
         <button
           onClick={onMobileClose}
@@ -93,8 +96,8 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           </NavLink>
         ))}
 
-        <div className="mt-4 mb-1 px-3">
-          <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+        <div className={groupLabelClass}>
+          <span className={groupLabelText}>
             {t('admin_nav_customization')}
           </span>
         </div>
@@ -106,8 +109,8 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           </NavLink>
         ))}
 
-        <div className="mt-4 mb-1 px-3">
-          <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+        <div className={groupLabelClass}>
+          <span className={groupLabelText}>
             Remnawave
           </span>
         </div>

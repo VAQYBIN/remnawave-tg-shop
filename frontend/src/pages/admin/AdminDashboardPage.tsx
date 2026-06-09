@@ -4,16 +4,20 @@ import {
   Users,
   CreditCard,
   Activity,
-  TrendingUp,
   UserPlus,
   Banknote,
   Clock,
   ServerCrash,
+  Server,
+  RefreshCw,
+  Download,
 } from 'lucide-react'
 import { getDashboard } from '@/api/admin'
 import { getPanelNodes } from '@/api/admin/panel'
 import { getBool, getString } from './panel-utils'
 import { StatsCard } from '@/components/admin/StatsCard'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -35,16 +39,6 @@ function fmtCurrency(amount: number, currency = 'RUB'): string {
     currency,
     maximumFractionDigits: 0,
   })
-}
-
-function pluralRu(n: number, forms: [string, string, string]): string {
-  const abs = Math.abs(n) % 100
-  const last = abs % 10
-
-  if (abs > 10 && abs < 20) return forms[2]
-  if (last > 1 && last < 5) return forms[1]
-  if (last === 1) return forms[0]
-  return forms[2]
 }
 
 function pluralKey(n: number, one: string, few: string, many: string): string {
@@ -70,7 +64,7 @@ function fmtDate(iso: string | null): string {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]">
         {title}
       </h2>
       {children}
@@ -82,7 +76,7 @@ export function AdminDashboardPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: getDashboard,
     staleTime: 60 * 1000,
@@ -96,8 +90,12 @@ export function AdminDashboardPage() {
     refetchInterval: 60_000,
   })
 
-  const offlineNodes = (nodesQuery.data?.items ?? []).filter(
-    node => !getBool(node, 'isDisabled') && !getBool(node, 'isConnected'),
+  const nodeItems = nodesQuery.data?.items ?? []
+  const offlineNodes = nodeItems.filter(
+    (node) => !getBool(node, 'isDisabled') && !getBool(node, 'isConnected'),
+  )
+  const onlineNodes = nodeItems.filter(
+    (node) => !getBool(node, 'isDisabled') && getBool(node, 'isConnected'),
   )
 
   if (isLoading) {
@@ -121,12 +119,132 @@ export function AdminDashboardPage() {
     )
   }
 
+  function handleExport() {
+    if (!data) return
+    const header = ['user', 'amount', 'currency', 'provider', 'date']
+    const esc = (v: string | number) => {
+      const s = String(v)
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const rows = data.recent_payments.map((p) => [
+      p.username ? `@${p.username}` : p.first_name ?? `ID ${p.user_id}`,
+      p.amount,
+      p.currency,
+      PROVIDER_LABELS[p.provider ?? ''] ? t(PROVIDER_LABELS[p.provider ?? '']) : p.provider ?? '',
+      p.created_at ?? '',
+    ])
+    const csv = [header, ...rows].map((r) => r.map(esc).join(',')).join('\n')
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `recent-payments.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const subsPercent =
+    data.total_subscriptions > 0
+      ? Math.round((data.active_subscriptions / data.total_subscriptions) * 100)
+      : null
+
   return (
     <div className="px-4 py-6 sm:p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_dashboard_title')}</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('admin_dashboard_subtitle')}</p>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_dashboard_title')}</h1>
+          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{t('admin_dashboard_subtitle')}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={data.recent_payments.length === 0}>
+            <Download size={16} /> {t('admin_dashboard_export')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch()
+              nodesQuery.refetch()
+            }}
+          >
+            <RefreshCw size={16} className={isFetching ? 'animate-spin' : undefined} />
+            {t('admin_dashboard_refresh')}
+          </Button>
+        </div>
       </div>
+
+      {/* Alerts */}
+      {(data.expiring_soon_count > 0 || nodesQuery.isError || offlineNodes.length > 0) && (
+        <div className="space-y-3">
+          {data.expiring_soon_count > 0 && (
+            <Alert variant="warning" icon={<Clock size={20} />} className="items-center">
+              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-snug">
+                    {t('admin_dashboard_expiring', {
+                      count: data.expiring_soon_count,
+                      label: t(pluralKey(data.expiring_soon_count, 'admin_dashboard_subscription_one', 'admin_dashboard_subscription_few', 'admin_dashboard_subscription_many')),
+                    })}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">{t('admin_dashboard_check_users')}</p>
+                </div>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="shrink-0 whitespace-nowrap text-sm font-bold hover:underline"
+                >
+                  {t('admin_dashboard_view_users')} →
+                </button>
+              </div>
+            </Alert>
+          )}
+
+          {offlineNodes.length > 0 && (
+            <Alert variant="danger" icon={<ServerCrash size={20} />} className="items-center">
+              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">
+                    {offlineNodes.length}{' '}
+                    {t(pluralKey(offlineNodes.length, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many'))}{' '}
+                    {t(offlineNodes.length === 1 ? 'admin_dashboard_node_unavailable_one' : 'admin_dashboard_node_unavailable_many')}
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    {offlineNodes.slice(0, 3).map((n) => getString(n, 'name')).join(', ')}
+                    {offlineNodes.length > 3 &&
+                      ` ${t('admin_dashboard_more_nodes', {
+                        count: offlineNodes.length - 3,
+                        label: t(pluralKey(offlineNodes.length - 3, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many')),
+                      })}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/admin/nodes')}
+                  className="shrink-0 whitespace-nowrap text-sm font-bold hover:underline"
+                >
+                  {t('admin_dashboard_go_nodes')} →
+                </button>
+              </div>
+            </Alert>
+          )}
+
+          {nodesQuery.isError && (
+            <Alert variant="danger" icon={<ServerCrash size={20} />} className="items-center">
+              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">{t('admin_dashboard_nodes_load_error')}</p>
+                  <p className="mt-0.5 text-xs opacity-90">{t('admin_dashboard_nodes_check')}</p>
+                </div>
+                <button
+                  onClick={() => navigate('/admin/nodes')}
+                  className="shrink-0 whitespace-nowrap text-sm font-bold hover:underline"
+                >
+                  {t('admin_dashboard_go_nodes')} →
+                </button>
+              </div>
+            </Alert>
+          )}
+        </div>
+      )}
 
       {/* Today */}
       <Section title={t('admin_dashboard_today')}>
@@ -139,25 +257,25 @@ export function AdminDashboardPage() {
 
       {/* 7 days */}
       <Section title={t('admin_dashboard_7days')}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard title={t('admin_dashboard_new_users')} value={fmt(data.new_users_7days)} icon={UserPlus} />
           <StatsCard title={t('admin_dashboard_revenue')} value={fmtCurrency(data.revenue_7days)} icon={Banknote} />
+          <StatsCard
+            title={t('admin_dashboard_expiring_soon')}
+            value={fmt(data.expiring_soon_count)}
+            icon={Clock}
+          />
         </div>
       </Section>
 
-      {/* Main stats */}
-      <Section title={t('admin_dashboard_main_stats')}>
+      {/* All time */}
+      <Section title={t('admin_dashboard_alltime')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatsCard title={t('admin_dashboard_revenue_30days')} value={fmtCurrency(data.revenue_30days)} icon={TrendingUp} />
           <StatsCard title={t('admin_dashboard_total_users')} value={fmt(data.total_users)} icon={Users} />
           <StatsCard
             title={t('admin_dashboard_active_subscriptions')}
             value={fmt(data.active_subscriptions)}
-            subtitle={`${t('admin_dashboard_subscriptions_total', { total: fmt(data.total_subscriptions) })}${
-              data.total_subscriptions > 0
-                ? t('admin_dashboard_subscriptions_percent', { percent: Math.round((data.active_subscriptions / data.total_subscriptions) * 100) })
-                : ''
-            }`}
+            subtitle={subsPercent !== null ? `${subsPercent}%` : undefined}
             icon={Activity}
           />
           <StatsCard
@@ -165,143 +283,66 @@ export function AdminDashboardPage() {
             value={fmt(data.total_payments)}
             icon={CreditCard}
           />
-          <StatsCard title={t('admin_dashboard_total_revenue')} value={fmtCurrency(data.total_revenue)} icon={Banknote} />
+          <StatsCard
+            title={t('admin_dashboard_total_revenue')}
+            value={fmtCurrency(data.total_revenue)}
+            subtitle={t('admin_dashboard_revenue_30days') + ': ' + fmtCurrency(data.revenue_30days)}
+            icon={Banknote}
+          />
+          <StatsCard
+            title={t('admin_dashboard_nodes')}
+            value={nodesQuery.isSuccess ? fmt(nodeItems.length) : '—'}
+            subtitle={nodesQuery.isSuccess ? t('admin_dashboard_nodes_online', { count: onlineNodes.length }) : undefined}
+            icon={Server}
+          />
         </div>
       </Section>
 
-      {/* Alerts */}
-      {(data.expiring_soon_count > 0 || nodesQuery.isError || (nodesQuery.isSuccess && offlineNodes.length > 0)) && (
-        <div className="space-y-3">
-          {data.expiring_soon_count > 0 && (
-            <div className="flex flex-col gap-3 p-4 rounded-xl border border-amber-300 bg-amber-50 sm:flex-row sm:items-center">
-              <div className="flex items-start gap-3 min-w-0">
-                <Clock size={20} className="text-amber-600 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-amber-800 leading-snug">
-                    {t('admin_dashboard_expiring', {
-                      count: data.expiring_soon_count,
-                      label: t(pluralKey(data.expiring_soon_count, 'admin_dashboard_subscription_one', 'admin_dashboard_subscription_few', 'admin_dashboard_subscription_many')),
-                    })}
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                    {t('admin_dashboard_check_users')}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/admin/users')}
-                className="self-start rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
-              >
-                {t('admin_dashboard_view_users')}
-              </button>
-            </div>
-          )}
-
-          {nodesQuery.isSuccess && offlineNodes.length > 0 && (
-            <div className="flex flex-col gap-3 p-4 rounded-xl border border-red-300 bg-red-50 sm:flex-row sm:items-center">
-              <div className="flex items-start gap-3 min-w-0">
-                <ServerCrash size={20} className="text-red-600 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-red-800">
-                    {offlineNodes.length} {t(pluralKey(offlineNodes.length, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many'))}{' '}
-                    {t(offlineNodes.length === 1 ? 'admin_dashboard_node_unavailable_one' : 'admin_dashboard_node_unavailable_many')}
-                  </p>
-                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                    {offlineNodes
-                      .slice(0, 3)
-                      .map(n => getString(n, 'name'))
-                      .join(', ')}
-                    {offlineNodes.length > 3 &&
-                    ` ${t('admin_dashboard_more_nodes', {
-                      count: offlineNodes.length - 3,
-                      label: t(pluralKey(offlineNodes.length - 3, 'admin_dashboard_node_one', 'admin_dashboard_node_few', 'admin_dashboard_node_many')),
-                    })}`}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/admin/nodes')}
-                className="self-start rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
-              >
-                {t('admin_dashboard_go_nodes')}
-              </button>
-            </div>
-          )}
-
-          {nodesQuery.isError && (
-            <div className="flex flex-col gap-3 p-4 rounded-xl border border-red-300 bg-red-50 sm:flex-row sm:items-center">
-              <div className="flex items-start gap-3 min-w-0">
-                <ServerCrash size={20} className="text-red-600 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-red-800">
-                    {t('admin_dashboard_nodes_load_error')}
-                  </p>
-                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                    {t('admin_dashboard_nodes_check')}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/admin/nodes')}
-                className="self-start rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 sm:ml-auto sm:self-center sm:border-0 sm:px-0 sm:py-0 sm:underline sm:hover:bg-transparent sm:hover:no-underline whitespace-nowrap"
-              >
-                {t('admin_dashboard_go_nodes')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Recent payments */}
       {data.recent_payments.length > 0 && (
-        <Section title={t('admin_dashboard_recent_payments')}>
-          <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
-            <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[var(--shadow-sm)]">
+          <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
+            <h2 className="text-lg font-bold text-[hsl(var(--foreground))]">{t('admin_dashboard_recent_payments')}</h2>
+            <button
+              onClick={() => navigate('/admin/payments')}
+              className="shrink-0 whitespace-nowrap text-xs font-semibold text-[hsl(var(--primary))] hover:underline"
+            >
+              {t('admin_dashboard_all_payments')} →
+            </button>
+          </div>
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
-                <tr className="border-b border-[hsl(var(--border))] text-left text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
-                  <th className="px-4 py-3">{t('admin_user')}</th>
-                  <th className="px-4 py-3">{t('admin_amount')}</th>
-                  <th className="px-4 py-3">{t('admin_provider')}</th>
-                  <th className="px-4 py-3">{t('admin_date')}</th>
+                <tr className="border-y border-[hsl(var(--border))] text-left">
+                  <th className="px-4 py-3 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))] sm:px-5">{t('admin_user')}</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
+                  <th className="px-4 py-3 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.recent_payments.map((p) => (
                   <tr
                     key={p.payment_id}
-                    className="border-b last:border-0 border-[hsl(var(--border))] hover:bg-[hsl(var(--muted)/0.4)] cursor-pointer transition-colors"
+                    className="cursor-pointer border-b border-[hsl(var(--border))] transition-colors last:border-0 hover:bg-[hsl(var(--muted)/0.5)]"
                     onClick={() => navigate(`/admin/users/${p.user_id}`)}
                   >
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-[hsl(var(--foreground))]">
-                        {p.username ? `@${p.username}` : p.first_name ?? `ID ${p.user_id}`}
-                      </span>
+                    <td className="px-4 py-3.5 font-medium text-[hsl(var(--foreground))] sm:px-5">
+                      {p.username ? `@${p.username}` : p.first_name ?? `ID ${p.user_id}`}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-[hsl(var(--primary))]">
+                    <td className="px-4 py-3.5 font-bold text-[hsl(var(--primary))] tabular-nums">
                       {fmtCurrency(p.amount, p.currency)}
                     </td>
-                    <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
+                    <td className="px-4 py-3.5 text-[hsl(var(--muted-foreground))]">
                       {PROVIDER_LABELS[p.provider ?? ''] ? t(PROVIDER_LABELS[p.provider ?? '']) : p.provider ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
-                      {fmtDate(p.created_at)}
-                    </td>
+                    <td className="px-4 py-3.5 text-[hsl(var(--muted-foreground))]">{fmtDate(p.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            </div>
-            <div className="px-4 py-3 border-t border-[hsl(var(--border))]">
-              <button
-                onClick={() => navigate('/admin/payments')}
-                className="text-xs text-[hsl(var(--primary))] font-semibold hover:underline"
-              >
-                {t('admin_dashboard_all_payments')} →
-              </button>
-            </div>
           </div>
-        </Section>
+        </div>
       )}
     </div>
   )

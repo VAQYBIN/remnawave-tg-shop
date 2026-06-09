@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getAddons, getAddonsCatalog, type AddonPlan, type AddonPlanOption } from '@/api/subscription'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 
 interface AddonSelectorProps {
   selectedOptionId: number | null
@@ -103,12 +103,17 @@ export function AddonSelector({ selectedOptionId, onSelect, mode = 'topup' }: Ad
                       onClick={() => onSelect(addon, option)}
                       onKeyDown={(e) => e.key === 'Enter' && onSelect(addon, option)}
                       className={cn(
-                        'rounded-lg border-2 p-3 cursor-pointer transition-all select-none space-y-0.5',
+                        'relative rounded-xl border-2 p-3 cursor-pointer transition-all select-none space-y-0.5',
                         selected
-                          ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/8%)]'
-                          : 'border-[hsl(var(--border))] bg-white hover:border-[hsl(var(--primary)/50%)]',
+                          ? 'border-[hsl(var(--primary))] bg-[color-mix(in_srgb,hsl(var(--primary))_6%,white)] shadow-[var(--shadow-md)]'
+                          : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[color-mix(in_srgb,hsl(var(--primary))_45%,transparent)] hover:shadow-[var(--shadow-sm)]',
                       )}
                     >
+                      {selected && (
+                        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                          <Check size={10} strokeWidth={3} />
+                        </span>
+                      )}
                       {duration && <p className="text-xs font-semibold">{duration}</p>}
                       {traffic && (
                         <p className="text-xs text-[hsl(var(--muted-foreground))]">{traffic}</p>

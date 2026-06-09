@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
 import { TrialBanner } from '@/components/subscription/TrialBanner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert } from '@/components/ui/alert'
 import { useAuth } from '@/auth/useAuth'
 import { getSubscription } from '@/api/subscription'
 import { getProfile } from '@/api/profile'
@@ -79,34 +80,31 @@ export function DashboardPage() {
         </div>
 
         {pendingPayment && !bannerDismissed && !isPendingPaymentExpired(pendingPayment) && (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-            <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-500" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-amber-800">У вас есть незавершённый платёж</p>
-              <p className="text-amber-700 mt-0.5">
-                {pendingPayment.subscription_duration_months
-                  ? `${pendingPayment.subscription_duration_months} мес. — `
-                  : ''}
-                {pendingPayment.amount.toFixed(0)}{' '}
-                {pendingPayment.currency === 'RUB' ? '₽' : pendingPayment.currency}
-              </p>
+          <Alert variant="warning" icon={<AlertCircle size={18} />}>
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">У вас есть незавершённый платёж</p>
+                <p className="mt-0.5">
+                  {pendingPayment.subscription_duration_months
+                    ? `${pendingPayment.subscription_duration_months} мес. — `
+                    : ''}
+                  {pendingPayment.amount.toFixed(0)}{' '}
+                  {pendingPayment.currency === 'RUB' ? '₽' : pendingPayment.currency}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  onClick={() => navigate(`/payment/${pendingPayment.payment_id}`)}
+                  className="text-xs font-bold underline underline-offset-2 hover:opacity-80"
+                >
+                  Оплатить →
+                </button>
+                <button onClick={dismissBanner} className="opacity-60 hover:opacity-100" aria-label="Закрыть">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => navigate(`/payment/${pendingPayment.payment_id}`)}
-                className="text-xs font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-900"
-              >
-                Оплатить →
-              </button>
-              <button
-                onClick={dismissBanner}
-                className="text-amber-400 hover:text-amber-600"
-                aria-label="Закрыть"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
+          </Alert>
         )}
 
         <TrialBanner />
@@ -121,11 +119,11 @@ export function DashboardPage() {
           <SubscriptionCard subscription={subscription} />
         ) : (
           <Card>
-            <CardContent className="p-6 text-center space-y-3">
+            <CardContent className="space-y-3 p-6 text-center">
               <p className="text-[hsl(var(--muted-foreground))]">{t('dashboard_no_subscription')}</p>
               <Link
                 to="/subscription"
-                className="inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-semibold transition-colors h-10 px-4 py-2 text-sm bg-[hsl(var(--primary))] text-white hover:bg-[hsl(197,74%,44%)]"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[var(--radius)] bg-[hsl(var(--primary))] px-4 text-sm font-semibold text-[hsl(var(--primary-foreground))] shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--primary-press)]"
               >
                 {t('dashboard_buy')}
               </Link>
@@ -133,42 +131,38 @@ export function DashboardPage() {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="hover:shadow-md transition-shadow">
-            <Link to="/subscription">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CreditCard size={20} className="text-[hsl(var(--primary))]" />
-                  <ArrowRight size={16} className="text-[hsl(var(--muted-foreground))]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardTitle className="text-base">{t('dashboard_manage')}</CardTitle>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  {t('dashboard_manage_desc')}
-                </p>
-              </CardContent>
-            </Link>
-          </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            to="/subscription"
+            className="group flex items-center gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,transform] hover:shadow-[var(--shadow-md)] active:scale-[0.995]"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[hsl(var(--primary))]">
+              <CreditCard size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold text-[hsl(var(--foreground))]">{t('dashboard_manage')}</h3>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">{t('dashboard_manage_desc')}</p>
+            </div>
+            <ArrowRight size={18} className="shrink-0 text-[hsl(var(--muted-foreground))] transition-transform group-hover:translate-x-0.5" />
+          </Link>
 
-          <Card className="hover:shadow-md transition-shadow">
-            <Link to="/payments">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <Receipt size={20} className="text-[hsl(var(--primary))]" />
-                  <ArrowRight size={16} className="text-[hsl(var(--muted-foreground))]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardTitle className="text-base">{t('dashboard_history')}</CardTitle>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  {paymentsCount?.total
-                    ? t('dashboard_payments_count', { count: paymentsCount.total })
-                    : t('dashboard_no_payments')}
-                </p>
-              </CardContent>
-            </Link>
-          </Card>
+          <Link
+            to="/payments"
+            className="group flex items-center gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 shadow-[var(--shadow-sm)] transition-[box-shadow,transform] hover:shadow-[var(--shadow-md)] active:scale-[0.995]"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[hsl(var(--primary))]">
+              <Receipt size={22} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold text-[hsl(var(--foreground))]">{t('dashboard_history')}</h3>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                {paymentsCount?.total
+                  ? t('dashboard_payments_count', { count: paymentsCount.total })
+                  : t('dashboard_no_payments')}
+              </p>
+            </div>
+            <ArrowRight size={18} className="shrink-0 text-[hsl(var(--muted-foreground))] transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </div>
       </div>
     </AppShell>
