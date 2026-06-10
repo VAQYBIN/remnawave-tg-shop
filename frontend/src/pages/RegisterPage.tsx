@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,8 @@ import { resolveLogoUrl } from '@/hooks/useBranding'
 import type { PublicBrandingResponse } from '@/api/admin/branding'
 
 type Step = 'email' | 'code' | 'password'
+
+const REF_CODE_KEY = 'referral_ref_code'
 
 function ConsentText({ branding }: { branding: PublicBrandingResponse | undefined }) {
   const { t } = useTranslation()
@@ -66,6 +68,19 @@ export function RegisterPage() {
   const { branding } = useBrandingContext()
   const logoUrl = resolveLogoUrl(branding?.logo_url)
 
+  const [searchParams] = useSearchParams()
+  const [refCode, setRefCode] = useState<string | null>(() => sessionStorage.getItem(REF_CODE_KEY))
+
+  // Capture a ?ref=CODE referral link and persist it across the multi-step flow.
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      const trimmed = ref.trim()
+      sessionStorage.setItem(REF_CODE_KEY, trimmed)
+      setRefCode(trimmed)
+    }
+  }, [searchParams])
+
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -107,7 +122,8 @@ export function RegisterPage() {
 
     setIsLoading(true)
     try {
-      const resp = await registerVerify(email, code, password)
+      const resp = await registerVerify(email, code, password, refCode)
+      sessionStorage.removeItem(REF_CODE_KEY)
       setAuth(resp)
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -145,6 +161,8 @@ export function RegisterPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {error && <Alert variant="danger">{error}</Alert>}
+
+            {refCode && <Alert variant="success">{t('register_referral_hint')}</Alert>}
 
             {step === 'email' && (
               <form onSubmit={handleSendCode} className="flex flex-col gap-3">

@@ -29,6 +29,7 @@ class RegisterVerifyRequest(BaseModel):
     email: EmailStr
     code: str
     password: str
+    ref_code: Optional[str] = None  # referral code from a /register?ref=... link
 
     @field_validator("email", mode="before")
     @classmethod

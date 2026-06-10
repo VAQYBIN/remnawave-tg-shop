@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { SubscriptionCard } from '@/components/subscription/SubscriptionCard'
+import { ConnectionLinkCard } from '@/components/subscription/ConnectionLinkCard'
 import { TrialBanner } from '@/components/subscription/TrialBanner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert } from '@/components/ui/alert'
@@ -116,7 +117,10 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         ) : subscription ? (
-          <SubscriptionCard subscription={subscription} />
+          <>
+            <SubscriptionCard subscription={subscription} />
+            <ConnectionLinkCard />
+          </>
         ) : (
           <Card>
             <CardContent className="space-y-3 p-6 text-center">

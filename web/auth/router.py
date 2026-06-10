@@ -276,6 +276,16 @@ async def register_verify(
             password_hash=hash_password(body.password),
             is_email_verified=True,
         )
+        # Attribute a web referral if the user arrived via a /register?ref=... link.
+        if body.ref_code:
+            try:
+                from core.dal.account_dal import ensure_site_user_for_account
+                from core.services.referral_core import attribute_web_referral
+
+                site_user = await ensure_site_user_for_account(db, account)
+                await attribute_web_referral(db, site_user, body.ref_code)
+            except Exception as exc:
+                logger.warning("Failed to attribute web referral for %s: %s", body.email, exc)
 
     tokens = await _issue_tokens(account.id, settings, redis, response)
 
