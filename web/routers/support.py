@@ -263,9 +263,16 @@ async def support_stream(
         queue: asyncio.Queue = asyncio.Queue()
 
         async def _reader() -> None:
+            # Poll with a timeout instead of the blocking listen() generator:
+            # an idle channel returns None rather than raising a socket timeout
+            # that would silently kill this reader.
             try:
-                async for msg in pubsub.listen():
-                    await queue.put(msg)
+                while True:
+                    msg = await pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=1.0
+                    )
+                    if msg is not None:
+                        await queue.put(msg)
             except (asyncio.CancelledError, Exception):
                 pass
 

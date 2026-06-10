@@ -79,35 +79,58 @@ class WebBroadcastService:
         logger.info("WebBroadcastService: stopped")
 
     async def _listen(self) -> None:
-        redis = Redis.from_url(
-            self.settings.REDIS_URL, encoding="utf-8", decode_responses=True
-        )
-        pubsub = redis.pubsub()
-        try:
-            await pubsub.subscribe("broadcast:request")
-            logger.info("WebBroadcastService: subscribed to broadcast:request")
-
-            async for message in pubsub.listen():
-                if message["type"] != "message":
-                    continue
-                try:
-                    data = json.loads(message["data"])
-                    asyncio.create_task(
-                        self._execute(redis, data),
-                        name=f"broadcast-{data.get('id', 'unknown')}",
-                    )
-                except Exception as exc:
-                    logger.error("WebBroadcastService: failed to parse message: %s", exc)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.error("WebBroadcastService: listener crashed: %s", exc, exc_info=True)
-        finally:
+        # The channel is idle most of the time. We poll with get_message(timeout=)
+        # rather than the blocking listen() generator: on an idle timeout
+        # get_message returns None instead of raising, so a quiet channel is not
+        # mistaken for a dropped connection. The outer loop reconnects (with
+        # backoff) only on a genuine connection error.
+        backoff = 1
+        while True:
+            redis = Redis.from_url(
+                self.settings.REDIS_URL,
+                encoding="utf-8",
+                decode_responses=True,
+                socket_keepalive=True,
+            )
+            pubsub = redis.pubsub()
             try:
-                await pubsub.unsubscribe("broadcast:request")
-                await redis.aclose()
-            except Exception:
-                pass
+                await pubsub.subscribe("broadcast:request")
+                logger.info("WebBroadcastService: subscribed to broadcast:request")
+                backoff = 1  # reset after a successful (re)subscribe
+
+                while True:
+                    message = await pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=1.0
+                    )
+                    if not message or message.get("type") != "message":
+                        continue
+                    try:
+                        data = json.loads(message["data"])
+                        asyncio.create_task(
+                            self._execute(redis, data),
+                            name=f"broadcast-{data.get('id', 'unknown')}",
+                        )
+                    except Exception as exc:
+                        logger.error("WebBroadcastService: failed to parse message: %s", exc)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "WebBroadcastService: listener connection lost (%s); reconnecting in %ss",
+                    exc, backoff,
+                )
+            finally:
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass
+                try:
+                    await redis.aclose()
+                except Exception:
+                    pass
+
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 30)
 
     async def _set_status(self, redis: Redis, broadcast_id: str, data: dict) -> None:
         await redis.set(
