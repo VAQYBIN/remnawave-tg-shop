@@ -22,6 +22,7 @@ export interface PublicBrandingResponse extends BrandingResponse {
   news_enabled: boolean
   referral_enabled: boolean
   devices_enabled: boolean
+  support_enabled: boolean
 }
 
 export interface BrandingUpdateRequest {
@@ -53,12 +54,14 @@ export interface FeaturesResponse {
   news_enabled: boolean
   referral_enabled: boolean
   devices_enabled: boolean
+  support_enabled: boolean
 }
 
 export interface FeaturesUpdateRequest {
   news_enabled?: boolean
   referral_enabled?: boolean
   devices_enabled?: boolean
+  support_enabled?: boolean
 }
 
 export function getPublicBranding(): Promise<PublicBrandingResponse> {

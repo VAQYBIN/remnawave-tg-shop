@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Newspaper, Users, Monitor } from 'lucide-react'
+import { Newspaper, Users, Monitor, LifeBuoy } from 'lucide-react'
 import { getAdminFeatures, patchFeatures } from '@/api/admin/branding'
 import { useToastContext } from '@/lib/toast-context'
 import { useTranslation } from 'react-i18next'
@@ -53,7 +53,7 @@ export function FeaturesPage() {
     onError: () => showToast(t('admin_branding_save_error'), 'error'),
   })
 
-  const [local, setLocal] = useState<{ news_enabled?: boolean; referral_enabled?: boolean; devices_enabled?: boolean }>({})
+  const [local, setLocal] = useState<{ news_enabled?: boolean; referral_enabled?: boolean; devices_enabled?: boolean; support_enabled?: boolean }>({})
 
   const get = (key: keyof typeof local) => {
     if (key in local) return local[key]!
@@ -108,6 +108,14 @@ export function FeaturesPage() {
           description={t('admin_features_devices_description')}
           checked={get('devices_enabled')}
           onChange={toggle('devices_enabled')}
+          disabled={mutation.isPending}
+        />
+        <ToggleRow
+          icon={LifeBuoy}
+          label={t('admin_features_support')}
+          description={t('admin_features_support_description')}
+          checked={get('support_enabled')}
+          onChange={toggle('support_enabled')}
           disabled={mutation.isPending}
         />
       </Card>

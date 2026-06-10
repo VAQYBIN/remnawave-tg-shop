@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   Users,
@@ -14,15 +15,18 @@ import {
   Activity,
   Server,
   Megaphone,
+  LifeBuoy,
   X,
 } from 'lucide-react'
 import { AdminLanguageToggle } from '@/components/admin/AdminLanguageToggle'
+import { getAdminSupportUnread } from '@/api/admin/support'
 
 const NAV_ITEMS = [
   { to: '/admin/dashboard', icon: LayoutDashboard, labelKey: 'admin_nav_overview' },
   { to: '/admin/users', icon: Users, labelKey: 'admin_nav_users' },
   { to: '/admin/payments', icon: CreditCard, labelKey: 'admin_nav_payments' },
   { to: '/admin/promos', icon: Tag, labelKey: 'admin_nav_promos' },
+  { to: '/admin/support', icon: LifeBuoy, labelKey: 'admin_nav_support' },
   { to: '/admin/broadcast', icon: Megaphone, labelKey: 'admin_nav_broadcast' },
 ]
 
@@ -47,6 +51,12 @@ interface AdminSidebarProps {
 export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps) {
   const location = useLocation()
   const { t } = useTranslation()
+  const { data: supportUnread } = useQuery({
+    queryKey: ['admin', 'support', 'unread'],
+    queryFn: getAdminSupportUnread,
+    staleTime: 30_000,
+  })
+  const supportCount = supportUnread?.count ?? 0
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -92,7 +102,12 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
         {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => (
           <NavLink key={to} to={to} className={linkClass}>
             <Icon size={18} />
-            {t(labelKey)}
+            <span className="flex-1">{t(labelKey)}</span>
+            {to === '/admin/support' && supportCount > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--danger)] px-1.5 text-[11px] font-bold text-white">
+                {supportCount}
+              </span>
+            )}
           </NavLink>
         ))}
 

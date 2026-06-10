@@ -155,6 +155,17 @@ async def on_startup_configured(dispatcher: Dispatcher):
     except Exception as e:
         logging.error(f"STARTUP: Failed to start web broadcast service: {e}", exc_info=True)
 
+    # Initialize support ticket notifier (Redis Pub/Sub from web support flow)
+    try:
+        from bot.services.support_notify_service import SupportNotifyService
+
+        support_notify_service = SupportNotifyService(bot, settings)
+        await support_notify_service.start()
+        dispatcher["support_notify_service"] = support_notify_service
+        logging.info("STARTUP: Support notify service started")
+    except Exception as e:
+        logging.error(f"STARTUP: Failed to start support notify service: {e}", exc_info=True)
+
     # Initialize promo discount expiration worker
     try:
         promo_code_service: Optional[PromoCodeService] = dispatcher.get("promo_code_service")
@@ -233,6 +244,13 @@ async def on_shutdown_configured(dispatcher: Dispatcher):
             await web_broadcast.stop()
         except Exception as e:
             logging.warning(f"Failed to stop web broadcast service: {e}")
+
+    support_notify = dispatcher.get("support_notify_service")
+    if support_notify:
+        try:
+            await support_notify.stop()
+        except Exception as e:
+            logging.warning(f"Failed to stop support notify service: {e}")
 
     for service_key in (
         "panel_service",

@@ -679,6 +679,20 @@ class Settings(BaseSettings):
         description="Telegram bot username (without @). Used for referral link generation in Web Dashboard.",
     )
 
+    # Support tickets (web)
+    SUPPORT_MAX_OPEN_TICKETS_PER_USER: int = Field(
+        default=5,
+        description="Maximum number of non-closed support tickets a single account can have open.",
+    )
+    SUPPORT_MAX_ATTACHMENTS_PER_MESSAGE: int = Field(
+        default=5,
+        description="Maximum number of image attachments per support message.",
+    )
+    SUPPORT_MAX_ATTACHMENT_SIZE_MB: int = Field(
+        default=5,
+        description="Maximum size (in MB) of a single support image attachment.",
+    )
+
     @computed_field
     @property
     def telegram_client_id(self) -> Optional[int]:

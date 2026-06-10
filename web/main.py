@@ -123,6 +123,9 @@ def create_app() -> FastAPI:
     from web.routers.news import router as news_router
     app.include_router(news_router, prefix="/api")
 
+    from web.routers.support import router as support_router
+    app.include_router(support_router, prefix="/api")
+
     from web.routers.admin import admin_router
     app.include_router(admin_router, prefix="/api")
 

@@ -632,6 +632,7 @@ class SiteSettings(Base):
     news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    support_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     privacy_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
@@ -639,3 +640,94 @@ class SiteSettings(Base):
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     __table_args__ = (UniqueConstraint('id'),)
+
+
+# ─── Support tickets ─────────────────────────────────────────────────────────
+
+# Ticket status values
+SUPPORT_STATUS_NEW = "new"
+SUPPORT_STATUS_IN_PROGRESS = "in_progress"
+SUPPORT_STATUS_CLOSED = "closed"
+
+# Ticket categories ("вид обращения")
+SUPPORT_CATEGORY_PAYMENT = "payment"
+SUPPORT_CATEGORY_CONNECTION = "connection"
+SUPPORT_CATEGORY_SUBSCRIPTION = "subscription"
+SUPPORT_CATEGORY_OTHER = "other"
+
+# Sender types for ticket messages
+SUPPORT_SENDER_USER = "user"
+SUPPORT_SENDER_ADMIN = "admin"
+
+
+class SupportTicket(Base):
+    """A support request opened by an account. The ``id`` is the public ticket number."""
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[_uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default=SUPPORT_CATEGORY_OTHER, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=SUPPORT_STATUS_NEW, index=True)
+    unread_by_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    unread_by_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+    account = relationship("Account", lazy="selectin")
+    messages: Mapped[list["SupportTicketMessage"]] = relationship(
+        "SupportTicketMessage",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="SupportTicketMessage.created_at",
+    )
+
+
+class SupportTicketMessage(Base):
+    """A single message inside a support ticket thread."""
+    __tablename__ = "support_ticket_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sender_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    sender_account_id: Mapped[Optional[_uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    ticket: Mapped["SupportTicket"] = relationship("SupportTicket", back_populates="messages")
+    attachments: Mapped[list["SupportTicketAttachment"]] = relationship(
+        "SupportTicketAttachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="SupportTicketAttachment.id",
+    )
+
+
+class SupportTicketAttachment(Base):
+    """An image attached to a ticket message. Files live under web/static/support."""
+    __tablename__ = "support_ticket_attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    message_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("support_ticket_messages.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    account_id: Mapped[_uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    message: Mapped[Optional["SupportTicketMessage"]] = relationship(
+        "SupportTicketMessage", back_populates="attachments"
+    )

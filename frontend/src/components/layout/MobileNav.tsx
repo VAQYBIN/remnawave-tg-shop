@@ -20,6 +20,7 @@ import {
   X,
   Globe,
   Settings,
+  LifeBuoy,
 } from 'lucide-react'
 
 function LangToggle() {
@@ -50,7 +51,7 @@ export function MobileNav() {
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { newsEnabled, referralEnabled, devicesEnabled } = useBrandingContext()
+  const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled } = useBrandingContext()
 
   const { data: adminData } = useQuery({
     queryKey: ['admin', 'me'],
@@ -72,6 +73,7 @@ export function MobileNav() {
     { to: '/payments', icon: History, label: t('nav_payments') },
     ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral') }] : []),
     ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices') }] : []),
+    ...(supportEnabled ? [{ to: '/support', icon: LifeBuoy, label: t('nav_support') }] : []),
   ]
 
   const handleMoreNav = (to: string) => {

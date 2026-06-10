@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
+import { useSupportNotifications } from '@/hooks/useSupportNotifications'
 
 function MobileTopBar() {
   const { branding } = useBrandingContext()
@@ -18,6 +19,7 @@ function MobileTopBar() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  useSupportNotifications()
   return (
     <div className="flex min-h-screen bg-[hsl(var(--background))]">
       <Sidebar />

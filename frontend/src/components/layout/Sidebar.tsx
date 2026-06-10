@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage } from '@/api/profile'
 import { getAdminMe } from '@/api/admin'
+import { getSupportUnread } from '@/api/support'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import {
@@ -19,6 +20,7 @@ import {
   Newspaper,
   Shield,
   Globe,
+  LifeBuoy,
 } from 'lucide-react'
 
 function FitText({ text }: { text: string }) {
@@ -81,7 +83,7 @@ export function Sidebar() {
   const { logout, user } = useAuth()
   const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { newsEnabled, referralEnabled, devicesEnabled, branding } = useBrandingContext()
+  const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled, branding } = useBrandingContext()
 
   const { data: adminData } = useQuery({
     queryKey: ['admin', 'me'],
@@ -90,19 +92,28 @@ export function Sidebar() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
+  const { data: supportUnread } = useQuery({
+    queryKey: ['support', 'unread'],
+    queryFn: getSupportUnread,
+    enabled: !!user && supportEnabled,
+    staleTime: 30_000,
+  })
   const isAdmin = !!adminData?.is_admin
   const logo = resolveLogoUrl(branding?.logo_url)
   const email = user?.email ?? ''
   const initial = (email[0] ?? 'U').toUpperCase()
 
   const NAV_ITEMS = [
-    { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard') },
-    { to: '/subscription', icon: CreditCard, label: t('nav_subscription') },
-    { to: '/payments', icon: Receipt, label: t('nav_payments') },
-    ...(newsEnabled ? [{ to: '/news', icon: Newspaper, label: t('nav_news') }] : []),
-    ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral') }] : []),
-    ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices') }] : []),
-    { to: '/profile', icon: User, label: t('nav_profile') },
+    { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard'), badge: 0 },
+    { to: '/subscription', icon: CreditCard, label: t('nav_subscription'), badge: 0 },
+    { to: '/payments', icon: Receipt, label: t('nav_payments'), badge: 0 },
+    ...(newsEnabled ? [{ to: '/news', icon: Newspaper, label: t('nav_news'), badge: 0 }] : []),
+    ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral'), badge: 0 }] : []),
+    ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices'), badge: 0 }] : []),
+    ...(supportEnabled
+      ? [{ to: '/support', icon: LifeBuoy, label: t('nav_support'), badge: supportUnread?.count ?? 0 }]
+      : []),
+    { to: '/profile', icon: User, label: t('nav_profile'), badge: 0 },
   ]
 
   return (
@@ -137,10 +148,15 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+        {NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
           <NavLink key={to} to={to} className={navClass}>
             <Icon size={18} />
-            {label}
+            <span className="flex-1">{label}</span>
+            {badge > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--danger)] px-1.5 text-[11px] font-bold text-white">
+                {badge}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

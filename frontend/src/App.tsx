@@ -22,6 +22,8 @@ const ReferralPage = lazy(() => import('@/pages/ReferralPage').then(({ ReferralP
 const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(({ DevicesPage }) => ({ default: DevicesPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage })))
 const NewsPage = lazy(() => import('@/pages/NewsPage').then(({ NewsPage }) => ({ default: NewsPage })))
+const SupportPage = lazy(() => import('@/pages/SupportPage').then(({ SupportPage }) => ({ default: SupportPage })))
+const SupportTicketPage = lazy(() => import('@/pages/SupportTicketPage').then(({ SupportTicketPage }) => ({ default: SupportTicketPage })))
 
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout').then(({ AdminLayout }) => ({ default: AdminLayout })))
 const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage').then(({ AdminDashboardPage }) => ({ default: AdminDashboardPage })))
@@ -39,6 +41,8 @@ const NodeDetailPage = lazy(() => import('@/pages/admin/NodeDetailPage').then(({
 const PanelUsersPage = lazy(() => import('@/pages/admin/PanelUsersPage').then(({ PanelUsersPage }) => ({ default: PanelUsersPage })))
 const PanelUserDetailPage = lazy(() => import('@/pages/admin/PanelUserDetailPage').then(({ PanelUserDetailPage }) => ({ default: PanelUserDetailPage })))
 const BroadcastPage = lazy(() => import('@/pages/admin/BroadcastPage').then(({ BroadcastPage }) => ({ default: BroadcastPage })))
+const AdminSupportPage = lazy(() => import('@/pages/admin/AdminSupportPage').then(({ AdminSupportPage }) => ({ default: AdminSupportPage })))
+const AdminSupportTicketPage = lazy(() => import('@/pages/admin/AdminSupportTicketPage').then(({ AdminSupportTicketPage }) => ({ default: AdminSupportTicketPage })))
 
 function RouteLoader() {
   return (
@@ -139,6 +143,22 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/support"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary><SupportPage /></ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support/:id"
+              element={
+                <ProtectedRoute>
+                  <ErrorBoundary><SupportTicketPage /></ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin */}
             <Route
@@ -160,6 +180,8 @@ export default function App() {
               <Route path="payments" element={<ErrorBoundary><AdminPaymentsPage /></ErrorBoundary>} />
               <Route path="promos" element={<ErrorBoundary><AdminPromosPage /></ErrorBoundary>} />
               <Route path="broadcast" element={<ErrorBoundary><BroadcastPage /></ErrorBoundary>} />
+              <Route path="support" element={<ErrorBoundary><AdminSupportPage /></ErrorBoundary>} />
+              <Route path="support/:id" element={<ErrorBoundary><AdminSupportTicketPage /></ErrorBoundary>} />
               <Route path="panel" element={<ErrorBoundary><PanelStatsPage /></ErrorBoundary>} />
               <Route path="panel/users" element={<ErrorBoundary><PanelUsersPage /></ErrorBoundary>} />
               <Route path="panel/users/:uuid" element={<ErrorBoundary><PanelUserDetailPage /></ErrorBoundary>} />

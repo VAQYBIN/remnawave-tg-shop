@@ -13,6 +13,7 @@ from .panel_stats import router as panel_stats_router
 from .panel_nodes import router as panel_nodes_router
 from .panel_users import router as panel_users_router
 from .remnawave import router as remnawave_router
+from .support import router as support_router
 
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 admin_router.include_router(auth_router)
@@ -29,3 +30,4 @@ admin_router.include_router(panel_stats_router)
 admin_router.include_router(panel_nodes_router)
 admin_router.include_router(panel_users_router)
 admin_router.include_router(remnawave_router)
+admin_router.include_router(support_router)
