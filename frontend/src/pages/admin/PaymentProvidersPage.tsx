@@ -21,6 +21,11 @@ import { CSS } from '@dnd-kit/utilities'
 import { getAdminPaymentProviders, updatePaymentProvider } from '@/api/admin/payment-providers'
 import type { PaymentProviderResponse } from '@/api/admin/payment-providers'
 import { useTranslation } from 'react-i18next'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Alert } from '@/components/ui/alert'
+import { Info } from 'lucide-react'
 
 const PROVIDER_DESCRIPTION_KEYS: Record<string, string> = {
   yookassa: 'admin_provider_desc_yookassa',
@@ -29,30 +34,6 @@ const PROVIDER_DESCRIPTION_KEYS: Record<string, string> = {
   severpay: 'admin_provider_desc_severpay',
   stars: 'admin_provider_desc_stars',
   cryptopay: 'admin_provider_desc_cryptopay',
-}
-
-function Toggle({ enabled, onChange, disabled }: { enabled: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={enabled}
-      disabled={disabled}
-      onClick={() => onChange(!enabled)}
-      className={[
-        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none',
-        enabled ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted))]',
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-      ].join(' ')}
-    >
-      <span
-        className={[
-          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-          enabled ? 'translate-x-6' : 'translate-x-1',
-        ].join(' ')}
-      />
-    </button>
-  )
 }
 
 interface SortableProviderRowProps {
@@ -97,7 +78,7 @@ function SortableProviderRow({ provider, index, onToggle, disabled }: SortablePr
       {/* Provider info */}
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium leading-snug text-[hsl(var(--foreground))]">{provider.display_name}</span>
+          <span className="font-semibold leading-snug text-[hsl(var(--foreground))]">{provider.display_name}</span>
           <span className="text-xs text-[hsl(var(--muted-foreground))] font-mono bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">
             {provider.provider_key}
           </span>
@@ -109,13 +90,14 @@ function SortableProviderRow({ provider, index, onToggle, disabled }: SortablePr
 
       {/* Toggle */}
       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-        <span className={`text-xs font-medium leading-none ${provider.is_enabled ? 'text-green-600' : 'text-[hsl(var(--muted-foreground))]'}`}>
+        <Badge variant={provider.is_enabled ? 'success' : 'secondary'} dot>
           {provider.is_enabled ? t('admin_enabled') : t('admin_disabled')}
-        </span>
-        <Toggle
-          enabled={provider.is_enabled}
-          onChange={() => onToggle(provider)}
+        </Badge>
+        <Switch
+          checked={provider.is_enabled}
+          onCheckedChange={() => onToggle(provider)}
           disabled={disabled}
+          aria-label={provider.display_name}
         />
       </div>
     </div>
@@ -199,7 +181,7 @@ export function PaymentProvidersPage() {
       )}
 
       {providers.length > 0 && (
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden divide-y divide-[hsl(var(--border))]">
+        <Card className="overflow-hidden divide-y divide-[hsl(var(--border))]">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -217,12 +199,12 @@ export function PaymentProvidersPage() {
               ))}
             </SortableContext>
           </DndContext>
-        </div>
+        </Card>
       )}
 
-      <div className="bg-[hsl(var(--muted)/0.5)] rounded-xl p-4 text-sm text-[hsl(var(--muted-foreground))]">
-        <strong className="text-[hsl(var(--foreground))]">{t('admin_providers_important')}</strong> {t('admin_providers_hint')}
-      </div>
+      <Alert variant="info" icon={<Info size={16} />}>
+        <strong>{t('admin_providers_important')}</strong> {t('admin_providers_hint')}
+      </Alert>
     </div>
   )
 }

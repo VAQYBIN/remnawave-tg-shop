@@ -7,6 +7,7 @@ interface BrandingContextValue {
   newsEnabled: boolean
   referralEnabled: boolean
   devicesEnabled: boolean
+  supportEnabled: boolean
 }
 
 const BrandingContext = createContext<BrandingContextValue>({
@@ -14,6 +15,7 @@ const BrandingContext = createContext<BrandingContextValue>({
   newsEnabled: true,
   referralEnabled: true,
   devicesEnabled: true,
+  supportEnabled: true,
 })
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
@@ -24,6 +26,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     newsEnabled: branding?.news_enabled ?? true,
     referralEnabled: branding?.referral_enabled ?? true,
     devicesEnabled: branding?.devices_enabled ?? true,
+    supportEnabled: branding?.support_enabled ?? true,
   }
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>

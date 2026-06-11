@@ -131,12 +131,21 @@ async def _get_or_create_panel_user_link_details(
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
     current_panel_uuid = db_user.panel_user_uuid
     is_site_user = user_id < 0
-    panel_username = f"web_{abs(user_id)}" if is_site_user else f"tg_{user_id}"
 
     site_email = None
+    site_account = None
     if is_site_user:
         site_account = await account_dal.get_account_by_site_user_id(session, user_id)
         site_email = site_account.email if site_account else None
+
+    if is_site_user:
+        panel_username = (
+            account_dal.web_panel_username(site_account)
+            if site_account
+            else f"web_{abs(user_id)}"
+        )
+    else:
+        panel_username = f"tg_{user_id}"
 
     panel_user: Optional[dict[str, Any]] = None
     if is_site_user and site_email:

@@ -83,7 +83,7 @@ export function DataTable<T>({
     header: () => {
       if (!col.sortKey || !onSortingChange) {
         return (
-          <span className="font-medium text-[hsl(var(--muted-foreground))]">
+          <span className="uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">
             {col.header}
           </span>
         )
@@ -103,7 +103,7 @@ export function DataTable<T>({
         <button
           onClick={handleClick}
           className={[
-            'flex items-center gap-1 font-medium transition-colors select-none',
+            'flex items-center gap-1 uppercase text-[10px] font-bold tracking-[0.06em] transition-colors select-none',
             isActive
               ? 'text-[hsl(var(--foreground))]'
               : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
@@ -155,7 +155,7 @@ export function DataTable<T>({
                     return (
                       <th
                         key={header.id}
-                        className={`relative text-left px-3 py-3 sm:px-4 select-none whitespace-nowrap ${col?.className ?? ''}`}
+                        className={`relative text-left px-4 py-3.5 select-none whitespace-nowrap ${col?.className ?? ''}`}
                         style={{ width: header.getSize() }}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -186,12 +186,12 @@ export function DataTable<T>({
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-[hsl(var(--border))]">
+            <tbody>
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="border-b border-[hsl(var(--border))] last:border-0">
                     {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3">
+                      <td key={col.key} className="px-4 py-3.5">
                         <div className="h-4 bg-[hsl(var(--muted))] rounded animate-pulse" />
                       </td>
                     ))}
@@ -210,14 +210,14 @@ export function DataTable<T>({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={keyExtractor(row.original)}
-                    className="hover:bg-[hsl(var(--muted)/0.3)] transition-colors"
+                    className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted)/0.5)] transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => {
                       const col = columns.find((c) => c.key === cell.column.id)
                       return (
                         <td
                           key={cell.id}
-                          className={`px-3 py-3 sm:px-4 overflow-hidden ${col?.className ?? ''}`}
+                          className={`px-4 py-3.5 overflow-hidden ${col?.className ?? ''}`}
                           style={{ width: cell.column.getSize() }}
                         >
                           <div className="truncate">

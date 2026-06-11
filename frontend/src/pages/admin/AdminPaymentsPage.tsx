@@ -17,15 +17,20 @@ import {
 } from 'lucide-react'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { DataTable, type Column } from '@/components/admin/DataTable'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Select } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { getAdminPayments, getPaymentStats, type AdminPaymentListItem } from '@/api/admin/payments'
 import { useTranslation } from 'react-i18next'
 
-const STATUS_BADGE: Record<string, string> = {
-  succeeded: 'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  canceled: 'bg-gray-100 text-gray-600',
-  failed: 'bg-red-100 text-red-700',
-  processing: 'bg-blue-100 text-blue-700',
+const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
+  succeeded: 'success',
+  pending: 'warning',
+  canceled: 'secondary',
+  failed: 'danger',
+  processing: 'info',
 }
 
 function fmt(amount: number, currency = 'RUB') {
@@ -113,9 +118,9 @@ export function AdminPaymentsPage() {
       size: 130,
       render: (r) => (
         <div className="flex flex-col">
-          <span className="font-semibold">{fmt(r.amount, r.currency)}</span>
+          <span className="font-bold text-[hsl(var(--primary))] tabular-nums">{fmt(r.amount, r.currency)}</span>
           {r.discount_applied != null && r.discount_applied > 0 && (
-            <span className="text-xs text-green-600">
+            <span className="text-xs text-[var(--success)]">
               {t('admin_payments_discount', { amount: fmt(r.discount_applied, r.currency) })}
             </span>
           )}
@@ -127,9 +132,9 @@ export function AdminPaymentsPage() {
       header: t('admin_status'),
       size: 120,
       render: (r) => (
-        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
+        <Badge variant={STATUS_VARIANT[r.status] ?? 'secondary'} dot>
           {r.status}
-        </span>
+        </Badge>
       ),
     },
     { key: 'provider', header: t('admin_provider'), size: 110, render: (r) => r.provider ?? '—' },
@@ -189,7 +194,7 @@ export function AdminPaymentsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Daily chart */}
-        <div className="lg:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 sm:p-5">
+        <Card className="lg:col-span-2 p-4 sm:p-5">
           <h2 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-4">
             {t('admin_payments_chart_title')}
           </h2>
@@ -230,10 +235,10 @@ export function AdminPaymentsPage() {
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </Card>
 
         {/* By provider */}
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 sm:p-5">
+        <Card className="p-4 sm:p-5">
           <h2 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-4">
             {t('admin_payments_by_provider')}
           </h2>
@@ -254,41 +259,41 @@ export function AdminPaymentsPage() {
                 >
                   <span className="capitalize font-medium">{p.provider}</span>
                   <div className="text-right">
-                    <div className="font-semibold">{fmt(p.amount)}</div>
+                    <div className="font-bold text-[hsl(var(--primary))] tabular-nums">{fmt(p.amount)}</div>
                     <div className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_payments_count', { count: p.count })}</div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
+      <div className="flex flex-wrap items-center gap-3">
+        <Select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(0) }}
-          className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+          className="w-auto"
         >
           {statusOptions.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           type="text"
           placeholder={t('admin_payments_provider_placeholder')}
           value={provider}
           onChange={(e) => { setProvider(e.target.value); setPage(0) }}
-          className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+          className="w-auto"
         />
         {(status || provider) && (
-          <button
+          <Button
+            variant="outline"
             onClick={() => { setStatus(''); setProvider(''); setPage(0) }}
-            className="h-9 px-3 rounded-lg border border-[hsl(var(--border))] text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
           >
             {t('admin_reset')}
-          </button>
+          </Button>
         )}
       </div>
 

@@ -57,29 +57,35 @@ class StarsService:
 
     async def create_invoice(self, session: AsyncSession, user_id: int, months: float,
                              stars_price: int, description: str, sale_mode: str = "subscription",
-                             promo_code_service=None) -> Optional[int]:
-        # Always resolve base price server-side and reject unknown packages.
-        resolved_base_price = self._resolve_base_stars_price(months, sale_mode)
-        if resolved_base_price is None:
-            logging.warning(
-                "Stars invoice rejected: base price not found for sale_mode=%s months=%s.",
-                sale_mode,
-                months,
-            )
-            return None
+                             promo_code_service=None, pricing_plan_option_id: Optional[int] = None,
+                             pricing_plan_id: Optional[int] = None,
+                             auto_renew_bundle_snapshot: Optional[str] = None) -> Optional[int]:
+        if pricing_plan_option_id is not None:
+            # Catalog option — price is already validated server-side by resolve_catalog_offer_for_payment
+            original_stars_price = int(stars_price)
+        else:
+            # Always resolve base price server-side and reject unknown packages.
+            resolved_base_price = self._resolve_base_stars_price(months, sale_mode)
+            if resolved_base_price is None:
+                logging.warning(
+                    "Stars invoice rejected: base price not found for sale_mode=%s months=%s.",
+                    sale_mode,
+                    months,
+                )
+                return None
 
-        original_stars_price = int(resolved_base_price)
+            original_stars_price = int(resolved_base_price)
 
-        # Detect callback tampering (or stale callback payload) and prefer server-side price.
-        if int(stars_price) != original_stars_price:
-            logging.warning(
-                "Stars callback price mismatch for user %s: callback=%s, resolved=%s, sale_mode=%s, months=%s",
-                user_id,
-                stars_price,
-                original_stars_price,
-                sale_mode,
-                months,
-            )
+            # Detect callback tampering (or stale callback payload) and prefer server-side price.
+            if int(stars_price) != original_stars_price:
+                logging.warning(
+                    "Stars callback price mismatch for user %s: callback=%s, resolved=%s, sale_mode=%s, months=%s",
+                    user_id,
+                    stars_price,
+                    original_stars_price,
+                    sale_mode,
+                    months,
+                )
 
         # Invoice amount starts from the base price and discount is applied once.
         stars_price = original_stars_price
@@ -115,6 +121,10 @@ class StarsService:
             "subscription_duration_months": int(months),
             "provider": "telegram_stars",
             "promo_code_id": promo_code_id,
+            "pricing_plan_option_id": pricing_plan_option_id,
+            "pricing_plan_id": pricing_plan_id,
+            "sale_mode": sale_mode if pricing_plan_option_id else None,
+            "auto_renew_bundle_snapshot": auto_renew_bundle_snapshot,
         }
         try:
             db_payment_record = await payment_dal.create_payment_record(

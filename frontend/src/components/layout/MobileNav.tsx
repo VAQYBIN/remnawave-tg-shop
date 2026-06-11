@@ -20,6 +20,7 @@ import {
   X,
   Globe,
   Settings,
+  LifeBuoy,
 } from 'lucide-react'
 
 function LangToggle() {
@@ -50,7 +51,7 @@ export function MobileNav() {
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { newsEnabled, referralEnabled, devicesEnabled } = useBrandingContext()
+  const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled } = useBrandingContext()
 
   const { data: adminData } = useQuery({
     queryKey: ['admin', 'me'],
@@ -72,6 +73,7 @@ export function MobileNav() {
     { to: '/payments', icon: History, label: t('nav_payments') },
     ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral') }] : []),
     ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices') }] : []),
+    ...(supportEnabled ? [{ to: '/support', icon: LifeBuoy, label: t('nav_support') }] : []),
   ]
 
   const handleMoreNav = (to: string) => {
@@ -86,7 +88,7 @@ export function MobileNav() {
   return (
     <>
       {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-[hsl(var(--card))] border-t border-[hsl(var(--border))] flex z-50">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         {PRIMARY_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -177,7 +179,7 @@ export function MobileNav() {
           <button
             type="button"
             onClick={handleLogoutClick}
-            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
           >
             <LogOut size={20} />
             {t('nav_logout')}

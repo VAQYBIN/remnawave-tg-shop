@@ -51,10 +51,11 @@ export async function registerVerify(
   email: string,
   code: string,
   password: string,
+  refCode?: string | null,
 ): Promise<TokenResponse> {
   return apiRequest<TokenResponse>('/auth/register/verify', {
     method: 'POST',
-    body: JSON.stringify({ email, code, password }),
+    body: JSON.stringify({ email, code, password, ref_code: refCode || undefined }),
   })
 }
 

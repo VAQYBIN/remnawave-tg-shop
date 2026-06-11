@@ -70,6 +70,23 @@ class AdminUserDetailResponse(BaseModel):
     panel_data: Optional[Dict[str, Any]]
 
 
+class AdminActivityItem(BaseModel):
+    id: str
+    type: str  # signup | payment | admin_ban | admin_unban | admin_add_days | admin_add_traffic | admin_reset_trial
+    timestamp: Optional[UTCDatetime]
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    provider: Optional[str] = None
+    duration_months: Optional[int] = None
+    days: Optional[int] = None
+    gigabytes: Optional[float] = None
+    status: Optional[str] = None
+
+
+class AdminActivityResponse(BaseModel):
+    items: List[AdminActivityItem]
+
+
 class BanRequest(BaseModel):
     reason: Optional[str] = None
 

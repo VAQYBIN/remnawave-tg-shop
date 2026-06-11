@@ -10,26 +10,34 @@ interface StatsCardProps {
 
 export function StatsCard({ title, value, subtitle, icon: Icon, trend }: StatsCardProps) {
   return (
-    <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium leading-snug">{title}</p>
-          <p className="text-xl sm:text-2xl font-bold text-[hsl(var(--foreground))] mt-1 leading-tight break-words">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{subtitle}</p>
-          )}
-          {trend && (
-            <p className={`text-xs mt-1 font-medium ${trend.value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              {trend.value >= 0 ? '+' : ''}{trend.value} {trend.label}
-            </p>
-          )}
-        </div>
-        {Icon && (
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[hsl(var(--primary)/0.1)] flex items-center justify-center shrink-0">
-            <Icon size={18} className="text-[hsl(var(--primary))] sm:size-5" />
-          </div>
-        )}
-      </div>
+    <div className="relative overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 shadow-[var(--shadow-sm)]">
+      {Icon && (
+        <Icon
+          size={20}
+          className="absolute right-4 top-4 text-[hsl(var(--primary)/0.55)]"
+        />
+      )}
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-[hsl(var(--muted-foreground))]">
+        {title}
+      </p>
+      <p className="mt-1.5 break-words text-[28px] font-extrabold leading-[1.1] tracking-[-0.01em] text-[hsl(var(--foreground))]">
+        {value}
+      </p>
+      {subtitle && (
+        <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{subtitle}</p>
+      )}
+      {trend && (
+        <span
+          className={`mt-1.5 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-bold ${
+            trend.value >= 0
+              ? 'bg-[var(--success-bg)] text-[var(--success)]'
+              : 'bg-[var(--danger-bg)] text-[var(--danger)]'
+          }`}
+        >
+          {trend.value >= 0 ? '↑' : '↓'} {trend.value >= 0 ? '+' : ''}
+          {trend.value} {trend.label}
+        </span>
+      )}
     </div>
   )
 }

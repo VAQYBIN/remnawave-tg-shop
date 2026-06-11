@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, Power, PowerOff, RefreshCw, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DataTable, type Column } from '@/components/admin/DataTable'
 import { useToast } from '@/hooks/useToast'
@@ -17,11 +18,11 @@ import {
 import { formatBytes, getBool, getNumber, getObject, getString } from './panel-utils'
 import { useTranslation } from 'react-i18next'
 
-function nodeStatus(node: PanelObject) {
-  if (getBool(node, 'isDisabled')) return { label: 'disabled', className: 'bg-gray-100 text-gray-600' }
-  if (getBool(node, 'isConnected')) return { label: 'online', className: 'bg-green-100 text-green-700' }
-  if (getBool(node, 'isConnecting')) return { label: 'connecting', className: 'bg-yellow-100 text-yellow-700' }
-  return { label: 'offline', className: 'bg-red-100 text-red-700' }
+function nodeStatus(node: PanelObject): { label: string; variant: BadgeProps['variant'] } {
+  if (getBool(node, 'isDisabled')) return { label: 'disabled', variant: 'secondary' }
+  if (getBool(node, 'isConnected')) return { label: 'online', variant: 'success' }
+  if (getBool(node, 'isConnecting')) return { label: 'connecting', variant: 'warning' }
+  return { label: 'offline', variant: 'danger' }
 }
 
 export function NodesPage() {
@@ -62,7 +63,7 @@ export function NodesPage() {
       size: 210,
       render: (node) => (
         <div className="flex flex-col">
-          <span className="font-medium">{getString(node, 'name')}</span>
+          <span className="font-semibold">{getString(node, 'name')}</span>
           <span className="text-xs text-[hsl(var(--muted-foreground))]">{getString(node, 'address')}</span>
         </div>
       ),
@@ -73,7 +74,7 @@ export function NodesPage() {
       size: 110,
       render: (node) => {
         const status = nodeStatus(node)
-        return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}>{status.label}</span>
+        return <Badge variant={status.variant} dot>{status.label}</Badge>
       },
     },
     {
@@ -85,7 +86,7 @@ export function NodesPage() {
         const limit = getNumber(node, 'trafficLimitBytes')
         return (
           <div className="flex flex-col">
-            <span className="font-medium">{formatBytes(used)}</span>
+            <span className="font-bold tabular-nums">{formatBytes(used)}</span>
             <span className="text-xs text-[hsl(var(--muted-foreground))]">{limit ? t('admin_panel_memory_total', { total: formatBytes(limit) }) : 'no limit'}</span>
           </div>
         )
@@ -95,7 +96,7 @@ export function NodesPage() {
       key: 'users',
       header: t('admin_nodes_online_users'),
       size: 90,
-      render: (node) => getNumber(node, 'usersOnline'),
+      render: (node) => <span className="font-bold tabular-nums">{getNumber(node, 'usersOnline')}</span>,
     },
     {
       key: 'system',
@@ -157,7 +158,7 @@ export function NodesPage() {
   ], [actionMutation, t])
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_nodes_title')}</h1>

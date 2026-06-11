@@ -199,7 +199,7 @@ export function PaymentPendingPage() {
           {pageState === 'countdown' && payment && (
             <div className="space-y-5">
               <div className="text-center space-y-2">
-                <div className="mx-auto w-16 h-16 rounded-full bg-[hsl(var(--primary)/0.1)] flex items-center justify-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-[var(--primary-soft)] flex items-center justify-center">
                   <span className="text-2xl font-bold text-[hsl(var(--primary))]">{countdown}</span>
                 </div>
                 <p className="font-semibold text-lg">Переход к оплате через {countdown} сек.</p>
@@ -262,7 +262,7 @@ export function PaymentPendingPage() {
           {/* Success */}
           {pageState === 'succeeded' && (
             <div className="text-center space-y-4">
-              <CheckCircle size={56} className="mx-auto text-green-500" />
+              <CheckCircle size={56} className="mx-auto text-[var(--success)]" />
               <p className="font-semibold text-lg">Оплата прошла успешно!</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">
                 Подписка активирована. Переходим...
@@ -309,7 +309,7 @@ export function PaymentPendingPage() {
           {/* Failed */}
           {pageState === 'failed' && (
             <div className="text-center space-y-4">
-              <XCircle size={56} className="mx-auto text-red-500" />
+              <XCircle size={56} className="mx-auto text-[var(--danger)]" />
               <p className="font-semibold text-lg">Платёж не завершён</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">
                 Оплата была отклонена или отменена.
@@ -342,7 +342,7 @@ export function PaymentPendingPage() {
           {/* Error */}
           {pageState === 'error' && (
             <div className="text-center space-y-4">
-              <AlertTriangle size={56} className="mx-auto text-amber-500" />
+              <AlertTriangle size={56} className="mx-auto text-[var(--warning)]" />
               <p className="font-semibold text-lg">Ошибка</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">{errorMsg}</p>
               <Button variant="outline" className="w-full" onClick={() => navigate('/payments')}>

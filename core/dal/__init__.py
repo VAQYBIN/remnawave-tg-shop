@@ -8,6 +8,7 @@ from . import user_billing_dal
 from . import ad_dal
 from . import account_dal
 from . import channel_post_dal
+from . import support_ticket_dal
 
 __all__ = (
     "user_dal",
@@ -20,4 +21,5 @@ __all__ = (
     "ad_dal",
     "account_dal",
     "channel_post_dal",
+    "support_ticket_dal",
 )

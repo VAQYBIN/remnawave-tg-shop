@@ -1,17 +1,31 @@
 import { type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { resolveLogoUrl } from '@/hooks/useBranding'
+import { useSupportNotifications } from '@/hooks/useSupportNotifications'
 
-interface AppShellProps {
-  children: ReactNode
+function MobileTopBar() {
+  const { branding } = useBrandingContext()
+  const logo = resolveLogoUrl(branding?.logo_url)
+  return (
+    <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/90 px-4 py-2.5 backdrop-blur md:hidden">
+      {logo && <img src={logo} alt="" className="h-7 w-7 rounded-full object-cover" />}
+      <span className="truncate text-base font-extrabold text-[hsl(var(--primary))]">
+        {branding?.brand_name}
+      </span>
+    </div>
+  )
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children }: { children: ReactNode }) {
+  useSupportNotifications()
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[hsl(var(--background))]">
       <Sidebar />
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
-        <div className="max-w-3xl mx-auto p-4 md:p-8">
+      <main className="min-w-0 flex-1">
+        <MobileTopBar />
+        <div className="mx-auto w-full max-w-[1200px] px-4 pb-24 pt-5 md:px-10 md:pb-20 md:pt-8">
           {children}
         </div>
       </main>

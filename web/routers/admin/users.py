@@ -1,3 +1,4 @@
+import json
 from typing import Optional, Dict
 from datetime import datetime, timezone
 
@@ -15,16 +16,31 @@ from web.schemas.admin.users import (
     AdminUserDetailResponse,
     AdminSubscriptionDetail,
     AdminPaymentItem,
+    AdminActivityItem,
+    AdminActivityResponse,
     BanRequest,
     AddDaysRequest,
     AddTrafficRequest,
 )
+from web.schemas.device import DevicesResponse, map_panel_device
+from db.models import MessageLog
 from core.dal.user_dal import admin_search_users, get_user_by_id, update_user
 from core.dal.subscription_dal import get_active_subscription_by_user_id
 from core.dal.payment_dal import get_user_payments, get_user_total_paid
 from core.services.panel_client import PanelApiService
 from web.middleware.rate_limit import admin_action_limit
 from web.routers.admin.audit import add_admin_audit_log
+
+# Admin audit events surfaced in a user's activity feed.
+_ACTIVITY_ADMIN_EVENTS = frozenset(
+    {"admin_ban", "admin_unban", "admin_add_days", "admin_add_traffic", "admin_reset_trial"}
+)
+
+
+def _aware(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 router = APIRouter()
 
@@ -188,6 +204,103 @@ async def get_admin_user_detail(
         total_paid=total_paid,
         panel_data=panel_data,
     )
+
+
+@router.get("/users/{user_id}/devices", response_model=DevicesResponse)
+async def get_admin_user_devices(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: Account = Depends(get_current_admin),
+    settings: Settings = Depends(get_settings_dep),
+):
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.panel_user_uuid:
+        return DevicesResponse(devices=[], total=0)
+
+    panel = PanelApiService(settings)
+    try:
+        raw_devices = await panel.get_user_devices(user.panel_user_uuid)
+    finally:
+        await panel.close()
+
+    if raw_devices is None:
+        raise HTTPException(status_code=502, detail="Failed to fetch devices from panel")
+
+    devices = [map_panel_device(d) for d in raw_devices]
+    return DevicesResponse(devices=devices, total=len(devices))
+
+
+@router.get("/users/{user_id}/activity", response_model=AdminActivityResponse)
+async def get_admin_user_activity(
+    user_id: int,
+    limit: int = Query(25, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _admin: Account = Depends(get_current_admin),
+):
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    items: list[AdminActivityItem] = []
+
+    # Account creation.
+    if user.registration_date:
+        items.append(AdminActivityItem(
+            id=f"signup-{user.user_id}",
+            type="signup",
+            timestamp=user.registration_date,
+        ))
+
+    # Payments.
+    payments = await get_user_payments(db, user_id, limit=limit, offset=0)
+    for p in payments:
+        items.append(AdminActivityItem(
+            id=f"payment-{p.payment_id}",
+            type="payment",
+            timestamp=p.created_at,
+            amount=p.amount,
+            currency=p.currency,
+            provider=p.provider,
+            duration_months=p.subscription_duration_months,
+            status=p.status,
+        ))
+
+    # Admin actions taken against this user (query the audit events directly so
+    # they aren't crowded out of the feed by noisy command/callback logs).
+    logs_result = await db.execute(
+        select(MessageLog)
+        .where(
+            MessageLog.target_user_id == user_id,
+            MessageLog.is_admin_event.is_(True),
+            MessageLog.event_type.in_(_ACTIVITY_ADMIN_EVENTS),
+        )
+        .order_by(MessageLog.timestamp.desc())
+        .limit(limit)
+    )
+    for log in logs_result.scalars().all():
+        details: dict = {}
+        if log.content:
+            try:
+                parsed = json.loads(log.content)
+                if isinstance(parsed, dict):
+                    details = parsed
+            except (ValueError, TypeError):
+                pass
+        items.append(AdminActivityItem(
+            id=f"log-{log.log_id}",
+            type=log.event_type,
+            timestamp=log.timestamp,
+            days=details.get("days"),
+            gigabytes=details.get("gigabytes"),
+        ))
+
+    items.sort(
+        key=lambda it: _aware(it.timestamp) or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return AdminActivityResponse(items=items[:limit])
 
 
 @router.post("/users/{user_id}/ban", dependencies=[Depends(admin_action_limit)])

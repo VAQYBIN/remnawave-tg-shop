@@ -39,12 +39,42 @@ async def pay_stars_callback_handler(
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_stars.py: %s", exc)
         return
 
+    user_id = callback.from_user.id
+    pricing_plan_option_id = None
+    pricing_plan_id = None
+    back_callback_value = None
+    auto_renew_bundle_snapshot = None
+
     try:
         _, data_payload = callback.data.split(":", 1)
         parts = data_payload.split(":")
-        months = float(parts[0])
-        stars_price = int(float(parts[1]))
-        sale_mode = parts[2] if len(parts) > 2 else "subscription"
+
+        if parts[0].startswith("o") and parts[0][1:].isdigit():
+            from bot.handlers.user.subscription.payments_subscription import resolve_catalog_offer_for_payment
+            catalog_info = await resolve_catalog_offer_for_payment(session, parts, user_id, settings)
+            if catalog_info is None or catalog_info["price_stars"] is None:
+                await callback.answer(get_text("catalog_error_option_not_found"), show_alert=True)
+                return
+            months = float(catalog_info["months_for_legacy"])
+            stars_price = int(catalog_info["price_stars"])
+            sale_mode = catalog_info["sale_mode"]
+            pricing_plan_option_id = catalog_info["option_id"]
+            pricing_plan_id = catalog_info["pricing_plan_id"]
+            auto_renew_bundle_snapshot = catalog_info.get("auto_renew_bundle_snapshot")
+            back_callback_value = catalog_info["back_callback"]
+            plan_name = catalog_info["option"].plan.name_ru if catalog_info["option"].plan else ""
+            payment_description = get_text("catalog_payment_description", plan_name=plan_name)
+        else:
+            months = float(parts[0])
+            stars_price = int(float(parts[1]))
+            sale_mode = parts[2] if len(parts) > 2 else "subscription"
+            human_value = str(int(months)) if float(months).is_integer() else f"{months:g}"
+            payment_description = (
+                get_text("payment_description_traffic", traffic_gb=human_value)
+                if sale_mode == "traffic"
+                else get_text("payment_description_subscription", months=int(months))
+            )
+            back_callback_value = f"subscribe_period:{human_value}"
     except (ValueError, IndexError):
         try:
             await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -52,13 +82,7 @@ async def pay_stars_callback_handler(
             logging.debug("Suppressed exception in bot/handlers/user/subscription/payments_stars.py: %s", exc)
         return
 
-    user_id = callback.from_user.id
     human_value = str(int(months)) if float(months).is_integer() else f"{months:g}"
-    payment_description = (
-        get_text("payment_description_traffic", traffic_gb=human_value)
-        if sale_mode == "traffic"
-        else get_text("payment_description_subscription", months=int(months))
-    )
 
     payment_db_id = await stars_service.create_invoice(
         session=session,
@@ -68,6 +92,9 @@ async def pay_stars_callback_handler(
         description=payment_description,
         sale_mode=sale_mode,
         promo_code_service=promo_code_service,
+        pricing_plan_option_id=pricing_plan_option_id,
+        pricing_plan_id=pricing_plan_id,
+        auto_renew_bundle_snapshot=auto_renew_bundle_snapshot,
     )
 
     if payment_db_id:
@@ -83,7 +110,7 @@ async def pay_stars_callback_handler(
                         [
                             InlineKeyboardButton(
                                 text=get_text("back_to_payment_methods_button"),
-                                callback_data=f"subscribe_period:{human_value}",
+                                callback_data=back_callback_value or f"subscribe_period:{human_value}",
                             )
                         ],
                         [

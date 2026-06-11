@@ -570,6 +570,37 @@ class PanelApiService:
         )
         return False
 
+    async def get_subscription_page_configs(self) -> Optional[List[Dict[str, Any]]]:
+        """List the Subscription Page configs stored in the panel.
+
+        Each item has ``uuid``, ``name``, ``viewPosition`` (the full ``config`` is
+        null in the list view — fetch it with get_subscription_page_config).
+        """
+        response_data = await self._request(
+            "GET", "/subscription-page-configs", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            resp = response_data.get("response")
+            if isinstance(resp, dict):
+                return resp.get("configs") or []
+            if isinstance(resp, list):
+                return resp
+        return None
+
+    async def get_subscription_page_config(self, uuid: str) -> Optional[Dict[str, Any]]:
+        """Fetch one Subscription Page config (the v2 app config) by UUID.
+
+        Returns the ``config`` payload (platforms/apps/blocks/svgLibrary/...), or None.
+        """
+        response_data = await self._request(
+            "GET", f"/subscription-page-configs/{uuid}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            resp = response_data.get("response")
+            if isinstance(resp, dict):
+                return resp.get("config")
+        return None
+
     async def update_bot_db_sync_status(self,
                                         session: AsyncSession,
                                         status: str,
@@ -829,6 +860,41 @@ class PanelApiService:
             return True
         logging.error(f"Failed to reset traffic for panel user {user_uuid}. Response: {response_data}")
         return False
+
+    async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all Internal Squads from Remnawave."""
+        response_data = await self._request("GET", "/internal-squads", log_full_response=False)
+        if not response_data or response_data.get("error"):
+            return None
+        response = response_data.get("response")
+        if isinstance(response, list):
+            return response
+        if isinstance(response, dict):
+            return response.get("internalSquads") or response.get("squads") or []
+        return None
+
+    async def get_internal_squad(self, squad_uuid: str) -> Optional[Dict[str, Any]]:
+        """Get a single Internal Squad by UUID from Remnawave."""
+        response_data = await self._request(
+            "GET", f"/internal-squads/{squad_uuid}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            return response_data.get("response")
+        return None
+
+    async def validate_internal_squad(
+        self, squad_uuid: str
+    ) -> tuple[bool, Optional[str], Optional[str]]:
+        """Check that squad_uuid exists in Remnawave.
+
+        Returns (is_valid, squad_name, error_message).
+        error_message is set both when Remnawave is unavailable and when the UUID is not found.
+        """
+        squad = await self.get_internal_squad(squad_uuid)
+        if squad is None:
+            return False, None, f"Squad {squad_uuid!r} не найден или Remnawave недоступен."
+        name: Optional[str] = squad.get("name") or squad.get("squadName")
+        return True, name, None
 
     async def encrypt_happ_link(self, link_to_encrypt: str) -> Optional[str]:
         """Encrypt a subscription link using the panel's happ crypt4 API.

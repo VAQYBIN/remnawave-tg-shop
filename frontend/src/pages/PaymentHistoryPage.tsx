@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { getPayments, type Payment } from '@/api/payment'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -13,18 +13,18 @@ const LIMIT = 10
 function PaymentRow({ payment }: { payment: Payment }) {
   const { t, i18n } = useTranslation()
 
-  const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-    succeeded: { label: t('payments_succeeded'), className: 'bg-green-100 text-green-700' },
-    pending: { label: t('payments_pending'), className: 'bg-yellow-100 text-yellow-700' },
-    canceled: { label: t('payments_canceled'), className: 'bg-red-100 text-red-700' },
-    refunded: { label: t('payments_refunded'), className: 'bg-blue-100 text-blue-700' },
+  const STATUS_LABELS: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
+    succeeded: { label: t('payments_succeeded'), variant: 'success' },
+    pending: { label: t('payments_pending'), variant: 'warning' },
+    canceled: { label: t('payments_canceled'), variant: 'danger' },
+    refunded: { label: t('payments_refunded'), variant: 'info' },
   }
 
-  function getStatusBadge(status: string) {
+  function getStatusBadge(status: string): { label: string; variant: BadgeProps['variant'] } {
     for (const [key, val] of Object.entries(STATUS_LABELS)) {
       if (status.includes(key)) return val
     }
-    return { label: status, className: 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]' }
+    return { label: status, variant: 'secondary' }
   }
 
   const badge = getStatusBadge(payment.status)
@@ -49,7 +49,7 @@ function PaymentRow({ payment }: { payment: Payment }) {
         <p className="text-sm font-semibold">
           {payment.amount} {payment.currency}
         </p>
-        <Badge className={`text-xs ${badge.className}`}>{badge.label}</Badge>
+        <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
     </div>
   )

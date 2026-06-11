@@ -40,6 +40,20 @@ async def patch_branding(
     return BrandingResponse.model_validate(settings)
 
 
+def _delete_static_file(url: str | None) -> None:
+    """Best-effort removal of a previously uploaded static asset."""
+    if not url:
+        return
+    filename = os.path.basename(url)
+    if not filename:
+        return
+    filepath = os.path.join(STATIC_DIR, filename)
+    try:
+        os.remove(filepath)
+    except OSError:
+        pass
+
+
 @router.post("/branding/favicon", response_model=BrandingResponse, dependencies=[Depends(admin_action_limit)])
 async def upload_favicon(
     file: UploadFile = File(...),
@@ -109,5 +123,31 @@ async def upload_logo(
         "admin_branding_logo_upload",
         details={"filename": filename, "content_type": file.content_type, "size": len(content)},
     )
+    await db.commit()
+    return BrandingResponse.model_validate(site_settings)
+
+
+@router.delete("/branding/logo", response_model=BrandingResponse, dependencies=[Depends(admin_action_limit)])
+async def delete_logo(
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+):
+    settings = await get_site_settings(db)
+    _delete_static_file(settings.logo_url)
+    site_settings = await update_site_settings(db, logo_url=None)
+    await add_admin_audit_log(db, admin, "admin_branding_logo_delete")
+    await db.commit()
+    return BrandingResponse.model_validate(site_settings)
+
+
+@router.delete("/branding/favicon", response_model=BrandingResponse, dependencies=[Depends(admin_action_limit)])
+async def delete_favicon(
+    db: AsyncSession = Depends(get_db),
+    admin: Account = Depends(get_current_admin),
+):
+    settings = await get_site_settings(db)
+    _delete_static_file(settings.favicon_url)
+    site_settings = await update_site_settings(db, favicon_url=None)
+    await add_admin_audit_log(db, admin, "admin_branding_favicon_delete")
     await db.commit()
     return BrandingResponse.model_validate(site_settings)

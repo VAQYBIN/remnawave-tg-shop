@@ -12,12 +12,22 @@ from core.dal.account_dal import get_account_user_ids
 from web.schemas.subscription import (
     AutoRenewRequest,
     AutoRenewResponse,
+    AutoRenewEntitlementRequest,
     ConnectionResponse,
+    RenewalBundleResponse,
+    RenewalBundleAddonResponse,
     TimePlan,
     TrialEligibilityResponse,
     TrafficPlan,
     SubscriptionPlansResponse,
     SubscriptionResponse,
+    PubPlanResponse,
+    PubPlanOptionResponse,
+    EntitlementResponse,
+    EntitlementsResponse,
+    AddonsListResponse,
+    AddonPlanResponse,
+    AddonPlanOptionResponse,
 )
 from web.middleware.rate_limit import check_rate_limit, get_client_ip
 
@@ -127,6 +137,24 @@ async def _get_account_active_subscription(db: AsyncSession, account: Account, s
     return None
 
 
+def _entitlement_to_response(e) -> EntitlementResponse:
+    return EntitlementResponse(
+        id=e.id,
+        plan_id=e.plan_id,
+        plan_option_id=e.plan_option_id,
+        plan_slug=e.plan.slug,
+        plan_name_ru=e.plan.name_ru,
+        plan_name_en=e.plan.name_en,
+        plan_kind=e.plan.plan_kind,
+        billing_model=e.plan.billing_model,
+        starts_at=e.starts_at,
+        ends_at=e.ends_at,
+        traffic_limit_bytes_added=e.traffic_limit_bytes_added,
+        is_active=e.is_active,
+        auto_renew_enabled=e.auto_renew_enabled,
+    )
+
+
 @router.get("", response_model=SubscriptionResponse)
 async def get_subscription(
     account: Account = Depends(get_current_account),
@@ -174,6 +202,7 @@ async def get_subscription(
         traffic_limit_bytes=traffic_limit,
         traffic_used_bytes=traffic_used,
         auto_renew_enabled=sub.auto_renew_enabled,
+        auto_renew_available=settings.yookassa_autopayments_active,
         provider=sub.provider,
         panel_user_uuid=sub.panel_user_uuid,
         panel_subscription_uuid=sub.panel_subscription_uuid,
@@ -219,6 +248,12 @@ async def activate_trial(
             raise HTTPException(status_code=409, detail="Trial already used or subscription exists")
         raise HTTPException(status_code=502, detail=result.get("message_key", "Trial activation failed"))
 
+    try:
+        from core.services.telegram_notify import notify_group_web_trial
+        await notify_group_web_trial(settings, account=account, end_date=result.get("end_date"))
+    except Exception as exc:
+        logger.warning("Group trial notify failed: %s", exc)
+
     return SubscriptionResponse(
         subscription_id=result["subscription_id"],
         is_active=True,
@@ -229,14 +264,57 @@ async def activate_trial(
         traffic_limit_bytes=result.get("traffic_limit_bytes"),
         traffic_used_bytes=result.get("traffic_used_bytes"),
         auto_renew_enabled=False,
+        auto_renew_available=settings.yookassa_autopayments_active,
         provider=result.get("provider"),
         panel_user_uuid=result["panel_user_uuid"],
         panel_subscription_uuid=result.get("panel_subscription_uuid"),
     )
 
 
+async def _get_optional_account(request: Request, db: AsyncSession, settings: Settings):
+    """Возвращает Account, если в запросе есть валидный JWT.
+
+    Если заголовка Authorization нет — возвращает None (анонимный публичный доступ).
+    Если токен присутствует, но недействителен/просрочен — бросает 401, чтобы
+    фронтенд-клиент выполнил refresh (он триггерится именно на 401).
+    """
+    import jwt as _jwt
+
+    auth = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth or not auth.lower().startswith("bearer "):
+        return None
+    token = auth.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    if not settings.WEB_JWT_SECRET:
+        raise HTTPException(status_code=500, detail="JWT not configured")
+
+    from web.auth.jwt_service import verify_access_token
+    from core.dal.account_dal import get_account_by_id
+    try:
+        payload = verify_access_token(token, settings.WEB_JWT_SECRET)
+    except _jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except _jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    import uuid as _uuid
+    try:
+        account_id = _uuid.UUID(sub)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid account ID in token")
+    account = await get_account_by_id(db, account_id)
+    if not account:
+        raise HTTPException(status_code=401, detail="Account not found")
+    return account
+
+
 @router.get("/plans", response_model=SubscriptionPlansResponse)
 async def get_plans(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> SubscriptionPlansResponse:
@@ -245,26 +323,319 @@ async def get_plans(
             TrafficPlan(gb=gb, price_rub=price)
             for gb, price in sorted(settings.traffic_packages.items())
         ]
-        return SubscriptionPlansResponse(mode="traffic", plans=plans)
+        return SubscriptionPlansResponse(mode="traffic", plans=plans, catalog_plans=[])
 
-    # Try DB first — use plans configured in admin panel
-    from core.dal.pricing_plan_dal import get_enabled_plans
-    db_plans = await get_enabled_plans(db)
-    if db_plans:
-        plans = [
-            TimePlan(months=p.duration_months, price_rub=p.price_rub or 0.0, price_stars=p.price_stars)
-            for p in db_plans
-            if p.price_rub is not None
+    # Try DB — catalog mode when non-legacy standalone plans exist
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans, get_plan_by_id, LEGACY_DEFAULT_SLUG
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
+    standalone_plans = [p for p in db_plans if p.plan_kind == "standalone" and not p.is_trial]
+
+    # Если у пользователя активный standalone на архивный план — показываем его в каталоге для продления
+    account = await _get_optional_account(request, db, settings)
+    if account:
+        from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+        user_ids = get_account_user_ids(account)
+        now = datetime.now(timezone.utc)
+        for user_id in user_ids:
+            ent = await get_active_standalone_entitlement(db, user_id, now=now)
+            if ent and ent.plan and ent.plan.is_archived:
+                archived_plan = await get_plan_by_id(db, ent.plan_id)
+                if (
+                    archived_plan
+                    and archived_plan.plan_kind == "standalone"
+                    and any(o.is_enabled for o in (archived_plan.options or []))
+                    and not any(p.id == archived_plan.id for p in standalone_plans)
+                ):
+                    standalone_plans.append(archived_plan)
+                break
+
+    if standalone_plans:
+        catalog = [
+            PubPlanResponse(
+                id=p.id,
+                slug=p.slug,
+                name_ru=p.name_ru,
+                name_en=p.name_en,
+                description_ru=p.description_ru,
+                description_en=p.description_en,
+                plan_kind=p.plan_kind,
+                billing_model=p.billing_model,
+                traffic_reset_strategy=p.traffic_reset_strategy,
+                min_price_rub=p.min_price_rub,
+                min_price_stars=p.min_price_stars,
+                is_trial=p.is_trial,
+                options=[
+                    PubPlanOptionResponse(
+                        id=opt.id,
+                        duration_months=opt.duration_months,
+                        duration_days=opt.duration_days,
+                        traffic_gb=opt.traffic_gb,
+                        traffic_unlimited=opt.traffic_unlimited,
+                        price_rub=opt.price_rub,
+                        price_stars=opt.price_stars,
+                        sort_order=opt.sort_order,
+                    )
+                    for opt in p.options
+                    if opt.is_enabled
+                ],
+            )
+            for p in standalone_plans
         ]
-        if plans:
-            return SubscriptionPlansResponse(mode="time", plans=plans)
+        return SubscriptionPlansResponse(mode="catalog", plans=[], catalog_plans=catalog)
 
-    # Fallback to env vars (legacy / not yet configured in admin)
-    plans = [
+    # Legacy fallback: env vars
+    legacy_plans = [
         TimePlan(months=months, price_rub=price)
         for months, price in sorted(settings.subscription_options.items())
     ]
-    return SubscriptionPlansResponse(mode="time", plans=plans)
+    return SubscriptionPlansResponse(mode="time", plans=legacy_plans, catalog_plans=[])
+
+
+@router.get("/entitlements", response_model=EntitlementsResponse)
+async def get_entitlements(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> EntitlementsResponse:
+    from core.dal.plan_entitlement_dal import get_active_entitlements_for_user
+
+    auto_renew_available = settings.yookassa_autopayments_active
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return EntitlementsResponse(standalone=None, addons=[], auto_renew_available=auto_renew_available)
+
+    now = datetime.now(timezone.utc)
+    standalone = None
+    addons: list[EntitlementResponse] = []
+
+    for user_id in user_ids:
+        entitlements = await get_active_entitlements_for_user(db, user_id, now=now)
+        for e in entitlements:
+            resp = _entitlement_to_response(e)
+            if e.plan.plan_kind == "standalone":
+                if standalone is None:
+                    standalone = resp
+            else:
+                addons.append(resp)
+
+    return EntitlementsResponse(
+        standalone=standalone,
+        addons=addons,
+        auto_renew_available=auto_renew_available,
+    )
+
+
+@router.patch("/entitlements/{entitlement_id}/auto-renew", response_model=EntitlementResponse)
+async def toggle_entitlement_auto_renew(
+    entitlement_id: int,
+    body: AutoRenewEntitlementRequest,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> EntitlementResponse:
+    from core.dal.plan_entitlement_dal import get_entitlement_by_id
+
+    if body.enabled and not settings.yookassa_autopayments_active:
+        raise HTTPException(status_code=403, detail="Auto-renew is disabled")
+
+    e = await get_entitlement_by_id(db, entitlement_id)
+    if e is None or not e.is_active:
+        raise HTTPException(status_code=404, detail="Entitlement not found")
+
+    user_ids = get_account_user_ids(account)
+    if e.user_id not in user_ids:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    e.auto_renew_enabled = body.enabled
+    await db.flush()
+    await db.commit()
+    await db.refresh(e)
+
+    return _entitlement_to_response(e)
+
+
+@router.get("/renewal-bundle/{option_id}", response_model=RenewalBundleResponse)
+async def get_renewal_bundle(
+    option_id: int,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> RenewalBundleResponse:
+    from core.dal.pricing_plan_dal import get_plan_option_by_id
+    from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return RenewalBundleResponse(has_bundle=False)
+
+    option = await get_plan_option_by_id(db, option_id)
+    if option is None or option.plan is None or option.plan.plan_kind != "standalone":
+        raise HTTPException(status_code=404, detail="Option not found")
+
+    now = datetime.now(timezone.utc)
+    for user_id in user_ids:
+        bundle = await build_standalone_renewal_bundle(
+            db,
+            user_id=user_id,
+            standalone_option=option,
+            now=now,
+        )
+        if bundle:
+            snapshot = bundle["snapshot"]
+            return RenewalBundleResponse(
+                has_bundle=True,
+                total_price_rub=bundle["total_price_rub"],
+                total_price_stars=bundle["total_price_stars"],
+                addons=[
+                    RenewalBundleAddonResponse(
+                        entitlement_id=item["entitlement_id"],
+                        plan_id=item["plan_id"],
+                        option_id=item["option_id"],
+                        price_rub=item.get("price_rub"),
+                        price_stars=item.get("price_stars"),
+                    )
+                    for item in snapshot.get("addons", [])
+                ],
+            )
+
+    return RenewalBundleResponse(has_bundle=False)
+
+
+@router.get("/addons", response_model=AddonsListResponse)
+async def get_addons(
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AddonsListResponse:
+    from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans
+    from core.services.tariff_pricing import prorate_option
+
+    user_ids = get_account_user_ids(account)
+    if not user_ids:
+        return AddonsListResponse(addons=[], standalone_ends_at=None)
+
+    now = datetime.now(timezone.utc)
+    standalone_ends_at = None
+
+    for user_id in user_ids:
+        standalone = await get_active_standalone_entitlement(db, user_id, now=now)
+        if standalone and standalone.ends_at:
+            standalone_ends_at = standalone.ends_at
+            break
+
+    if standalone_ends_at is None:
+        return AddonsListResponse(addons=[], standalone_ends_at=None)
+
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
+    addon_plans = [p for p in db_plans if p.plan_kind == "addon"]
+
+    result: list[AddonPlanResponse] = []
+    for plan in addon_plans:
+        enabled_options = [opt for opt in plan.options if opt.is_enabled]
+        if not enabled_options:
+            continue
+
+        priced_options: list[AddonPlanOptionResponse] = []
+        for opt in enabled_options:
+            prorated_rub, prorated_stars = prorate_option(
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                plan_min_price_rub=plan.min_price_rub,
+                plan_min_price_stars=plan.min_price_stars,
+                standalone_ends_at=standalone_ends_at,
+                now=now,
+                global_min_rub=settings.MIN_PRORATED_PRICE_RUB,
+                global_min_stars=settings.MIN_PRORATED_PRICE_STARS,
+            )
+            priced_options.append(AddonPlanOptionResponse(
+                id=opt.id,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                traffic_gb=opt.traffic_gb,
+                traffic_unlimited=opt.traffic_unlimited,
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                sort_order=opt.sort_order,
+                prorated_price_rub=prorated_rub,
+                prorated_price_stars=prorated_stars,
+            ))
+
+        result.append(AddonPlanResponse(
+            id=plan.id,
+            slug=plan.slug,
+            name_ru=plan.name_ru,
+            name_en=plan.name_en,
+            description_ru=plan.description_ru,
+            description_en=plan.description_en,
+            billing_model=plan.billing_model,
+            traffic_reset_strategy=plan.traffic_reset_strategy,
+            min_price_rub=plan.min_price_rub,
+            min_price_stars=plan.min_price_stars,
+            is_trial=plan.is_trial,
+            options=priced_options,
+        ))
+
+    return AddonsListResponse(addons=result, standalone_ends_at=standalone_ends_at)
+
+
+@router.get("/addons/catalog", response_model=AddonsListResponse)
+async def get_addons_catalog(
+    db: AsyncSession = Depends(get_db),
+) -> AddonsListResponse:
+    """List purchasable addon plans at FULL price (no proration, no active-standalone
+    requirement). Used for the combined "standalone + addon" purchase flow, where the
+    addon period is aligned to the freshly-bought standalone end at activation time.
+
+    Unlike GET /subscription/addons (top-up to an existing subscription, prorated),
+    this endpoint returns full option prices so a first-time buyer can bundle an addon
+    with their initial purchase.
+    """
+    from core.dal.pricing_plan_dal import get_plans as dal_get_plans
+
+    db_plans = await dal_get_plans(db, enabled_only=True, include_archived=False)
+    addon_plans = [p for p in db_plans if p.plan_kind == "addon"]
+
+    result: list[AddonPlanResponse] = []
+    for plan in addon_plans:
+        enabled_options = [opt for opt in plan.options if opt.is_enabled]
+        if not enabled_options:
+            continue
+
+        priced_options = [
+            AddonPlanOptionResponse(
+                id=opt.id,
+                duration_months=opt.duration_months,
+                duration_days=opt.duration_days,
+                traffic_gb=opt.traffic_gb,
+                traffic_unlimited=opt.traffic_unlimited,
+                price_rub=opt.price_rub,
+                price_stars=opt.price_stars,
+                sort_order=opt.sort_order,
+                prorated_price_rub=opt.price_rub,
+                prorated_price_stars=opt.price_stars,
+            )
+            for opt in enabled_options
+        ]
+
+        result.append(AddonPlanResponse(
+            id=plan.id,
+            slug=plan.slug,
+            name_ru=plan.name_ru,
+            name_en=plan.name_en,
+            description_ru=plan.description_ru,
+            description_en=plan.description_en,
+            billing_model=plan.billing_model,
+            traffic_reset_strategy=plan.traffic_reset_strategy,
+            min_price_rub=plan.min_price_rub,
+            min_price_stars=plan.min_price_stars,
+            is_trial=plan.is_trial,
+            options=priced_options,
+        ))
+
+    return AddonsListResponse(addons=result, standalone_ends_at=None)
 
 
 @router.get("/connection", response_model=ConnectionResponse)
@@ -321,6 +692,10 @@ async def toggle_auto_renew(
         raise HTTPException(status_code=404, detail="No subscription found")
 
     from core.dal.subscription_dal import set_auto_renew
+
+    if body.enabled and not settings.yookassa_autopayments_active:
+        raise HTTPException(status_code=403, detail="Auto-renew is disabled")
+
     sub = await _get_account_active_subscription(db, account, settings)
     if not sub:
         raise HTTPException(status_code=404, detail="No active subscription")

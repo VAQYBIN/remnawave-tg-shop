@@ -3,10 +3,12 @@ import { Outlet } from 'react-router-dom'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAdminSupportNotifications } from '@/hooks/useAdminSupportNotifications'
 
 export function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { t } = useTranslation()
+  useAdminSupportNotifications()
 
   return (
     <div className="flex h-screen bg-[hsl(var(--background))]">

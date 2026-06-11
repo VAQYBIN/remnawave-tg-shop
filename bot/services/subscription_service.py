@@ -109,8 +109,8 @@ class SubscriptionService:
 
         current_local_panel_uuid = db_user.panel_user_uuid
         is_site_user = user_id < 0
-        panel_username_on_panel_standard = f"web_{abs(user_id)}" if is_site_user else f"tg_{user_id}"
         site_email = None
+        site_account = None
         if is_site_user:
             try:
                 from core.dal.account_dal import get_account_by_site_user_id
@@ -119,6 +119,17 @@ class SubscriptionService:
                 site_email = site_account.email if site_account else None
             except Exception:
                 logging.exception("Failed to resolve site account for web-only user %s", user_id)
+
+        if is_site_user:
+            from core.dal.account_dal import web_panel_username
+
+            panel_username_on_panel_standard = (
+                web_panel_username(site_account)
+                if site_account
+                else f"web_{abs(user_id)}"
+            )
+        else:
+            panel_username_on_panel_standard = f"tg_{user_id}"
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
@@ -483,6 +494,111 @@ class SubscriptionService:
             "traffic_limit_bytes": new_limit,
         }
 
+    async def _maybe_handle_catalog_payment(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        payment_db_id: int,
+        provider: str = "yookassa",
+    ) -> Optional[Dict[str, Any]]:
+        """
+        If the payment has pricing_plan_option_id, activate via entitlement system and return result.
+        Returns None when the payment is not a catalog payment (caller uses legacy path).
+        """
+        from db.dal import payment_dal as _payment_dal
+        from db.dal import subscription_dal
+        from core.services import tariff_activation, tariff_sync
+
+        payment = await _payment_dal.get_payment_by_db_id(session, payment_db_id)
+        if not payment or not payment.pricing_plan_option_id:
+            return None
+
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user:
+            logging.error("_maybe_handle_catalog_payment: user %s not found", user_id)
+            return None
+
+        panel_user_uuid, panel_sub_link_id, panel_short_uuid, _ = (
+            await self._get_or_create_panel_user_link_details(session, user_id, db_user)
+        )
+        if not panel_user_uuid or not panel_sub_link_id:
+            logging.error(
+                "_maybe_handle_catalog_payment: panel user not resolved for user %s", user_id
+            )
+            return None
+
+        now = datetime.now(timezone.utc)
+        plan_kind = payment.sale_mode or "standalone"
+
+        if plan_kind == "addon":
+            cat_result = await tariff_activation.create_addon_entitlement(
+                session, payment=payment, now=now
+            )
+        else:
+            cat_result = await tariff_activation.create_standalone_entitlement(
+                session, payment=payment, now=now
+            )
+
+        if not cat_result:
+            logging.error(
+                "_maybe_handle_catalog_payment: entitlement creation failed for payment %s",
+                payment_db_id,
+            )
+            return None
+
+        end_date = cat_result.get("end_date")
+        traffic_bytes = cat_result.get("traffic_bytes") or 0
+
+        if plan_kind != "addon":
+            # Update legacy Subscription for backward compatibility
+            sub_payload = {
+                "user_id": user_id,
+                "panel_user_uuid": panel_user_uuid,
+                "panel_subscription_uuid": panel_sub_link_id,
+                "start_date": now,
+                "end_date": end_date or now,
+                "duration_months": payment.duration_months or 0,
+                "is_active": bool(end_date and end_date > now),
+                "status_from_panel": "ACTIVE",
+                "traffic_limit_bytes": traffic_bytes or self.settings.user_traffic_limit_bytes,
+                "provider": provider,
+                "skip_notifications": user_id < 0,
+                "auto_renew_enabled": False,
+                "pricing_plan_id": payment.pricing_plan_id,
+                "pricing_plan_option_id": payment.pricing_plan_option_id,
+            }
+            await subscription_dal.deactivate_other_active_subscriptions(
+                session, panel_user_uuid, panel_sub_link_id
+            )
+            await subscription_dal.upsert_subscription(session, sub_payload)
+
+        # Sync Remnawave with correct squads and state
+        sync_ok = await tariff_sync.sync_entitlements_to_panel(
+            session, user_id, panel_user_uuid, self.panel_service, now=now
+        )
+        if not sync_ok:
+            payment.needs_panel_sync = True
+            await session.flush()
+            logging.warning(
+                "Catalog activation: Remnawave sync failed for user %s payment %s; "
+                "needs_panel_sync=True",
+                user_id, payment_db_id,
+            )
+
+        # Get subscription URL from panel (state was just updated)
+        panel_user_data = await self.panel_service.get_user_by_uuid(panel_user_uuid)
+        subscription_url = panel_user_data.get("subscriptionUrl") if panel_user_data else None
+
+        return {
+            "subscription_id": None,
+            "end_date": end_date,
+            "is_active": bool(end_date and end_date > now),
+            "panel_user_uuid": panel_user_uuid,
+            "panel_short_uuid": panel_short_uuid,
+            "subscription_url": subscription_url,
+            "applied_promo_bonus_days": 0,
+        }
+
     async def activate_subscription(
         self,
         session: AsyncSession,
@@ -495,6 +611,19 @@ class SubscriptionService:
         sale_mode: str = "subscription",
         traffic_gb: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
+
+        # Phase 5: catalog payment short-circuit — all providers benefit automatically
+        try:
+            catalog_result = await self._maybe_handle_catalog_payment(
+                session, user_id, payment_db_id, provider=provider
+            )
+            if catalog_result is not None:
+                return catalog_result
+        except Exception:
+            logging.exception(
+                "activate_subscription: catalog pre-check failed for payment %s, falling back to legacy",
+                payment_db_id,
+            )
 
         if sale_mode == "traffic" or getattr(self.settings, "traffic_sale_mode", False):
             target_gb = traffic_gb if traffic_gb is not None else float(months)
@@ -932,13 +1061,13 @@ class SubscriptionService:
         if getattr(self.settings, "traffic_sale_mode", False):
             logging.info("Auto-renew skipped: traffic sale mode enabled")
             return True
-        if not sub.auto_renew_enabled:
-            return True
         # If autopayments are disabled globally, skip charging attempts
         if not self.settings.yookassa_autopayments_active:
             return True
         if sub.provider != "yookassa":
             logging.info("Auto-renew skipped: provider %s does not support auto-renew", sub.provider)
+            return True
+        if not sub.pricing_plan_option_id and not sub.auto_renew_enabled:
             return True
 
         from db.dal.user_billing_dal import get_user_default_payment_method
@@ -955,6 +1084,110 @@ class SubscriptionService:
         if not yk or not getattr(yk, 'configured', False):
             logging.warning("YooKassa unavailable for auto-renew")
             return False
+
+        if sub.pricing_plan_option_id:
+            from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+            from core.dal.pricing_plan_dal import get_plan_option_by_id
+            from core.services.plan_purchase_policy import can_purchase_plan_option
+            from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+
+            now = datetime.now(timezone.utc)
+            standalone = await get_active_standalone_entitlement(session, sub.user_id, now=now)
+            if not standalone or not standalone.auto_renew_enabled:
+                return True
+
+            option = await get_plan_option_by_id(session, sub.pricing_plan_option_id)
+            if not option or not option.plan or option.plan.plan_kind != "standalone":
+                logging.error("Catalog auto-renew skipped: option missing for subscription %s", sub.subscription_id)
+                return False
+
+            allowed, reason = await can_purchase_plan_option(session, [sub.user_id], option, now=now)
+            if not allowed:
+                logging.warning(
+                    "Catalog auto-renew skipped: option %s not purchasable for user %s (%s)",
+                    option.id,
+                    sub.user_id,
+                    reason,
+                )
+                return False
+
+            amount = float(option.price_rub) if option.price_rub is not None else None
+            if amount is None:
+                logging.error("Catalog auto-renew price missing for option %s", option.id)
+                return False
+
+            bundle = await build_standalone_renewal_bundle(
+                session,
+                user_id=sub.user_id,
+                standalone_option=option,
+                now=now,
+            )
+            bundle_snapshot = None
+            if bundle:
+                if bundle["total_price_rub"] is None:
+                    logging.error("Catalog auto-renew bundle RUB total missing for option %s", option.id)
+                    return False
+                amount = float(bundle["total_price_rub"])
+                bundle_snapshot = bundle["snapshot_json"]
+
+            months = option.duration_months or max(1, round((option.duration_days or 30) / 30.0))
+            payment_description = f"Auto-renewal for catalog plan {option.plan.name_ru}"
+            payment_record = await payment_dal.create_payment_record(
+                session,
+                {
+                    "user_id": sub.user_id,
+                    "amount": amount,
+                    "currency": "RUB",
+                    "status": "pending_yookassa",
+                    "description": payment_description,
+                    "subscription_duration_months": int(months),
+                    "provider": "yookassa",
+                    "pricing_plan_id": option.plan_id,
+                    "pricing_plan_option_id": option.id,
+                    "sale_mode": "standalone",
+                    "duration_months": option.duration_months,
+                    "duration_days": option.duration_days,
+                    "auto_renew_bundle_snapshot": bundle_snapshot,
+                },
+            )
+
+            metadata = {
+                "user_id": str(sub.user_id),
+                "auto_renew_for_subscription_id": str(sub.subscription_id),
+                "auto_renew_for_entitlement_id": str(standalone.id),
+                "subscription_months": str(months),
+                "payment_db_id": str(payment_record.payment_id),
+                "sale_mode": "standalone",
+            }
+            resp = await yk.create_payment(
+                amount=amount,
+                currency="RUB",
+                description=payment_description,
+                metadata=metadata,
+                payment_method_id=default_pm.provider_payment_method_id,
+                save_payment_method=False,
+                capture=True,
+            )
+            if not resp or resp.get("status") not in {"pending", "waiting_for_capture", "succeeded"}:
+                logging.error("Catalog auto-renew create_payment failed: %s", resp)
+                return False
+            provider_payment_id = resp.get("id")
+            if provider_payment_id:
+                await payment_dal.update_provider_payment_and_status(
+                    session,
+                    payment_db_id=payment_record.payment_id,
+                    provider_payment_id=provider_payment_id,
+                    new_status="pending_yookassa",
+                )
+            logging.info(
+                "Catalog auto-renew initiated for user %s payment_id=%s",
+                sub.user_id,
+                resp.get("id"),
+            )
+            return True
+
+        if not sub.auto_renew_enabled:
+            return True
 
         months = sub.duration_months or 1
         amount = self.settings.subscription_options.get(months)

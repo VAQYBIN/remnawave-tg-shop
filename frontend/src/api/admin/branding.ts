@@ -22,6 +22,7 @@ export interface PublicBrandingResponse extends BrandingResponse {
   news_enabled: boolean
   referral_enabled: boolean
   devices_enabled: boolean
+  support_enabled: boolean
 }
 
 export interface BrandingUpdateRequest {
@@ -53,12 +54,14 @@ export interface FeaturesResponse {
   news_enabled: boolean
   referral_enabled: boolean
   devices_enabled: boolean
+  support_enabled: boolean
 }
 
 export interface FeaturesUpdateRequest {
   news_enabled?: boolean
   referral_enabled?: boolean
   devices_enabled?: boolean
+  support_enabled?: boolean
 }
 
 export function getPublicBranding(): Promise<PublicBrandingResponse> {
@@ -110,6 +113,14 @@ export async function uploadLogo(file: File): Promise<BrandingResponse> {
     throw new Error(body.detail ?? 'Upload failed')
   }
   return resp.json()
+}
+
+export function deleteLogo(): Promise<BrandingResponse> {
+  return apiRequest<BrandingResponse>('/admin/branding/logo', { method: 'DELETE' })
+}
+
+export function deleteFavicon(): Promise<BrandingResponse> {
+  return apiRequest<BrandingResponse>('/admin/branding/favicon', { method: 'DELETE' })
 }
 
 export function getAdminFeatures(): Promise<FeaturesResponse> {

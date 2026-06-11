@@ -3,23 +3,26 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-semibold whitespace-nowrap border border-transparent transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 focus-visible:outline-none focus-visible:[box-shadow:var(--ring-primary)] active:enabled:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(197,74%,44%)]',
+          'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[var(--shadow-xs)] hover:bg-[var(--primary-press)]',
         outline:
-          'border border-[hsl(var(--border))] bg-transparent hover:bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]',
+          'border-[hsl(var(--border))] bg-transparent text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]',
         ghost:
-          'bg-transparent hover:bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]',
+          'bg-transparent text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]',
+        soft:
+          'bg-[var(--primary-soft)] text-[var(--primary-press)] hover:bg-[color-mix(in_srgb,hsl(var(--primary))_18%,white)]',
         destructive:
-          'bg-red-500 text-white hover:bg-red-600',
+          'bg-[var(--danger)] text-white hover:bg-[#b83333]',
       },
       size: {
         default: 'h-10 px-4 py-2 text-sm',
         sm: 'h-8 px-3 text-xs',
-        lg: 'h-12 px-6 text-base',
+        lg: 'h-12 px-6 text-base font-bold',
+        xl: 'h-14 px-8 text-[17px] font-bold',
         icon: 'h-10 w-10',
       },
     },

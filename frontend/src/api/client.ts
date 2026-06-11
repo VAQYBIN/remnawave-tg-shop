@@ -92,3 +92,44 @@ export async function apiRequest<T>(
 
   return resp.json() as Promise<T>
 }
+
+/** Multipart upload with auth + token refresh (apiRequest forces JSON, so we need this). */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const url = `${API_BASE}${path}`
+
+  const buildHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = {}
+    if (_accessToken) h['Authorization'] = `Bearer ${_accessToken}`
+    return h
+  }
+
+  let resp = await fetch(url, { method: 'POST', headers: buildHeaders(), credentials: 'include', body: form })
+
+  if (resp.status === 401 && _accessToken) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${newToken}` },
+        credentials: 'include',
+        body: form,
+      })
+    }
+  }
+
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new ApiError(resp.status, body.detail ?? 'Upload failed')
+  }
+  return resp.json() as Promise<T>
+}
+
+// API_BASE is like "https://api.domain.com/api" — strip the trailing /api for static assets
+const API_ORIGIN = API_BASE.replace(/\/api$/, '')
+
+/** Turn a relative /static/... attachment URL into an absolute API URL. */
+export function resolveAssetUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  if (url.startsWith('/static/')) return `${API_ORIGIN}${url}`
+  return url
+}
