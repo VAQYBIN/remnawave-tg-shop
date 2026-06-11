@@ -156,7 +156,7 @@ async def get_admin_user_detail(
             end_date=active_sub.end_date,
             duration_months=active_sub.duration_months,
             provider=active_sub.provider,
-            auto_renew_enabled=active_sub.auto_renew_enabled,
+            auto_renew_enabled=bool(active_sub.auto_renew_enabled),
             traffic_limit_bytes=active_sub.traffic_limit_bytes,
             traffic_used_bytes=active_sub.traffic_used_bytes,
             panel_user_uuid=active_sub.panel_user_uuid,

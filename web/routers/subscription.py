@@ -201,7 +201,7 @@ async def get_subscription(
         status_from_panel=sub.status_from_panel,
         traffic_limit_bytes=traffic_limit,
         traffic_used_bytes=traffic_used,
-        auto_renew_enabled=sub.auto_renew_enabled,
+        auto_renew_enabled=bool(sub.auto_renew_enabled),
         auto_renew_available=settings.yookassa_autopayments_active,
         provider=sub.provider,
         panel_user_uuid=sub.panel_user_uuid,

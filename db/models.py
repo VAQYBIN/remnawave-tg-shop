@@ -1,5 +1,5 @@
 import uuid as _uuid
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index, text
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column, backref
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
@@ -80,7 +80,7 @@ class Subscription(Base):
     last_notification_sent = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String, nullable=True)
     skip_notifications = Column(Boolean, default=False)
-    auto_renew_enabled = Column(Boolean, default=True, index=True)
+    auto_renew_enabled = Column(Boolean, nullable=False, server_default=text("true"), default=True, index=True)
     pricing_plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="SET NULL"), nullable=True, index=True)
     pricing_plan_option_id = Column(Integer, ForeignKey("pricing_plan_options.id", ondelete="SET NULL"), nullable=True, index=True)
 
