@@ -4,26 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.settings import Settings, get_settings
 from db.models import Account
 from web.dependencies import get_current_account, get_db
-from web.schemas.device import Device, DevicesResponse
+from web.schemas.device import DevicesResponse, map_panel_device
 from core.services.panel_client import PanelApiService
 from core.dal.subscription_dal import get_active_subscription_by_user_id
 
 router = APIRouter(prefix="/devices", tags=["devices"])
-
-
-def _map_device(raw) -> Device:
-    if isinstance(raw, str):
-        return Device(hwid=raw)
-    return Device(
-        hwid=raw.get("hwid", ""),
-        name=raw.get("name"),
-        platform=raw.get("platform"),
-        os_version=raw.get("osVersion") or raw.get("os_version"),
-        model=raw.get("model"),
-        user_agent=raw.get("userAgent") or raw.get("user_agent"),
-        created_at=raw.get("createdAt") or raw.get("created_at"),
-        updated_at=raw.get("updatedAt") or raw.get("updated_at"),
-    )
 
 
 @router.get("", response_model=DevicesResponse)
@@ -48,7 +33,7 @@ async def get_devices(
     if raw_devices is None:
         raise HTTPException(status_code=502, detail="Failed to fetch devices from panel")
 
-    devices = [_map_device(d) for d in raw_devices]
+    devices = [map_panel_device(d) for d in raw_devices]
     return DevicesResponse(devices=devices, total=len(devices))
 
 
