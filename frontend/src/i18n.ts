@@ -239,6 +239,22 @@ const ru = {
   devices_offline: 'Не в сети',
   devices_clients_title: 'Где скачать клиент',
   devices_clients_desc: 'Скачайте клиент и вставьте свою ссылку из раздела «Подписка».',
+  devices_apps_desc: 'Выберите операционную систему и скачайте приложение.',
+  devices_recommended: 'Рекомендуем',
+  devices_tab_devices: 'Устройства',
+  devices_tab_guide: 'Инструкция',
+
+  // Connection guide (subscription page)
+  guide_subtitle: 'Выберите систему и приложение — покажем пошаговую инструкцию.',
+  guide_step_before: 'Перед установкой',
+  guide_step_install: 'Установка приложения',
+  guide_step_add: 'Добавить подписку',
+  guide_step_after: 'Настройка',
+  guide_step_connect: 'Подключение',
+  guide_add_subscription: 'Добавить подписку',
+  guide_no_link: 'Ссылка подписки недоступна — оформите подписку, чтобы добавить её в приложение.',
+  guide_unavailable: 'Инструкция недоступна',
+  guide_unavailable_hint: 'Список приложений не настроен в панели. Обратитесь к администратору.',
 
   // Profile
   profile_title: 'Профиль',
@@ -1116,6 +1132,22 @@ const en: typeof ru = {
   devices_offline: 'Offline',
   devices_clients_title: 'Where to get a client',
   devices_clients_desc: 'Install a client and paste your connection link from the Subscription page.',
+  devices_apps_desc: 'Choose your operating system and download the app.',
+  devices_recommended: 'Recommended',
+  devices_tab_devices: 'Devices',
+  devices_tab_guide: 'Guide',
+
+  // Connection guide (subscription page)
+  guide_subtitle: 'Pick your OS and app — we will show step-by-step instructions.',
+  guide_step_before: 'Before you start',
+  guide_step_install: 'Install the app',
+  guide_step_add: 'Add subscription',
+  guide_step_after: 'Configuration',
+  guide_step_connect: 'Connect',
+  guide_add_subscription: 'Add subscription',
+  guide_no_link: 'Connection link unavailable — get a subscription to add it to the app.',
+  guide_unavailable: 'Guide unavailable',
+  guide_unavailable_hint: 'The app list is not configured in the panel. Contact the administrator.',
 
   profile_title: 'Profile',
   profile_subtitle: 'Account management',

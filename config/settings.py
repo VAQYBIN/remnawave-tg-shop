@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     PERSONAL_DATA_URL: Optional[str] = Field(default=None)
     REFUND_POLICY_URL: Optional[str] = Field(default=None)
+    # Subscription Page app config (Devices/Guide tabs). Pulled live from the panel
+    # via PANEL_API_URL/PANEL_API_KEY. Optionally pin a specific config by UUID
+    # (empty = the panel "Default" config). SUBSCRIPTION_PAGE_CONFIG_PATH is an
+    # optional offline override: if set and the file exists, it wins over the panel.
+    SUBSCRIPTION_PAGE_CONFIG_UUID: str = Field(default="")
+    SUBSCRIPTION_PAGE_CONFIG_PATH: str = Field(default="")
     REQUIRED_CHANNEL_SUBSCRIBE_TO_USE: bool = Field(
         default=False,
         description="Require users to subscribe to REQUIRED_CHANNEL_ID before using the bot",

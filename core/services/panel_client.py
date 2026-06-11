@@ -570,6 +570,37 @@ class PanelApiService:
         )
         return False
 
+    async def get_subscription_page_configs(self) -> Optional[List[Dict[str, Any]]]:
+        """List the Subscription Page configs stored in the panel.
+
+        Each item has ``uuid``, ``name``, ``viewPosition`` (the full ``config`` is
+        null in the list view — fetch it with get_subscription_page_config).
+        """
+        response_data = await self._request(
+            "GET", "/subscription-page-configs", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            resp = response_data.get("response")
+            if isinstance(resp, dict):
+                return resp.get("configs") or []
+            if isinstance(resp, list):
+                return resp
+        return None
+
+    async def get_subscription_page_config(self, uuid: str) -> Optional[Dict[str, Any]]:
+        """Fetch one Subscription Page config (the v2 app config) by UUID.
+
+        Returns the ``config`` payload (platforms/apps/blocks/svgLibrary/...), or None.
+        """
+        response_data = await self._request(
+            "GET", f"/subscription-page-configs/{uuid}", log_full_response=False
+        )
+        if response_data and not response_data.get("error") and "response" in response_data:
+            resp = response_data.get("response")
+            if isinstance(resp, dict):
+                return resp.get("config")
+        return None
+
     async def update_bot_db_sync_status(self,
                                         session: AsyncSession,
                                         status: str,
