@@ -11,3 +11,14 @@ export function sanitizeHtml(html: string): string {
   // DOMPurify also strips dangerous href schemes (javascript:, data:, ...) from <a>.
   return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR })
 }
+
+// Icons come from the panel's svgLibrary (operator-controlled, external system).
+// Sanitize with the SVG profile so a tampered config can't smuggle <script>/onload.
+export function sanitizeSvg(svg: string): string {
+  if (!svg) return ''
+  return DOMPurify.sanitize(svg, {
+    USE_PROFILES: { svg: true, svgFilters: true },
+    FORBID_TAGS: ['script', 'foreignObject'],
+    FORBID_ATTR: ['onload', 'onerror', 'onclick'],
+  })
+}

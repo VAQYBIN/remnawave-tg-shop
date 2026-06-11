@@ -1,3 +1,5 @@
+import { sanitizeSvg } from '@/lib/sanitize'
+
 /** Renders a raw SVG string from the app config's svgLibrary, scaled to `size`. */
 export function SvgIcon({
   svg,
@@ -14,7 +16,7 @@ export function SvgIcon({
       aria-hidden
       className={['inline-flex shrink-0 [&>svg]:h-full [&>svg]:w-full', className].filter(Boolean).join(' ')}
       style={{ width: size, height: size }}
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }}
     />
   )
 }
