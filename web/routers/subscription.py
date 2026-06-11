@@ -248,6 +248,12 @@ async def activate_trial(
             raise HTTPException(status_code=409, detail="Trial already used or subscription exists")
         raise HTTPException(status_code=502, detail=result.get("message_key", "Trial activation failed"))
 
+    try:
+        from core.services.telegram_notify import notify_group_web_trial
+        await notify_group_web_trial(settings, account=account, end_date=result.get("end_date"))
+    except Exception as exc:
+        logger.warning("Group trial notify failed: %s", exc)
+
     return SubscriptionResponse(
         subscription_id=result["subscription_id"],
         is_active=True,

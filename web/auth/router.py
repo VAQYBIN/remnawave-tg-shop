@@ -172,6 +172,18 @@ async def auth_telegram(
             language_code=language_code,
         )
 
+        try:
+            from core.services.telegram_notify import notify_group_web_registration
+            await notify_group_web_registration(
+                settings,
+                account=account,
+                method="telegram",
+                username=claims.get("username"),
+                first_name=claims.get("first_name"),
+            )
+        except Exception as exc:
+            logger.warning("Group registration notify failed: %s", exc)
+
     tokens = await _issue_tokens(account.id, settings, redis, response)
 
     return TokenResponse(
@@ -286,6 +298,17 @@ async def register_verify(
                 await attribute_web_referral(db, site_user, body.ref_code)
             except Exception as exc:
                 logger.warning("Failed to attribute web referral for %s: %s", body.email, exc)
+
+        try:
+            from core.services.telegram_notify import notify_group_web_registration
+            await notify_group_web_registration(
+                settings,
+                account=account,
+                method="email",
+                referred=bool(body.ref_code),
+            )
+        except Exception as exc:
+            logger.warning("Group registration notify failed: %s", exc)
 
     tokens = await _issue_tokens(account.id, settings, redis, response)
 
