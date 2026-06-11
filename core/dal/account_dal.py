@@ -7,6 +7,18 @@ from sqlalchemy import update, func
 from db.models import Account, User
 
 
+def web_panel_username(account: Account) -> str:
+    """Stable, non-enumerable panel username for a web-only account.
+
+    Derived from the account's UUID (the analogue of a Telegram ID for web
+    users): globally unique, not sequential, so it neither leaks the total
+    web-user count nor lets one username be guessed from another. 12 hex chars
+    (48 bits) make collisions negligible, and the panel rejects duplicates
+    (errorCode A019) as a backstop.
+    """
+    return f"web_{account.id.hex[:12]}"
+
+
 async def get_account_by_id(session: AsyncSession, account_id: uuid.UUID) -> Optional[Account]:
     result = await session.execute(select(Account).where(Account.id == account_id))
     return result.scalar_one_or_none()
@@ -77,7 +89,7 @@ async def ensure_site_user_for_account(session: AsyncSession, account: Account) 
             session,
             {
                 "user_id": user_id,
-                "username": f"web_{abs(user_id)}",
+                "username": web_panel_username(account),
                 "first_name": account.email,
                 "language_code": account.language_code or "ru",
             },

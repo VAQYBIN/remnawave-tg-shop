@@ -109,8 +109,8 @@ class SubscriptionService:
 
         current_local_panel_uuid = db_user.panel_user_uuid
         is_site_user = user_id < 0
-        panel_username_on_panel_standard = f"web_{abs(user_id)}" if is_site_user else f"tg_{user_id}"
         site_email = None
+        site_account = None
         if is_site_user:
             try:
                 from core.dal.account_dal import get_account_by_site_user_id
@@ -119,6 +119,17 @@ class SubscriptionService:
                 site_email = site_account.email if site_account else None
             except Exception:
                 logging.exception("Failed to resolve site account for web-only user %s", user_id)
+
+        if is_site_user:
+            from core.dal.account_dal import web_panel_username
+
+            panel_username_on_panel_standard = (
+                web_panel_username(site_account)
+                if site_account
+                else f"web_{abs(user_id)}"
+            )
+        else:
+            panel_username_on_panel_standard = f"tg_{user_id}"
 
         panel_user_obj_from_api = None
         panel_user_created_or_linked_now = False
