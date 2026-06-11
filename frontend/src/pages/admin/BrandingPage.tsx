@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Save } from 'lucide-react'
-import { getAdminBranding, patchBranding, uploadLogo, uploadFavicon } from '@/api/admin/branding'
+import { Upload, Save, Trash2 } from 'lucide-react'
+import { getAdminBranding, patchBranding, uploadLogo, uploadFavicon, deleteLogo, deleteFavicon } from '@/api/admin/branding'
 import { useToastContext } from '@/lib/toast-context'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useTranslation } from 'react-i18next'
@@ -101,6 +101,26 @@ export function BrandingPage() {
     onError: (err: Error) => showToast(err.message || t('admin_branding_favicon_error'), 'error'),
   })
 
+  const deleteLogoMutation = useMutation({
+    mutationFn: deleteLogo,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
+      qc.invalidateQueries({ queryKey: ['public', 'branding'] })
+      showToast(t('admin_branding_logo_removed'), 'success')
+    },
+    onError: (err: Error) => showToast(err.message || t('admin_branding_logo_error'), 'error'),
+  })
+
+  const deleteFaviconMutation = useMutation({
+    mutationFn: deleteFavicon,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
+      qc.invalidateQueries({ queryKey: ['public', 'branding'] })
+      showToast(t('admin_branding_favicon_removed'), 'success')
+    },
+    onError: (err: Error) => showToast(err.message || t('admin_branding_favicon_error'), 'error'),
+  })
+
   const handleApplyPreset = (preset: ColorPreset) => {
     setForm(f => ({
       ...f,
@@ -175,13 +195,26 @@ export function BrandingPage() {
                 </div>
               )}
               <div>
-                <Button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  isLoading={logoMutation.isPending}
-                >
-                  {logoMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_logo')}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    isLoading={logoMutation.isPending}
+                  >
+                    {logoMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_logo')}
+                  </Button>
+                  {resolveLogoUrl(data?.logo_url) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => deleteLogoMutation.mutate()}
+                      isLoading={deleteLogoMutation.isPending}
+                    >
+                      <Trash2 size={16} />
+                      {t('admin_branding_remove')}
+                    </Button>
+                  )}
+                </div>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_logo_hint')}</p>
               </div>
             </div>
@@ -201,15 +234,29 @@ export function BrandingPage() {
                 </div>
               )}
               <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => faviconRef.current?.click()}
-                  isLoading={faviconMutation.isPending}
-                >
-                  {faviconMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_favicon')}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => faviconRef.current?.click()}
+                    isLoading={faviconMutation.isPending}
+                  >
+                    {faviconMutation.isPending ? t('admin_branding_uploading') : t('admin_branding_upload_favicon')}
+                  </Button>
+                  {resolveLogoUrl(data?.favicon_url) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteFaviconMutation.mutate()}
+                      isLoading={deleteFaviconMutation.isPending}
+                    >
+                      <Trash2 size={14} />
+                      {t('admin_branding_remove')}
+                    </Button>
+                  )}
+                </div>
                 <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{t('admin_branding_favicon_hint')}</p>
               </div>
             </div>

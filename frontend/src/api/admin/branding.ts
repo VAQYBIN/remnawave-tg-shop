@@ -115,6 +115,14 @@ export async function uploadLogo(file: File): Promise<BrandingResponse> {
   return resp.json()
 }
 
+export function deleteLogo(): Promise<BrandingResponse> {
+  return apiRequest<BrandingResponse>('/admin/branding/logo', { method: 'DELETE' })
+}
+
+export function deleteFavicon(): Promise<BrandingResponse> {
+  return apiRequest<BrandingResponse>('/admin/branding/favicon', { method: 'DELETE' })
+}
+
 export function getAdminFeatures(): Promise<FeaturesResponse> {
   return apiRequest<FeaturesResponse>('/admin/features')
 }
