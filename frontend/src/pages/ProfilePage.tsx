@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,9 @@ import {
 import { getTelegramClientId } from '@/api/auth'
 import { TELEGRAM_OAUTH_URL, TG_MODE_KEY, TG_PKCE_KEY, TG_STATE_KEY, generatePKCE, generateState } from '@/pages/LoginPage'
 import { useToast } from '@/hooks/useToast'
-import { Mail, Send, Check, AlertCircle, Lock } from 'lucide-react'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { Mail, Send, Check, AlertCircle, Lock, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // ─── Field shell (label + input-like control) ─────────────────────────────────
 
@@ -49,6 +51,15 @@ export function ProfilePage() {
   const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const handledProfileNotice = useRef(false)
+  const { branding } = useBrandingContext()
+
+  // Legal documents configured in Branding — shown as quick-access buttons.
+  const legalDocs = [
+    { url: branding?.terms_of_service_url, to: '/legal/terms', label: t('legal_terms_title') },
+    { url: branding?.privacy_policy_url, to: '/legal/privacy', label: t('legal_privacy_title') },
+    { url: branding?.personal_data_url, to: '/legal/personal-data', label: t('legal_personal_data_title') },
+    { url: branding?.refund_policy_url, to: '/legal/refund', label: t('legal_refund_title') },
+  ].filter((d) => !!d.url)
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
@@ -342,6 +353,34 @@ export function ProfilePage() {
                       {errorMsg}
                     </Alert>
                   )}
+                </div>
+              )}
+
+              {/* Legal documents */}
+              {legalDocs.length > 0 && (
+                <div className="border-t border-[hsl(var(--border))] pt-5">
+                  <p className="mb-3 text-sm font-semibold text-[hsl(var(--foreground))]">
+                    {t('profile_legal_documents')}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {legalDocs.map((doc, i) => {
+                      const lastOdd = legalDocs.length % 2 === 1 && i === legalDocs.length - 1
+                      return (
+                        <Link
+                          key={doc.to}
+                          to={doc.to}
+                          className={cn(
+                            buttonVariants({ variant: 'outline' }),
+                            'w-full',
+                            lastOdd && 'col-span-2',
+                          )}
+                        >
+                          <ExternalLink size={16} className="shrink-0" />
+                          <span className="min-w-0 truncate">{doc.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </CardContent>

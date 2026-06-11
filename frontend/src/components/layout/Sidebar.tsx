@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { patchLanguage } from '@/api/profile'
+import { patchLanguage, getProfile } from '@/api/profile'
 import { getAdminMe } from '@/api/admin'
 import { getSupportUnread } from '@/api/support'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
@@ -98,10 +98,21 @@ export function Sidebar() {
     enabled: !!user && supportEnabled,
     staleTime: 30_000,
   })
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  })
   const isAdmin = !!adminData?.is_admin
   const logo = resolveLogoUrl(branding?.logo_url)
-  const email = user?.email ?? ''
-  const initial = (email[0] ?? 'U').toUpperCase()
+  const email = profile?.email ?? user?.email ?? ''
+  // If Telegram is linked — show the Telegram name as the primary line and the
+  // email below it. Otherwise the email is the only identity shown.
+  const telegramName = profile?.telegram_first_name?.trim() || ''
+  const primaryName = telegramName || email || t('nav_profile')
+  const secondaryEmail = telegramName ? email : ''
+  const initial = (primaryName[0] ?? 'U').toUpperCase()
 
   const NAV_ITEMS = [
     { to: '/dashboard', icon: LayoutDashboard, label: t('nav_dashboard'), badge: 0 },
@@ -133,8 +144,13 @@ export function Sidebar() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-bold leading-tight text-[hsl(var(--foreground))]">
-            {email || t('nav_profile')}
+            {primaryName}
           </div>
+          {secondaryEmail && (
+            <div className="truncate text-[11px] leading-tight text-[hsl(var(--muted-foreground))]">
+              {secondaryEmail}
+            </div>
+          )}
           {isAdmin && (
             <div className="text-[11px] leading-tight text-[hsl(var(--muted-foreground))]">
               {t('admin_title')}

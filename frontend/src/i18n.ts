@@ -521,6 +521,7 @@ const ru = {
   legal_back: 'Назад',
   legal_not_configured: 'Документ не настроен. Обратитесь к администратору.',
   legal_load_error: 'Не удалось загрузить документ. Попробуйте позже.',
+  profile_legal_documents: 'Документы',
 
   // Register consent text (fragments for dynamic assembly)
   register_consent_prefix: 'Нажимая «Создать аккаунт», я',
@@ -1368,6 +1369,7 @@ const en: typeof ru = {
   legal_back: 'Back',
   legal_not_configured: 'Document not configured. Please contact the administrator.',
   legal_load_error: 'Failed to load document. Please try again later.',
+  profile_legal_documents: 'Documents',
 
   // Register consent text (fragments for dynamic assembly)
   register_consent_prefix: 'By clicking "Create Account", I',
