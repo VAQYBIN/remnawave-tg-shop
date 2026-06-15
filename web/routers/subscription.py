@@ -110,8 +110,60 @@ async def _restore_panel_subscription_for_user(
     return await subscription_dal.upsert_subscription(db, sub_payload)
 
 
+async def _panel_user_state(settings: Settings, panel_user_uuid: str):
+    """Check a panel user's live state.
+
+    Returns ``(found, active)``:
+      - ``(False, False)`` — panel user no longer exists (deleted on the panel).
+      - ``(True, bool)``   — user exists; ``active`` reflects ACTIVE status with a
+        future expiry.
+      - ``(None, None)``   — panel not configured or a transient error (network,
+        5xx); callers keep the current local state rather than deactivating.
+    """
+    if not settings.PANEL_API_URL or not settings.PANEL_API_KEY or not panel_user_uuid:
+        return None, None
+
+    import httpx
+
+    url = f"{settings.PANEL_API_URL.rstrip('/')}/users/{panel_user_uuid}"
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {settings.PANEL_API_KEY}",
+        "X-Forwarded-Proto": "https",
+        "X-Forwarded-For": "127.0.0.1",
+        "X-Real-IP": "127.0.0.1",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url, headers=headers)
+    except Exception as exc:
+        logger.warning("Panel user state request failed for %s: %s", panel_user_uuid, exc)
+        return None, None
+
+    if resp.status_code == 404:
+        return False, False
+    if resp.status_code != 200:
+        # Transient/unexpected — do not punish the user for a flaky panel.
+        return None, None
+
+    panel_data = resp.json().get("response", {})
+    panel_status = str(panel_data.get("status") or "").upper()
+    panel_expire_at = panel_data.get("expireAt")
+    active = False
+    if panel_status == "ACTIVE" and panel_expire_at:
+        try:
+            end_date = datetime.fromisoformat(panel_expire_at.replace("Z", "+00:00"))
+            active = end_date > datetime.now(timezone.utc)
+        except (TypeError, ValueError):
+            active = False
+    return True, active
+
+
 async def _get_account_active_subscription(db: AsyncSession, account: Account, settings: Settings):
-    from core.dal.subscription_dal import get_active_subscription_by_user_id
+    from core.dal.subscription_dal import (
+        get_active_subscription_by_user_id,
+        deactivate_all_user_subscriptions,
+    )
     from core.dal.user_dal import get_user_by_id
 
     user_ids = get_account_user_ids(account)
@@ -123,7 +175,18 @@ async def _get_account_active_subscription(db: AsyncSession, account: Account, s
             user.panel_user_uuid if user else None,
         )
         if sub:
-            return sub
+            # Mirror the bot: the panel is the source of truth. If the panel user
+            # was deleted or is no longer active, the locally cached "active until"
+            # date is stale — deactivate it so the web reports no subscription too.
+            found, active = await _panel_user_state(settings, sub.panel_user_uuid)
+            if found is None:
+                # Transient panel error — keep showing the cached subscription.
+                return sub
+            if found and active:
+                return sub
+            await deactivate_all_user_subscriptions(db, user_id)
+            await db.commit()
+            continue
         if user and user.panel_user_uuid:
             restored = await _restore_panel_subscription_for_user(
                 db,

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
@@ -96,7 +97,12 @@ export function DevicesPage() {
   const { t } = useTranslation()
   const toast = useToast()
   const [pendingHwid, setPendingHwid] = useState<string | null>(null)
-  const [tab, setTab] = useState<'devices' | 'guide'>('devices')
+  // Deep-link support: /devices?tab=guide opens the connection guide directly
+  // (used by the post-purchase success screen).
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<'devices' | 'guide'>(
+    searchParams.get('tab') === 'guide' ? 'guide' : 'devices',
+  )
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['devices'],

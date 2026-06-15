@@ -215,6 +215,12 @@ export function SubscriptionPage() {
       })
     },
     onSuccess: (data) => {
+      // Mark first-ever purchases so the success screen can nudge the user to the
+      // connection guide. Stored per payment_id in sessionStorage so the flag
+      // survives the round-trip to the payment provider (React Router state does not).
+      if (!subscription) {
+        sessionStorage.setItem(`payment_first_${data.payment_id}`, '1')
+      }
       navigate(`/payment/${data.payment_id}`)
     },
     onError: (err: Error) => {
