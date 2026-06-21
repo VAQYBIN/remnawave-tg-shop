@@ -9,6 +9,7 @@ import { BrandingPreview } from '@/components/admin/BrandingPreview'
 import { BrandingPresets, type ColorPreset } from '@/components/admin/BrandingPresets'
 import { FontSelect } from '@/components/admin/FontSelect'
 import { ThemeEditor } from '@/components/admin/ThemeEditor'
+import { ContrastReport } from '@/components/admin/ContrastReport'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -65,6 +66,8 @@ export function BrandingPage() {
 
   const setTheme = (theme: Theme) => setForm(f => ({ ...f, theme }))
   const palette = form.theme[editingPalette]
+  const setToken = (token: string, value: string) =>
+    setForm(f => ({ ...f, theme: { ...f.theme, [editingPalette]: { ...f.theme[editingPalette], [token]: value } } }))
 
   const saveMutation = useMutation({
     mutationFn: patchBranding,
@@ -333,6 +336,11 @@ export function BrandingPage() {
               editing={editingPalette}
               onEditingChange={setEditingPalette}
             />
+          </Card>
+
+          {/* Contrast report for the palette being edited */}
+          <Card className="p-5">
+            <ContrastReport palette={palette} onFix={setToken} />
           </Card>
 
           {/* Custom CSS */}
