@@ -5,6 +5,7 @@ import { ThemeToggleButton } from './ThemeToggle'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useSupportNotifications } from '@/hooks/useSupportNotifications'
+import { useTelegramBackButton } from '@/lib/useTelegramBackButton'
 
 function MobileTopBar() {
   const { branding } = useBrandingContext()
@@ -24,6 +25,7 @@ function MobileTopBar() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   useSupportNotifications()
+  useTelegramBackButton()
   return (
     <div className="flex min-h-screen bg-[hsl(var(--background))]">
       <Sidebar />

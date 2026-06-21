@@ -109,20 +109,25 @@ def get_promo_marketing_keyboard(i18n_instance, lang: str) -> InlineKeyboardMark
     return builder.as_markup()
 
 
-def get_system_functions_keyboard(i18n_instance, lang: str) -> InlineKeyboardMarkup:
+def get_system_functions_keyboard(i18n_instance, lang: str,
+                                  bot_ui_mode: str = "inline") -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    
+
     builder.button(text=_(key="admin_broadcast_button"),
                    callback_data="admin_action:broadcast")
     builder.button(text=_(key="admin_sync_panel_button"),
                    callback_data="admin_action:sync_panel")
     builder.button(text=_(key="admin_queue_status_button"),
                    callback_data="admin_action:queue_status")
-    
+
+    mode_label = _(key=f"admin_bot_ui_mode_{bot_ui_mode}")
+    builder.button(text=_(key="admin_bot_ui_mode_button", mode=mode_label),
+                   callback_data="admin_action:toggle_bot_ui_mode")
+
     builder.button(text=_(key="back_to_admin_panel_button"),
                    callback_data="admin_action:main")
-    builder.adjust(2, 1, 1)
+    builder.adjust(2, 1, 1, 1)
     return builder.as_markup()
 
 

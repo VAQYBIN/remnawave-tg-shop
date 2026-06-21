@@ -12,6 +12,7 @@ import {
   systemPrefersDark,
   writeStoredScheme,
 } from '@/lib/theme'
+import { isMiniApp, getTelegramColorScheme, onTelegramThemeChanged } from '@/lib/telegram'
 
 interface BrandingContextValue {
   branding: PublicBrandingResponse | undefined
@@ -97,7 +98,10 @@ function applyScheme(branding: PublicBrandingResponse | undefined, resolved: Res
 function useColorSchemeController(adminDefault: string | undefined) {
   // User preference (localStorage) wins; otherwise follow the admin default.
   const [pref, setPref] = useState<ColorScheme>(() => readStoredScheme() ?? 'system')
-  const [systemDark, setSystemDark] = useState<boolean>(() => systemPrefersDark())
+  // Inside a Mini App, Telegram's own colorScheme is the "system" source of truth.
+  const [systemDark, setSystemDark] = useState<boolean>(() =>
+    isMiniApp() ? getTelegramColorScheme() === 'dark' : systemPrefersDark(),
+  )
   const [hasStored, setHasStored] = useState<boolean>(() => readStoredScheme() !== null)
 
   // Adopt the admin default until the user makes an explicit choice.
@@ -107,8 +111,12 @@ function useColorSchemeController(adminDefault: string | undefined) {
     }
   }, [adminDefault, hasStored])
 
-  // React to OS theme changes while in "system" mode.
+  // React to theme changes while in "system" mode — from Telegram inside a Mini
+  // App, otherwise from the OS media query.
   useEffect(() => {
+    if (isMiniApp()) {
+      return onTelegramThemeChanged(() => setSystemDark(getTelegramColorScheme() === 'dark'))
+    }
     if (typeof window === 'undefined' || !window.matchMedia) return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches)

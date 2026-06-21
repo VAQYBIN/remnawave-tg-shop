@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage } from '@/api/profile'
 import { getAdminMe } from '@/api/admin'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { shouldWarnAdminMobile } from '@/lib/telegram'
 import {
   LayoutDashboard,
   CreditCard,
@@ -51,6 +52,7 @@ export function MobileNav() {
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [adminWarnOpen, setAdminWarnOpen] = useState(false)
   const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled } = useBrandingContext()
 
   const { data: adminData } = useQuery({
@@ -162,11 +164,15 @@ export function MobileNav() {
             <>
               <button
                 type="button"
-                onClick={() => handleMoreNav('/admin')}
+                onClick={() => {
+                  setMoreOpen(false)
+                  if (shouldWarnAdminMobile()) setAdminWarnOpen(true)
+                  else navigate('/admin')
+                }}
                 className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
               >
                 <Settings size={20} className="text-[hsl(var(--muted-foreground))]" />
-                Админка
+                {t('admin_title')}
               </button>
               <div className="h-px bg-[hsl(var(--border))] my-2" />
             </>
@@ -196,6 +202,19 @@ export function MobileNav() {
         destructive
         onConfirm={logout}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={adminWarnOpen}
+        title={t('admin_mobile_warning_title')}
+        description={t('admin_mobile_warning_desc')}
+        confirmLabel={t('admin_mobile_warning_continue')}
+        cancelLabel={t('admin_mobile_warning_back')}
+        onConfirm={() => {
+          setAdminWarnOpen(false)
+          navigate('/admin')
+        }}
+        onCancel={() => setAdminWarnOpen(false)}
       />
     </>
   )

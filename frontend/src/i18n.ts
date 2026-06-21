@@ -24,6 +24,11 @@ const ru = {
   // Common
   personal_cabinet: 'Личный кабинет',
   error_generic: 'Произошла ошибка. Попробуйте позже.',
+  miniapp_auth_failed: 'Не удалось войти автоматически. Откройте приложение из Telegram заново.',
+  admin_mobile_warning_title: 'Открыть админку?',
+  admin_mobile_warning_desc: 'Страница содержит много таблиц и не предназначена для мобильных устройств. Рекомендуем перейти на десктопную версию.',
+  admin_mobile_warning_continue: 'Продолжить',
+  admin_mobile_warning_back: 'Вернуться',
   copied: 'Скопировано',
   or: 'или',
   loading: 'Загрузка...',
@@ -982,6 +987,11 @@ const en: typeof ru = {
 
   personal_cabinet: 'Personal Account',
   error_generic: 'An error occurred. Please try again later.',
+  miniapp_auth_failed: 'Automatic sign-in failed. Please reopen the app from Telegram.',
+  admin_mobile_warning_title: 'Open admin panel?',
+  admin_mobile_warning_desc: 'This page contains many tables and is not designed for mobile devices. We recommend switching to the desktop version.',
+  admin_mobile_warning_continue: 'Continue',
+  admin_mobile_warning_back: 'Go back',
   copied: 'Copied',
   or: 'or',
   loading: 'Loading...',

@@ -73,9 +73,14 @@ async def send_main_menu(target_event: Union[types.Message,
                 "Method has_had_any_subscription is missing in SubscriptionService for send_main_menu!"
             )
 
+    from core.dal.site_settings_dal import get_site_settings
+    site_settings = await get_site_settings(session)
+    bot_ui_mode = site_settings.bot_ui_mode
+
     text = _(key="main_menu_greeting", user_name=user_full_name)
-    reply_markup = get_main_menu_inline_keyboard(current_lang, i18n, settings,
-                                                 show_trial_button_in_menu)
+    reply_markup = get_main_menu_inline_keyboard(
+        current_lang, i18n, settings, show_trial_button_in_menu,
+        bot_ui_mode=bot_ui_mode, web_app_url=settings.WEB_FRONTEND_URL)
 
     target_message_obj: Optional[types.Message] = None
     if isinstance(target_event, types.Message):
@@ -741,6 +746,15 @@ async def main_action_callback_handler(
     if not callback.message:
         await callback.answer("Error: message context lost.", show_alert=True)
         return
+
+    # In Web App mode the purchase workflow is disabled — guard against stale
+    # inline buttons still present in an old chat message.
+    if action in {"subscribe", "my_subscription", "request_trial", "apply_promo"}:
+        from core.dal.site_settings_dal import get_site_settings
+        site_settings = await get_site_settings(session)
+        if site_settings.bot_ui_mode == "webapp":
+            await callback.answer(_("webapp_mode_use_cabinet"), show_alert=True)
+            return
 
     if action == "subscribe":
         await user_subscription_handlers.display_subscription_options(

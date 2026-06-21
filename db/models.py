@@ -639,6 +639,9 @@ class SiteSettings(Base):
     referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     support_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Bot UX mode: "inline" — classic inline-button purchase workflow;
+    # "webapp" — bot shows only a "Personal cabinet" Web App button (Mini App).
+    bot_ui_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="inline", server_default="inline")
     privacy_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)

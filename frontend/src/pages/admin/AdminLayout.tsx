@@ -4,11 +4,13 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { Menu } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAdminSupportNotifications } from '@/hooks/useAdminSupportNotifications'
+import { useTelegramBackButton } from '@/lib/useTelegramBackButton'
 
 export function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { t } = useTranslation()
   useAdminSupportNotifications()
+  useTelegramBackButton()
 
   return (
     <div className="flex h-screen bg-[hsl(var(--background))]">

@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from './useAuth'
 
 interface ProtectedRouteProps {
@@ -6,8 +7,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, isMiniApp, miniAppAuthFailed } = useAuth()
   const location = useLocation()
+  const { t } = useTranslation()
 
   if (isLoading) {
     return (
@@ -21,6 +23,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
+    // Inside Telegram we never bounce to the login screen — if the automatic
+    // Mini App auth failed, show an inline error instead of the email login.
+    if (isMiniApp) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-6">
+          <p className="text-center text-sm text-[hsl(var(--muted-foreground))]">
+            {miniAppAuthFailed ? t('miniapp_auth_failed') : t('error_generic')}
+          </p>
+        </div>
+      )
+    }
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

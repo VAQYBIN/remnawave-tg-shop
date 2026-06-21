@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/useAuth'
+import { shouldWarnAdminMobile } from '@/lib/telegram'
 import { useQuery } from '@tanstack/react-query'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage, getProfile } from '@/api/profile'
@@ -83,7 +84,9 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export function Sidebar() {
   const { logout, user } = useAuth()
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [adminWarnOpen, setAdminWarnOpen] = useState(false)
   const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled, branding } = useBrandingContext()
 
   const { data: adminData } = useQuery({
@@ -180,10 +183,17 @@ export function Sidebar() {
 
       <div className="mt-2 flex flex-col gap-0.5 border-t border-[hsl(var(--border))] pt-2">
         {isAdmin && (
-          <NavLink to="/admin" className={navClass}>
+          <button
+            type="button"
+            onClick={() => {
+              if (shouldWarnAdminMobile()) setAdminWarnOpen(true)
+              else navigate('/admin')
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
+          >
             <Shield size={18} />
             {t('admin_title')}
-          </NavLink>
+          </button>
         )}
         <ThemeToggleRow />
         <LangToggle />
@@ -206,6 +216,19 @@ export function Sidebar() {
         destructive
         onConfirm={logout}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={adminWarnOpen}
+        title={t('admin_mobile_warning_title')}
+        description={t('admin_mobile_warning_desc')}
+        confirmLabel={t('admin_mobile_warning_continue')}
+        cancelLabel={t('admin_mobile_warning_back')}
+        onConfirm={() => {
+          setAdminWarnOpen(false)
+          navigate('/admin')
+        }}
+        onCancel={() => setAdminWarnOpen(false)}
       />
     </aside>
   )

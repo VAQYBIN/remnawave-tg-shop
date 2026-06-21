@@ -10,6 +10,7 @@ from config.settings import Settings
 from web.dependencies import get_db, get_settings_dep, get_redis
 from web.schemas.auth import (
     TelegramCallbackRequest,
+    MiniAppAuthRequest,
     RegisterSendCodeRequest,
     RegisterVerifyRequest,
     CheckCodeRequest,
@@ -26,6 +27,7 @@ from web.auth.telegram_auth import (
     verify_id_token,
     extract_telegram_user_id,
 )
+from web.auth.miniapp_auth import parse_and_validate_init_data
 from web.auth.email_service import send_verification_code
 from web.auth.password import hash_password, verify_password
 from web.middleware.rate_limit import check_rate_limit, get_client_ip
@@ -95,6 +97,57 @@ async def _issue_tokens(
     return {"access_token": access_token}
 
 
+async def _get_or_create_account_for_telegram(
+    db: AsyncSession,
+    tg_user_id: int,
+    claims: dict,
+    settings: Settings,
+):
+    """Return the Account linked to ``tg_user_id``, creating it (and the backing
+    ``users`` row) on first Telegram login. ``claims`` carries the Telegram
+    profile fields (``username``, ``first_name``, ``last_name``, ``language_code``).
+
+    Shared by the OIDC (`/auth/telegram`) and Mini App (`/auth/telegram/miniapp`)
+    flows so account provisioning stays identical."""
+    account = await get_account_by_telegram_id(db, tg_user_id)
+    if account:
+        return account
+
+    # Ensure a users row exists (FK requirement) — the user may not have used the bot yet
+    from core.dal.user_dal import get_user_by_id, create_user
+    existing_user = await get_user_by_id(db, tg_user_id)
+    language_code = claims.get("language_code") or "ru"
+    if not existing_user:
+        await create_user(db, {
+            "user_id": tg_user_id,
+            "username": claims.get("username"),
+            "first_name": claims.get("first_name"),
+            "last_name": claims.get("last_name"),
+            "language_code": language_code,
+        })
+
+    account = await create_account(
+        db,
+        telegram_user_id=tg_user_id,
+        is_email_verified=False,
+        language_code=language_code,
+    )
+
+    try:
+        from core.services.telegram_notify import notify_group_web_registration
+        await notify_group_web_registration(
+            settings,
+            account=account,
+            method="telegram",
+            username=claims.get("username"),
+            first_name=claims.get("first_name"),
+        )
+    except Exception as exc:
+        logger.warning("Group registration notify failed: %s", exc)
+
+    return account
+
+
 # ─── GET /auth/telegram/config ──────────────────────────────────────────────
 
 @router.get("/telegram/config", response_model=TelegramConfigResponse)
@@ -149,40 +202,46 @@ async def auth_telegram(
     if not tg_user_id:
         raise HTTPException(status_code=400, detail="Missing Telegram user ID in token claims")
 
-    account = await get_account_by_telegram_id(db, tg_user_id)
-    if not account:
-        # Ensure a users row exists (FK requirement) — the user may not have used the bot yet
-        from core.dal.user_dal import get_user_by_id, create_user
-        existing_user = await get_user_by_id(db, tg_user_id)
-        if not existing_user:
-            language_code = claims.get("language_code") or "ru"
-            await create_user(db, {
-                "user_id": tg_user_id,
-                "username": claims.get("username"),
-                "first_name": claims.get("first_name"),
-                "last_name": claims.get("last_name"),
-                "language_code": language_code,
-            })
+    account = await _get_or_create_account_for_telegram(db, tg_user_id, claims, settings)
 
-        language_code = claims.get("language_code") or "ru"
-        account = await create_account(
-            db,
-            telegram_user_id=tg_user_id,
-            is_email_verified=False,
-            language_code=language_code,
-        )
+    tokens = await _issue_tokens(account.id, settings, redis, response)
 
-        try:
-            from core.services.telegram_notify import notify_group_web_registration
-            await notify_group_web_registration(
-                settings,
-                account=account,
-                method="telegram",
-                username=claims.get("username"),
-                first_name=claims.get("first_name"),
-            )
-        except Exception as exc:
-            logger.warning("Group registration notify failed: %s", exc)
+    return TokenResponse(
+        access_token=tokens["access_token"],
+        account_id=account.id,
+        email=account.email,
+        is_email_verified=account.is_email_verified,
+        language_code=account.language_code,
+    )
+
+
+# ─── POST /auth/telegram/miniapp ────────────────────────────────────────────
+
+@router.post("/telegram/miniapp", response_model=TokenResponse)
+async def auth_telegram_miniapp(
+    request: Request,
+    response: Response,
+    data: MiniAppAuthRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis=Depends(get_redis),
+):
+    """Automatic auth for the cabinet opened as a Telegram Mini App.
+
+    The frontend posts the raw ``window.Telegram.WebApp.initData``; we verify its
+    HMAC-SHA256 signature against ``BOT_TOKEN`` and issue our own JWT — no login
+    screen, no OIDC round-trip."""
+    ip = get_client_ip(request)
+    await check_rate_limit(redis, f"rl:auth:miniapp:{ip}", max_requests=10, window_seconds=60)
+
+    try:
+        tg_user = parse_and_validate_init_data(data.init_data, settings.BOT_TOKEN)
+    except ValueError as exc:
+        logger.warning("Mini App initData validation failed: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid Telegram Mini App data")
+
+    tg_user_id = tg_user["id"]
+    account = await _get_or_create_account_for_telegram(db, tg_user_id, tg_user, settings)
 
     tokens = await _issue_tokens(account.id, settings, redis, response)
 
