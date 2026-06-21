@@ -6,7 +6,7 @@ import { useToastContext } from '@/lib/toast-context'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useTranslation } from 'react-i18next'
 import { BrandingPreview } from '@/components/admin/BrandingPreview'
-import { BrandingPresets, type ColorPreset } from '@/components/admin/BrandingPresets'
+import { BrandingPresets } from '@/components/admin/BrandingPresets'
 import { FontSelect } from '@/components/admin/FontSelect'
 import { ThemeEditor } from '@/components/admin/ThemeEditor'
 import { ContrastReport } from '@/components/admin/ContrastReport'
@@ -122,24 +122,15 @@ export function BrandingPage() {
     onError: (err: Error) => showToast(err.message || t('admin_branding_favicon_error'), 'error'),
   })
 
-  const handleApplyPreset = (preset: ColorPreset) => {
+  // Load a saved/built-in preset into the form (theme + fonts). Persisted only
+  // when the admin presses the main Save button.
+  const handleApplyPreset = (theme: Theme, fontFamily: string, headingFontFamily: string) =>
     setForm(f => ({
       ...f,
-      theme: {
-        ...f.theme,
-        light: {
-          ...f.theme.light,
-          primary: preset.primary_color,
-          secondary: preset.secondary_color,
-          background: preset.background_color,
-          foreground: preset.foreground_color,
-          card: preset.card_color,
-          card_foreground: preset.foreground_color,
-          border: preset.border_color,
-        },
-      },
+      theme: normaliseTheme(theme),
+      font_family: fontFamily || f.font_family,
+      heading_font_family: headingFontFamily,
     }))
-  }
 
   const handleSave = () => {
     saveMutation.mutate({
@@ -322,7 +313,13 @@ export function BrandingPage() {
           </Card>
 
           {/* Presets */}
-          <BrandingPresets onApply={handleApplyPreset} currentPrimary={form.theme.light.primary} />
+          <BrandingPresets
+            theme={form.theme}
+            fontFamily={form.font_family}
+            headingFontFamily={form.heading_font_family}
+            currentPrimary={form.theme.light.primary}
+            onApply={handleApplyPreset}
+          />
 
           {/* Colors — full token editor (light + dark) */}
           <Card className="p-5 space-y-5">
