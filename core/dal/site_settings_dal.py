@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.models import SiteSettings
+from core.services.branding_theme import default_theme
 
 
 async def get_site_settings(db: AsyncSession) -> SiteSettings:
@@ -17,11 +18,18 @@ async def get_site_settings(db: AsyncSession) -> SiteSettings:
             card_color="#FFFFFF",
             border_color="#DDD8D3",
             font_family="Nunito",
+            theme_json=default_theme(),
+            default_color_scheme="light",
             news_enabled=True,
             referral_enabled=True,
             devices_enabled=True,
         )
         db.add(settings)
+        await db.flush()
+    elif not settings.theme_json:
+        # Legacy row created before theme support — backfill on read.
+        from core.services.branding_theme import theme_from_legacy_columns
+        settings.theme_json = theme_from_legacy_columns(settings)
         await db.flush()
     return settings
 
