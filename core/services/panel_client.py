@@ -175,8 +175,7 @@ class PanelApiService:
                     return {
                         "status": "success_parse_error",
                         "code": response_status,
-                        "data_text": response_text,
-                        "parse_error": str(e_json_ok)
+                        "data_text": response_text
                     }
             else:
                 error_details = {
@@ -200,17 +199,19 @@ class PanelApiService:
         except httpx.ConnectError as e:
             logging.error(
                 f"Panel API ConnectError to {url_for_request}: {e}")
+            # Keep exception detail in logs only; never surface it in the returned
+            # payload (it can reach the cabinet API — see py/stack-trace-exposure).
             return {
                 "error": True,
                 "status_code": -1,
-                "message": f"Connection error: {str(e)}"
+                "message": "Connection error"
             }
         except httpx.HTTPError as e:
             logging.error(f"Panel API HTTPError to {url_for_request}: {e}")
             return {
                 "error": True,
                 "status_code": -2,
-                "message": f"Client error: {str(e)}"
+                "message": "Client error"
             }
         except httpx.TimeoutException:
             logging.error(f"Panel API request to {url_for_request} timed out.")
@@ -226,7 +227,7 @@ class PanelApiService:
             return {
                 "error": True,
                 "status_code": -4,
-                "message": f"Unexpected error: {str(e)}"
+                "message": "Unexpected error"
             }
 
     async def get_all_panel_users(
