@@ -135,7 +135,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 md:flex">
       {/* Brand */}
       <div className="mb-4 flex items-center gap-2.5 px-2 py-2">
-        {logo && <img src={logo} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[var(--shadow-xs)]" />}
+        {logo && <img src={logo} alt="" referrerPolicy="no-referrer" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-[var(--shadow-xs)]" />}
         <div className="min-w-0 flex-1">
           <FitText text={branding?.brand_name ?? ''} />
         </div>

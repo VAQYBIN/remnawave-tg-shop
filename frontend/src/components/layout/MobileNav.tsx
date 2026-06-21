@@ -90,7 +90,10 @@ export function MobileNav() {
   return (
     <>
       {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + var(--tg-content-bottom, 0px))' }}
+      >
         {PRIMARY_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

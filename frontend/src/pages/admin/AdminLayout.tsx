@@ -17,7 +17,10 @@ export function AdminLayout() {
       <AdminSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] sticky top-0 z-30">
+        <div
+          className="md:hidden flex items-center gap-3 px-4 py-3 bg-[hsl(var(--card))] border-b border-[hsl(var(--border))] sticky top-0 z-30"
+          style={{ paddingTop: 'calc(0.75rem + var(--tg-content-top, 0px))' }}
+        >
           <button
             onClick={() => setMobileOpen(true)}
             className="p-2 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
