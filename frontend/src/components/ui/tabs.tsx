@@ -24,7 +24,7 @@ export function Tabs({ items, value, onValueChange, className }: TabsProps) {
           className={cn(
             'rounded-[7px] px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
             value === item.value
-              ? 'bg-white text-[hsl(var(--foreground))] shadow-[var(--shadow-xs)]'
+              ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-[var(--shadow-xs)]'
               : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
           )}
         >

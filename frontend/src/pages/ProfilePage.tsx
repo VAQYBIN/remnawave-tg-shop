@@ -36,7 +36,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ReadonlyBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-10 items-center gap-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white px-3">
+    <div className="flex h-10 items-center gap-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3">
       {children}
     </div>
   )

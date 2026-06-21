@@ -347,7 +347,7 @@ export function BrandingPage() {
               value={form.custom_css}
               onChange={e => setForm(f => ({ ...f, custom_css: e.target.value }))}
               rows={6}
-              className="w-full px-3 py-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white text-sm font-mono text-[hsl(var(--foreground))] resize-y transition-[border-color,box-shadow] duration-150 focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
+              className="w-full px-3 py-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm font-mono text-[hsl(var(--foreground))] resize-y transition-[border-color,box-shadow] duration-150 focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
               placeholder={t('admin_branding_custom_css_placeholder')}
             />
           </Card>

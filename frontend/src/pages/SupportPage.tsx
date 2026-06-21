@@ -118,7 +118,7 @@ function CreateTicketModal({ onClose }: { onClose: () => void }) {
               rows={5}
               maxLength={4000}
               placeholder={t('support_field_message_placeholder')}
-              className="w-full resize-y rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
+              className="w-full resize-y rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
             />
           </div>
 

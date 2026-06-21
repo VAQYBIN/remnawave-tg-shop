@@ -162,7 +162,10 @@ async def apply_theme(
     updates.update(legacy_columns_from_theme(theme.theme_json))
     if theme.font_family:
         updates["font_family"] = theme.font_family
-    updates["heading_font_family"] = theme.heading_font_family
+    # Only override the heading font when the preset specifies one — otherwise
+    # keep the admin's current setting rather than wiping it to NULL.
+    if theme.heading_font_family:
+        updates["heading_font_family"] = theme.heading_font_family
     settings = await update_site_settings(db, **updates)
     await add_admin_audit_log(db, admin, "admin_branding_theme_apply", details={"id": theme_id, "name": theme.name})
     await db.commit()

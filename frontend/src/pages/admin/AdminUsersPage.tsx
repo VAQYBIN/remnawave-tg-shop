@@ -182,7 +182,7 @@ export function AdminUsersPage() {
               placeholder={t('admin_users_search_placeholder')}
               value={searchInput}
               onChange={(e) => { setSearchInput(e.target.value); setPage(0) }}
-              className="w-full h-10 pl-9 pr-8 rounded-lg border border-[hsl(var(--border))] bg-white text-sm text-[hsl(var(--foreground))] transition-[border-color,box-shadow] duration-150 placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
+              className="w-full h-10 pl-9 pr-8 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] transition-[border-color,box-shadow] duration-150 placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
             />
             {searchInput && (
               <button

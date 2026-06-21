@@ -13,10 +13,12 @@
       // (Palette colours still load with branding; this just avoids a light/dark flash.)
       try {
         var pref = localStorage.getItem('color-scheme-pref');
+        // null (first visit) follows the OS, matching BrandingProvider's initial
+        // 'system' state, so there is no flash before React mounts.
         var dark = pref === 'dark' ||
           ((pref === 'system' || pref === null) &&
             window.matchMedia &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches && pref === 'system');
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) {
           document.documentElement.classList.add('dark');
           document.documentElement.style.colorScheme = 'dark';
