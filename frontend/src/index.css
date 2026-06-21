@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Class-based dark variant. The palette itself is swapped at runtime by
+   BrandingProvider (it rewrites the CSS variables), so most of the UI re-themes
+   without dark: classes; this variant is here for the few places that need it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ── Nunito — variable font, shipped locally (wght 200–1000) ───────────── */
 @font-face {
   font-family: 'Nunito';
@@ -27,23 +32,29 @@
    ────────────────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    /* Brand (overridable at runtime by BrandingProvider) */
+    /* Brand & surfaces (all overridable per light/dark scheme at runtime by
+       BrandingProvider). Values here are the light defaults / SSR fallback. */
     --primary: 197 74% 52%;
     --primary-foreground: 0 0% 100%;
+    --secondary: 27 14% 48%;
+    --secondary-foreground: 0 0% 100%;
     --background: 40 11% 95%;
     --foreground: 0 0% 17%;
     --card: 0 0% 100%;
-    --secondary: 27 14% 48%;
+    --card-foreground: 0 0% 17%;
     --muted: 40 8% 90%;
     --muted-foreground: 0 0% 40%;
     --border: 30 8% 85%;
     --radius: 0.5rem;
 
-    /* Derived accent shades — follow the brand primary */
-    --primary-press: color-mix(in srgb, hsl(var(--primary)) 82%, black);
-    --primary-soft: color-mix(in srgb, hsl(var(--primary)) 10%, white);
+    /* Heading font (overridable at runtime); defaults to the body font */
+    --font-heading: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-    /* Semantic colors (fixed, not branded) */
+    /* Derived accent shades — follow the brand primary and adapt to the scheme */
+    --primary-press: color-mix(in srgb, hsl(var(--primary)) 82%, black);
+    --primary-soft: color-mix(in srgb, hsl(var(--primary)) 14%, hsl(var(--card)));
+
+    /* Semantic colors — light defaults; overridden per scheme at runtime */
     --success: #1fab6a;
     --success-bg: #e4f6ec;
     --warning: #d89221;
@@ -73,6 +84,10 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
 }
 
 /* ── Tailwind theme: expose tokens as utilities (bg-primary, text-success,
@@ -88,7 +103,9 @@
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
   --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-border: hsl(var(--border));

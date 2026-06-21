@@ -9,6 +9,7 @@ import { getAdminMe } from '@/api/admin'
 import { getSupportUnread } from '@/api/support'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
+import { ThemeToggleRow } from './ThemeToggle'
 import {
   LayoutDashboard,
   CreditCard,
@@ -184,6 +185,7 @@ export function Sidebar() {
             {t('admin_title')}
           </NavLink>
         )}
+        <ThemeToggleRow />
         <LangToggle />
         <button
           type="button"

@@ -8,6 +8,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <script src="/env-config.js"></script>
+    <script>
+      // Anti-flash: apply the stored colour-scheme preference before React mounts.
+      // (Palette colours still load with branding; this just avoids a light/dark flash.)
+      try {
+        var pref = localStorage.getItem('color-scheme-pref');
+        var dark = pref === 'dark' ||
+          ((pref === 'system' || pref === null) &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches && pref === 'system');
+        if (dark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

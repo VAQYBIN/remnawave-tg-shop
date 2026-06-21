@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
+import { ThemeToggleButton } from './ThemeToggle'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useSupportNotifications } from '@/hooks/useSupportNotifications'
@@ -14,6 +15,9 @@ function MobileTopBar() {
       <span className="truncate text-base font-extrabold text-[hsl(var(--primary))]">
         {branding?.brand_name}
       </span>
+      <div className="ml-auto">
+        <ThemeToggleButton />
+      </div>
     </div>
   )
 }

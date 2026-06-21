@@ -12,14 +12,15 @@ import { FontSelect } from '@/components/admin/FontSelect'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { defaultTheme, normaliseTheme, DEFAULT_LIGHT, type Theme } from '@/lib/theme'
 
 const COLOR_DEFAULTS = {
-  primary_color: '#2AACDF',
-  secondary_color: '#897569',
-  background_color: '#F5F1ED',
-  foreground_color: '#2B2B2B',
-  card_color: '#FFFFFF',
-  border_color: '#DDD8D3',
+  primary: DEFAULT_LIGHT.primary,
+  secondary: DEFAULT_LIGHT.secondary,
+  background: DEFAULT_LIGHT.background,
+  foreground: DEFAULT_LIGHT.foreground,
+  card: DEFAULT_LIGHT.card,
+  border: DEFAULT_LIGHT.border,
 }
 
 export function BrandingPage() {
@@ -34,13 +35,9 @@ export function BrandingPage() {
 
   const [form, setForm] = useState({
     brand_name: '',
-    primary_color: '',
-    secondary_color: '',
-    background_color: '',
-    foreground_color: '',
-    card_color: '',
-    border_color: '',
+    theme: defaultTheme() as Theme,
     font_family: '',
+    heading_font_family: '',
     custom_css: '',
     privacy_policy_url: '',
     terms_of_service_url: '',
@@ -52,13 +49,9 @@ export function BrandingPage() {
   if (data && !initialized) {
     setForm({
       brand_name: data.brand_name,
-      primary_color: data.primary_color,
-      secondary_color: data.secondary_color,
-      background_color: data.background_color,
-      foreground_color: data.foreground_color,
-      card_color: data.card_color,
-      border_color: data.border_color,
+      theme: normaliseTheme(data.theme),
       font_family: data.font_family,
+      heading_font_family: data.heading_font_family ?? '',
       custom_css: data.custom_css ?? '',
       privacy_policy_url: data.privacy_policy_url ?? '',
       terms_of_service_url: data.terms_of_service_url ?? '',
@@ -67,6 +60,12 @@ export function BrandingPage() {
     })
     setInitialized(true)
   }
+
+  // Edit a single token in the light palette (the dark palette + full token grid
+  // editor land in a later phase).
+  const setLight = (token: string, value: string) =>
+    setForm(f => ({ ...f, theme: { ...f.theme, light: { ...f.theme.light, [token]: value } } }))
+  const light = form.theme.light
 
   const saveMutation = useMutation({
     mutationFn: patchBranding,
@@ -124,25 +123,28 @@ export function BrandingPage() {
   const handleApplyPreset = (preset: ColorPreset) => {
     setForm(f => ({
       ...f,
-      primary_color: preset.primary_color,
-      secondary_color: preset.secondary_color,
-      background_color: preset.background_color,
-      foreground_color: preset.foreground_color,
-      card_color: preset.card_color,
-      border_color: preset.border_color,
+      theme: {
+        ...f.theme,
+        light: {
+          ...f.theme.light,
+          primary: preset.primary_color,
+          secondary: preset.secondary_color,
+          background: preset.background_color,
+          foreground: preset.foreground_color,
+          card: preset.card_color,
+          card_foreground: preset.foreground_color,
+          border: preset.border_color,
+        },
+      },
     }))
   }
 
   const handleSave = () => {
     saveMutation.mutate({
       brand_name: form.brand_name || undefined,
-      primary_color: form.primary_color || undefined,
-      secondary_color: form.secondary_color || undefined,
-      background_color: form.background_color || undefined,
-      foreground_color: form.foreground_color || undefined,
-      card_color: form.card_color || undefined,
-      border_color: form.border_color || undefined,
+      theme: form.theme,
       font_family: form.font_family || undefined,
+      heading_font_family: form.heading_font_family || undefined,
       custom_css: form.custom_css || undefined,
       privacy_policy_url: form.privacy_policy_url || undefined,
       terms_of_service_url: form.terms_of_service_url || undefined,
@@ -287,7 +289,7 @@ export function BrandingPage() {
           </Card>
 
           {/* Presets */}
-          <BrandingPresets onApply={handleApplyPreset} currentPrimary={form.primary_color} />
+          <BrandingPresets onApply={handleApplyPreset} currentPrimary={light.primary} />
 
           {/* Colors */}
           <Card className="p-5 space-y-5">
@@ -299,45 +301,46 @@ export function BrandingPage() {
               <ColorPickerField
                 label={t('admin_branding_primary_color')}
                 description={t('admin_branding_primary_color_desc')}
-                value={form.primary_color}
-                onChange={v => setForm(f => ({ ...f, primary_color: v }))}
-                defaultValue={COLOR_DEFAULTS.primary_color}
-                checkContrastWith="#FFFFFF"
+                value={light.primary}
+                onChange={v => setLight('primary', v)}
+                defaultValue={COLOR_DEFAULTS.primary}
+                checkContrastWith={light.primary_foreground}
               />
               <ColorPickerField
                 label={t('admin_branding_secondary_color')}
                 description={t('admin_branding_secondary_color_desc')}
-                value={form.secondary_color}
-                onChange={v => setForm(f => ({ ...f, secondary_color: v }))}
-                defaultValue={COLOR_DEFAULTS.secondary_color}
+                value={light.secondary}
+                onChange={v => setLight('secondary', v)}
+                defaultValue={COLOR_DEFAULTS.secondary}
               />
               <ColorPickerField
                 label={t('admin_branding_background_color')}
                 description={t('admin_branding_background_color_desc')}
-                value={form.background_color}
-                onChange={v => setForm(f => ({ ...f, background_color: v }))}
-                defaultValue={COLOR_DEFAULTS.background_color}
+                value={light.background}
+                onChange={v => setLight('background', v)}
+                defaultValue={COLOR_DEFAULTS.background}
               />
               <ColorPickerField
                 label={t('admin_branding_foreground_color')}
                 description={t('admin_branding_foreground_color_desc')}
-                value={form.foreground_color}
-                onChange={v => setForm(f => ({ ...f, foreground_color: v }))}
-                defaultValue={COLOR_DEFAULTS.foreground_color}
+                value={light.foreground}
+                onChange={v => setLight('foreground', v)}
+                defaultValue={COLOR_DEFAULTS.foreground}
+                checkContrastWith={light.background}
               />
               <ColorPickerField
                 label={t('admin_branding_card_color')}
                 description={t('admin_branding_card_color_desc')}
-                value={form.card_color}
-                onChange={v => setForm(f => ({ ...f, card_color: v }))}
-                defaultValue={COLOR_DEFAULTS.card_color}
+                value={light.card}
+                onChange={v => setLight('card', v)}
+                defaultValue={COLOR_DEFAULTS.card}
               />
               <ColorPickerField
                 label={t('admin_branding_border_color')}
                 description={t('admin_branding_border_color_desc')}
-                value={form.border_color}
-                onChange={v => setForm(f => ({ ...f, border_color: v }))}
-                defaultValue={COLOR_DEFAULTS.border_color}
+                value={light.border}
+                onChange={v => setLight('border', v)}
+                defaultValue={COLOR_DEFAULTS.border}
               />
             </div>
           </Card>
@@ -397,12 +400,12 @@ export function BrandingPage() {
           </p>
           <BrandingPreview
             brandName={form.brand_name}
-            primaryColor={form.primary_color || COLOR_DEFAULTS.primary_color}
-            secondaryColor={form.secondary_color || COLOR_DEFAULTS.secondary_color}
-            backgroundColor={form.background_color || COLOR_DEFAULTS.background_color}
-            foregroundColor={form.foreground_color || COLOR_DEFAULTS.foreground_color}
-            cardColor={form.card_color || COLOR_DEFAULTS.card_color}
-            borderColor={form.border_color || COLOR_DEFAULTS.border_color}
+            primaryColor={light.primary || COLOR_DEFAULTS.primary}
+            secondaryColor={light.secondary || COLOR_DEFAULTS.secondary}
+            backgroundColor={light.background || COLOR_DEFAULTS.background}
+            foregroundColor={light.foreground || COLOR_DEFAULTS.foreground}
+            cardColor={light.card || COLOR_DEFAULTS.card}
+            borderColor={light.border || COLOR_DEFAULTS.border}
             fontFamily={form.font_family}
           />
         </div>
