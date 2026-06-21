@@ -233,6 +233,22 @@ export function applyPalette(target: HTMLElement, palette: Palette): void {
   }
 }
 
+/**
+ * Build an inline-style object of CSS custom properties for a palette, so a
+ * preview container can scope the whole theme to itself (children using
+ * hsl(var(--token)) / var(--token) then resolve against these). Mirrors
+ * applyPalette but returns a style object instead of mutating the DOM.
+ */
+export function paletteToCssVars(palette: Palette): Record<string, string> {
+  const vars: Record<string, string> = {}
+  for (const token of TOKEN_KEYS) {
+    const value = palette[token]
+    if (!isHexColor(value)) continue
+    vars[cssVarName(token)] = HSL_TOKENS.has(token) ? hexToHslTriplet(value) : value
+  }
+  return vars
+}
+
 // ── Color scheme resolution ──────────────────────────────────────────────────
 export function systemPrefersDark(): boolean {
   return typeof window !== 'undefined'

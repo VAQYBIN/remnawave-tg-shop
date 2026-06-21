@@ -398,13 +398,10 @@ export function BrandingPage() {
           </p>
           <BrandingPreview
             brandName={form.brand_name}
-            primaryColor={palette.primary}
-            secondaryColor={palette.secondary}
-            backgroundColor={palette.background}
-            foregroundColor={palette.foreground}
-            cardColor={palette.card}
-            borderColor={palette.border}
+            theme={form.theme}
             fontFamily={form.font_family}
+            headingFontFamily={form.heading_font_family}
+            defaultScheme={editingPalette}
           />
         </div>
       </div>
