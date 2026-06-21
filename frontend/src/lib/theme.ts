@@ -41,6 +41,59 @@ export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
 
 export const TOKEN_KEYS: string[] = TOKEN_GROUPS.flatMap(g => g.tokens)
 
+export type TokenGroup = 'surfaces' | 'accents' | 'semantic'
+
+export interface TokenMeta {
+  token: string
+  group: TokenGroup
+  /** Token whose colour this one is meant to be legible against (for contrast). */
+  contrastWith?: string
+}
+
+// Pairs each token with the token it should contrast against, so the editor can
+// flag low-contrast combinations using the actual colours in play.
+export const TOKEN_META: TokenMeta[] = [
+  { token: 'background', group: 'surfaces', contrastWith: 'foreground' },
+  { token: 'foreground', group: 'surfaces', contrastWith: 'background' },
+  { token: 'card', group: 'surfaces', contrastWith: 'card_foreground' },
+  { token: 'card_foreground', group: 'surfaces', contrastWith: 'card' },
+  { token: 'muted', group: 'surfaces', contrastWith: 'muted_foreground' },
+  { token: 'muted_foreground', group: 'surfaces', contrastWith: 'muted' },
+  { token: 'border', group: 'surfaces', contrastWith: 'background' },
+  { token: 'primary', group: 'accents', contrastWith: 'primary_foreground' },
+  { token: 'primary_foreground', group: 'accents', contrastWith: 'primary' },
+  { token: 'secondary', group: 'accents', contrastWith: 'secondary_foreground' },
+  { token: 'secondary_foreground', group: 'accents', contrastWith: 'secondary' },
+  { token: 'success', group: 'semantic', contrastWith: 'success_bg' },
+  { token: 'success_bg', group: 'semantic', contrastWith: 'success' },
+  { token: 'warning', group: 'semantic', contrastWith: 'warning_bg' },
+  { token: 'warning_bg', group: 'semantic', contrastWith: 'warning' },
+  { token: 'danger', group: 'semantic', contrastWith: 'danger_bg' },
+  { token: 'danger_bg', group: 'semantic', contrastWith: 'danger' },
+  { token: 'info', group: 'semantic', contrastWith: 'info_bg' },
+  { token: 'info_bg', group: 'semantic', contrastWith: 'info' },
+]
+
+export function tokenMeta(token: string): TokenMeta | undefined {
+  return TOKEN_META.find(m => m.token === token)
+}
+
+/**
+ * Curated Google Fonts for the picker. Any other family name can still be typed
+ * in and is loaded dynamically — this is just the convenience list.
+ */
+export const CURATED_FONTS = [
+  'Nunito', 'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins',
+  'Raleway', 'Ubuntu', 'Oswald', 'Source Sans 3', 'Merriweather', 'Playfair Display',
+  'Nunito Sans', 'Work Sans', 'Rubik', 'Mukta', 'Noto Sans', 'PT Sans', 'Quicksand',
+  'Manrope', 'DM Sans', 'Karla', 'Josefin Sans', 'Mulish', 'Fira Sans', 'Cabin',
+  'Barlow', 'Hind', 'Heebo', 'IBM Plex Sans', 'Titillium Web', 'Bitter', 'Arimo',
+  'Dosis', 'Teko', 'Exo 2', 'Comfortaa', 'Lora', 'PT Serif', 'Roboto Slab',
+  'Roboto Condensed', 'Roboto Mono', 'JetBrains Mono', 'Space Grotesk', 'Outfit',
+  'Plus Jakarta Sans', 'Figtree', 'Sora', 'Onest', 'Geist', 'Albert Sans',
+  'Roboto Flex', 'Archivo', 'Red Hat Display', 'Lexend', 'Schibsted Grotesk',
+]
+
 /** Tokens stored as HSL triplets and consumed via hsl(var(--x)). */
 export const HSL_TOKENS = new Set([
   'background',

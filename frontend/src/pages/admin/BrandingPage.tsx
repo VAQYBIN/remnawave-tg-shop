@@ -5,23 +5,22 @@ import { getAdminBranding, patchBranding, uploadLogo, uploadFavicon, deleteLogo,
 import { useToastContext } from '@/lib/toast-context'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useTranslation } from 'react-i18next'
-import { ColorPickerField } from '@/components/admin/ColorPickerField'
 import { BrandingPreview } from '@/components/admin/BrandingPreview'
 import { BrandingPresets, type ColorPreset } from '@/components/admin/BrandingPresets'
 import { FontSelect } from '@/components/admin/FontSelect'
+import { ThemeEditor } from '@/components/admin/ThemeEditor'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { defaultTheme, normaliseTheme, DEFAULT_LIGHT, type Theme } from '@/lib/theme'
+import { defaultTheme, normaliseTheme, type Theme, type ColorScheme } from '@/lib/theme'
 
-const COLOR_DEFAULTS = {
-  primary: DEFAULT_LIGHT.primary,
-  secondary: DEFAULT_LIGHT.secondary,
-  background: DEFAULT_LIGHT.background,
-  foreground: DEFAULT_LIGHT.foreground,
-  card: DEFAULT_LIGHT.card,
-  border: DEFAULT_LIGHT.border,
-}
+type PaletteName = 'light' | 'dark'
+
+const SCHEME_OPTIONS: { value: ColorScheme; labelKey: string }[] = [
+  { value: 'light', labelKey: 'theme_light' },
+  { value: 'dark', labelKey: 'theme_dark' },
+  { value: 'system', labelKey: 'theme_system' },
+]
 
 export function BrandingPage() {
   const qc = useQueryClient()
@@ -38,6 +37,7 @@ export function BrandingPage() {
     theme: defaultTheme() as Theme,
     font_family: '',
     heading_font_family: '',
+    default_color_scheme: 'light' as ColorScheme,
     custom_css: '',
     privacy_policy_url: '',
     terms_of_service_url: '',
@@ -45,6 +45,7 @@ export function BrandingPage() {
     refund_policy_url: '',
   })
   const [initialized, setInitialized] = useState(false)
+  const [editingPalette, setEditingPalette] = useState<PaletteName>('light')
 
   if (data && !initialized) {
     setForm({
@@ -52,6 +53,7 @@ export function BrandingPage() {
       theme: normaliseTheme(data.theme),
       font_family: data.font_family,
       heading_font_family: data.heading_font_family ?? '',
+      default_color_scheme: (data.default_color_scheme as ColorScheme) || 'light',
       custom_css: data.custom_css ?? '',
       privacy_policy_url: data.privacy_policy_url ?? '',
       terms_of_service_url: data.terms_of_service_url ?? '',
@@ -61,11 +63,8 @@ export function BrandingPage() {
     setInitialized(true)
   }
 
-  // Edit a single token in the light palette (the dark palette + full token grid
-  // editor land in a later phase).
-  const setLight = (token: string, value: string) =>
-    setForm(f => ({ ...f, theme: { ...f.theme, light: { ...f.theme.light, [token]: value } } }))
-  const light = form.theme.light
+  const setTheme = (theme: Theme) => setForm(f => ({ ...f, theme }))
+  const palette = form.theme[editingPalette]
 
   const saveMutation = useMutation({
     mutationFn: patchBranding,
@@ -145,6 +144,7 @@ export function BrandingPage() {
       theme: form.theme,
       font_family: form.font_family || undefined,
       heading_font_family: form.heading_font_family || undefined,
+      default_color_scheme: form.default_color_scheme,
       custom_css: form.custom_css || undefined,
       privacy_policy_url: form.privacy_policy_url || undefined,
       terms_of_service_url: form.terms_of_service_url || undefined,
@@ -271,7 +271,7 @@ export function BrandingPage() {
             />
           </Card>
 
-          {/* Brand name + font */}
+          {/* Brand name + fonts + default scheme */}
           <Card className="p-5 space-y-4">
             <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_main_settings')}</h2>
             <Input
@@ -281,68 +281,58 @@ export function BrandingPage() {
               placeholder="My VPN Shop"
             />
             <FontSelect
-              label={t('admin_branding_font')}
-              description={t('admin_branding_font_desc')}
+              label={t('admin_branding_font_body')}
+              description={t('admin_branding_font_body_desc')}
               value={form.font_family}
               onChange={v => setForm(f => ({ ...f, font_family: v }))}
             />
+            <FontSelect
+              label={t('admin_branding_font_heading')}
+              description={t('admin_branding_font_heading_desc')}
+              value={form.heading_font_family}
+              placeholder={form.font_family}
+              onChange={v => setForm(f => ({ ...f, heading_font_family: v }))}
+            />
+            <div>
+              <span className="text-sm font-medium text-[hsl(var(--foreground))]">{t('admin_branding_default_scheme')}</span>
+              <p className="mb-2 mt-0.5 text-xs leading-snug text-[hsl(var(--muted-foreground))]">
+                {t('admin_branding_default_scheme_desc')}
+              </p>
+              <div className="inline-flex rounded-lg bg-[hsl(var(--muted))] p-0.5">
+                {SCHEME_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, default_color_scheme: opt.value }))}
+                    className={[
+                      'rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                      form.default_color_scheme === opt.value
+                        ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-[var(--shadow-xs)]'
+                        : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
+                    ].join(' ')}
+                  >
+                    {t(opt.labelKey)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </Card>
 
           {/* Presets */}
-          <BrandingPresets onApply={handleApplyPreset} currentPrimary={light.primary} />
+          <BrandingPresets onApply={handleApplyPreset} currentPrimary={form.theme.light.primary} />
 
-          {/* Colors */}
+          {/* Colors — full token editor (light + dark) */}
           <Card className="p-5 space-y-5">
             <div>
               <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">{t('admin_branding_colors')}</h2>
               <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{t('admin_branding_colors_hint')}</p>
             </div>
-            <div className="grid grid-cols-1 gap-5">
-              <ColorPickerField
-                label={t('admin_branding_primary_color')}
-                description={t('admin_branding_primary_color_desc')}
-                value={light.primary}
-                onChange={v => setLight('primary', v)}
-                defaultValue={COLOR_DEFAULTS.primary}
-                checkContrastWith={light.primary_foreground}
-              />
-              <ColorPickerField
-                label={t('admin_branding_secondary_color')}
-                description={t('admin_branding_secondary_color_desc')}
-                value={light.secondary}
-                onChange={v => setLight('secondary', v)}
-                defaultValue={COLOR_DEFAULTS.secondary}
-              />
-              <ColorPickerField
-                label={t('admin_branding_background_color')}
-                description={t('admin_branding_background_color_desc')}
-                value={light.background}
-                onChange={v => setLight('background', v)}
-                defaultValue={COLOR_DEFAULTS.background}
-              />
-              <ColorPickerField
-                label={t('admin_branding_foreground_color')}
-                description={t('admin_branding_foreground_color_desc')}
-                value={light.foreground}
-                onChange={v => setLight('foreground', v)}
-                defaultValue={COLOR_DEFAULTS.foreground}
-                checkContrastWith={light.background}
-              />
-              <ColorPickerField
-                label={t('admin_branding_card_color')}
-                description={t('admin_branding_card_color_desc')}
-                value={light.card}
-                onChange={v => setLight('card', v)}
-                defaultValue={COLOR_DEFAULTS.card}
-              />
-              <ColorPickerField
-                label={t('admin_branding_border_color')}
-                description={t('admin_branding_border_color_desc')}
-                value={light.border}
-                onChange={v => setLight('border', v)}
-                defaultValue={COLOR_DEFAULTS.border}
-              />
-            </div>
+            <ThemeEditor
+              theme={form.theme}
+              onChange={setTheme}
+              editing={editingPalette}
+              onEditingChange={setEditingPalette}
+            />
           </Card>
 
           {/* Custom CSS */}
@@ -400,12 +390,12 @@ export function BrandingPage() {
           </p>
           <BrandingPreview
             brandName={form.brand_name}
-            primaryColor={light.primary || COLOR_DEFAULTS.primary}
-            secondaryColor={light.secondary || COLOR_DEFAULTS.secondary}
-            backgroundColor={light.background || COLOR_DEFAULTS.background}
-            foregroundColor={light.foreground || COLOR_DEFAULTS.foreground}
-            cardColor={light.card || COLOR_DEFAULTS.card}
-            borderColor={light.border || COLOR_DEFAULTS.border}
+            primaryColor={palette.primary}
+            secondaryColor={palette.secondary}
+            backgroundColor={palette.background}
+            foregroundColor={palette.foreground}
+            cardColor={palette.card}
+            borderColor={palette.border}
             fontFamily={form.font_family}
           />
         </div>
