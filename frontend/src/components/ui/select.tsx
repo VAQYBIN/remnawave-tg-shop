@@ -15,7 +15,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
         ref={ref}
         id={id}
         className={cn(
-          'h-10 w-full appearance-none rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white bg-no-repeat pl-3 pr-8 text-sm text-[hsl(var(--foreground))] transition-[border-color,box-shadow] duration-150 focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)] disabled:opacity-50',
+          'h-10 w-full appearance-none rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] bg-no-repeat pl-3 pr-8 text-sm text-[hsl(var(--foreground))] transition-[border-color,box-shadow] duration-150 focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)] disabled:opacity-50',
           className
         )}
         style={{ backgroundImage: chevron, backgroundPosition: 'right 12px center' }}

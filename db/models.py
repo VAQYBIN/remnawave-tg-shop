@@ -1,5 +1,5 @@
 import uuid as _uuid
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index, text
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, ForeignKey, UniqueConstraint, Text, BigInteger, Index, text, JSON
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column, backref
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.sql import func
@@ -628,11 +628,20 @@ class SiteSettings(Base):
     card_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#FFFFFF")
     border_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#DDD8D3")
     font_family: Mapped[str] = mapped_column(String(100), nullable=False, default="Nunito")
+    # Full design-token theme (light + dark palettes + radius). Source of truth
+    # for the web UI; the legacy *_color columns above stay in sync for the bot
+    # and back-compat. See core/services/branding_theme.py.
+    theme_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    heading_font_family: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    default_color_scheme: Mapped[str] = mapped_column(String(10), nullable=False, default="light", server_default="light")
     custom_css: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     news_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     referral_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     devices_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     support_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Bot UX mode: "inline" — classic inline-button purchase workflow;
+    # "webapp" — bot shows only a "Personal cabinet" Web App button (Mini App).
+    bot_ui_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="inline", server_default="inline")
     privacy_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
@@ -640,6 +649,23 @@ class SiteSettings(Base):
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     __table_args__ = (UniqueConstraint('id'),)
+
+
+class BrandTheme(Base):
+    """A saved branding preset (light + dark palettes + fonts).
+
+    Built-in presets are seeded with is_builtin=True and cannot be deleted by
+    admins. Admin-saved themes are stored here too (is_builtin=False)."""
+    __tablename__ = "brand_themes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    theme_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    font_family: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    heading_font_family: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
 
 # ─── Support tickets ─────────────────────────────────────────────────────────

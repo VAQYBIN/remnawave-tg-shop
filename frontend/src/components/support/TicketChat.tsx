@@ -194,7 +194,7 @@ export function TicketChat({
               }}
               rows={1}
               placeholder={t('support_reply_placeholder')}
-              className="max-h-40 min-h-[40px] flex-1 resize-y rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
+              className="max-h-40 min-h-[40px] flex-1 resize-y rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
             />
             <Button type="button" size="icon" onClick={handleSend} isLoading={sending || uploading} disabled={!canSend}>
               <Send size={18} />

@@ -16,6 +16,11 @@ class TelegramConfigResponse(BaseModel):
     client_id: int
 
 
+class MiniAppAuthRequest(BaseModel):
+    """Raw ``window.Telegram.WebApp.initData`` from a Telegram Mini App."""
+    init_data: str
+
+
 class RegisterSendCodeRequest(BaseModel):
     email: EmailStr
 

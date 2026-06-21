@@ -70,7 +70,7 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           {logoUrl && (
-            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3 rounded-2xl" />
+            <img src={logoUrl} alt={branding?.brand_name} referrerPolicy="no-referrer" className="h-16 w-16 object-contain mx-auto mb-3 rounded-2xl" />
           )}
           <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
             {branding?.brand_name ?? ''}

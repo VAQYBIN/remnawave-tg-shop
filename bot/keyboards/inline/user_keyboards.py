@@ -9,35 +9,45 @@ def get_main_menu_inline_keyboard(
         lang: str,
         i18n_instance,
         settings: Settings,
-        show_trial_button: bool = False) -> InlineKeyboardMarkup:
+        show_trial_button: bool = False,
+        bot_ui_mode: str = "inline",
+        web_app_url: Optional[str] = None) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
 
-    if show_trial_button and settings.TRIAL_ENABLED:
+    # Web App mode: replace the whole purchase workflow with a single
+    # "Personal cabinet" Mini App button. Service buttons (language, support,
+    # status, legal links) below stay available.
+    if bot_ui_mode == "webapp" and web_app_url:
         builder.row(
-            InlineKeyboardButton(text=_(key="menu_activate_trial_button"),
-                                 callback_data="main_action:request_trial"))
-
-    builder.row(
-        InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
-                             callback_data="main_action:subscribe"))
-    builder.row(
-        InlineKeyboardButton(
-            text=_(key="menu_my_subscription_inline"),
-            callback_data="main_action:my_subscription",
-        )
-    )
-
-    promo_button = InlineKeyboardButton(
-        text=_(key="menu_apply_promo_button"),
-        callback_data="main_action:apply_promo")
-    if settings.REFERRAL_ENABLED:
-        referral_button = InlineKeyboardButton(
-            text=_(key="menu_referral_inline"),
-            callback_data="main_action:referral")
-        builder.row(referral_button, promo_button)
+            InlineKeyboardButton(text=_(key="menu_personal_cabinet"),
+                                 web_app=WebAppInfo(url=web_app_url)))
     else:
-        builder.row(promo_button)
+        if show_trial_button and settings.TRIAL_ENABLED:
+            builder.row(
+                InlineKeyboardButton(text=_(key="menu_activate_trial_button"),
+                                     callback_data="main_action:request_trial"))
+
+        builder.row(
+            InlineKeyboardButton(text=_(key="menu_subscribe_inline"),
+                                 callback_data="main_action:subscribe"))
+        builder.row(
+            InlineKeyboardButton(
+                text=_(key="menu_my_subscription_inline"),
+                callback_data="main_action:my_subscription",
+            )
+        )
+
+        promo_button = InlineKeyboardButton(
+            text=_(key="menu_apply_promo_button"),
+            callback_data="main_action:apply_promo")
+        if settings.REFERRAL_ENABLED:
+            referral_button = InlineKeyboardButton(
+                text=_(key="menu_referral_inline"),
+                callback_data="main_action:referral")
+            builder.row(referral_button, promo_button)
+        else:
+            builder.row(promo_button)
 
     language_button = InlineKeyboardButton(
         text=_(key="menu_language_settings_inline"),

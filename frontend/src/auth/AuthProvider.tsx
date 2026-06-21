@@ -9,7 +9,13 @@ import {
 } from 'react'
 import i18n from '@/i18n'
 import { setAccessToken } from '@/api/client'
-import { refreshToken, logout as apiLogout, type TokenResponse } from '@/api/auth'
+import {
+  refreshToken,
+  logout as apiLogout,
+  authTelegramMiniApp,
+  type TokenResponse,
+} from '@/api/auth'
+import { isMiniApp, initMiniApp, getInitData } from '@/lib/telegram'
 
 interface AuthUser {
   accountId: string
@@ -21,6 +27,10 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null
   isLoading: boolean
+  /** True when running inside Telegram as a Mini App. */
+  isMiniApp: boolean
+  /** True while the initial Mini App auto-auth attempt failed (browser fallback active). */
+  miniAppAuthFailed: boolean
   setAuth: (resp: TokenResponse) => void
   logout: () => Promise<void>
 }
@@ -30,6 +40,8 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [miniApp] = useState(() => isMiniApp())
+  const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false)
 
   const setAuth = useCallback((resp: TokenResponse) => {
     setAccessToken(resp.access_token)
@@ -54,10 +66,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  // Try silent refresh on mount (restore session from HttpOnly cookie)
+  // On mount: inside Telegram → auto-auth via initData; otherwise restore the
+  // session from the HttpOnly refresh cookie (existing web flow).
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      if (miniApp) {
+        initMiniApp()
+        try {
+          const resp = await authTelegramMiniApp(getInitData())
+          if (!cancelled) setAuth(resp)
+          if (!cancelled) setIsLoading(false)
+          return
+        } catch {
+          // initData rejected — fall back to cookie-based session below.
+          if (!cancelled) setMiniAppAuthFailed(true)
+        }
+      }
       try {
         const resp = await refreshToken()
         if (!cancelled) setAuth(resp)
@@ -70,11 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [setAuth])
+  }, [setAuth, miniApp])
 
   const value = useMemo(
-    () => ({ user, isLoading, setAuth, logout }),
-    [user, isLoading, setAuth, logout],
+    () => ({ user, isLoading, isMiniApp: miniApp, miniAppAuthFailed, setAuth, logout }),
+    [user, isLoading, miniApp, miniAppAuthFailed, setAuth, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
