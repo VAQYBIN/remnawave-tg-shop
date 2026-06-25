@@ -6,10 +6,32 @@ from typing import Any, Union
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from config.settings import Settings
+from core.dal.site_settings_dal import get_site_settings
+from web.dependencies import get_db, get_settings_dep
 
 router = APIRouter()
+
+
+async def _configured_legal_urls(db: AsyncSession, settings: Settings) -> set[str]:
+    """The exact set of legal-document URLs the operator has configured.
+
+    The /legal/content proxy must only fetch one of these — never an
+    arbitrary client-supplied URL — otherwise it is an SSRF primitive.
+    Mirrors the site-settings-over-env precedence used by /config/branding.
+    """
+    site = await get_site_settings(db)
+    pairs = (
+        (site.terms_of_service_url, settings.TERMS_OF_SERVICE_URL),
+        (site.privacy_policy_url, settings.PRIVACY_POLICY_URL),
+        (site.personal_data_url, settings.PERSONAL_DATA_URL),
+        (site.refund_policy_url, settings.REFUND_POLICY_URL),
+    )
+    return {(stored or env) for stored, env in pairs if (stored or env)}
 
 _TELEGRAPH_HOSTS = {"telegra.ph", "te.legra.ph", "graph.org"}
 _TELEGRAPH_API = "https://api.telegra.ph/getPage/{}?return_content=true"
@@ -140,8 +162,18 @@ async def _fetch_raw(url: str) -> str:
 
 
 @router.get("/legal/content", response_model=LegalContentResponse)
-async def get_legal_content(url: str = Query(..., description="URL документа (telegra.ph или прямая ссылка)")):
+async def get_legal_content(
+    url: str = Query(..., description="URL документа (telegra.ph или прямая ссылка)"),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+):
     """Proxy-эндпоинт: загружает текст юридического документа, конвертирует в Markdown."""
+    # SSRF guard: only proxy URLs the operator has actually configured as a
+    # legal document. Without this, an unauthenticated caller could point the
+    # server at arbitrary internal endpoints.
+    if url not in await _configured_legal_urls(db, settings):
+        raise HTTPException(status_code=400, detail="Недопустимая ссылка")
+
     parsed = urlparse(url)
     host = parsed.netloc.lstrip("www.")
 

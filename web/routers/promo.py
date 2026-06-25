@@ -1,10 +1,15 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.settings import Settings, get_settings
 from db.models import Account
 from web.dependencies import get_current_account, get_db
 from web.schemas.promo import ApplyPromoRequest, PromoApplyResponse, ActiveDiscountResponse
 from core.dal.account_dal import get_effective_payment_user_id, get_account_user_ids
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/promo", tags=["promo"])
 
@@ -14,6 +19,7 @@ async def apply_promo(
     body: ApplyPromoRequest,
     account: Account = Depends(get_current_account),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> PromoApplyResponse:
     user_id = await get_effective_payment_user_id(db, account)
 
@@ -44,6 +50,17 @@ async def apply_promo(
     from core.dal.promo_code_dal import get_promo_code_by_id
     promo_obj = await get_promo_code_by_id(db, active_disc.promo_code_id)
     promo_code_str = promo_obj.code if promo_obj else body.code.upper()
+
+    try:
+        from core.services.telegram_notify import notify_group_web_promo_discount
+        await notify_group_web_promo_discount(
+            settings,
+            account=account,
+            promo_code=promo_code_str,
+            discount_percentage=active_disc.discount_percentage,
+        )
+    except Exception as exc:
+        logger.warning("Group promo notify failed: %s", exc)
 
     return PromoApplyResponse(
         promo_code=promo_code_str,

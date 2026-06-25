@@ -2,7 +2,7 @@
 
 **Форк** [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop) с расширенными возможностями: веб-дашборд (личный кабинет) и полнофункциональная веб-панель администратора.
 
-> Проверено на **Remnawave ≥ 2.7.0**.
+> Проверено на **Remnawave 2.7.4**.
 
 ---
 
@@ -12,28 +12,39 @@
 - Регистрация и выбор языка (ru / en)
 - Просмотр статуса подписки и ссылки на конфигурацию
 - Раздел «Мои устройства» — просмотр и отключение подключённых устройств
+- **Custom Tariffs**: выбор тарифа → описание → вариант (срок/трафик) → оплата
+- **Addon-тарифы**: докупка трафика/локаций к активной подписке с пропорциональной ценой
 - Пробный период
 - Промокоды (скидка / бонусные дни / бесплатный период)
 - Реферальная программа с бонусными днями
 - Оплата через YooKassa, FreeKassa, CryptoPay, Platega, SeverPay, Telegram Stars
-- Автопродление подписки (YooKassa)
+- Автопродление подписки (bundle: standalone + addon с включённым автопродлением)
 - Уведомления об истечении подписки
 
 ### Telegram-бот (для администраторов)
 - Статистика, управление пользователями (бан/разбан)
 - Рассылка: всем / с активной подпиской / без подписки
 - Управление промокодами (создание, просмотр, массовая генерация)
+- **Управление тарифами** (🗂 Тарифы): создание standalone/addon/trial-тарифов через FSM, выбор Remnawave squad из API, enable/disable, удаление/архивирование
 - Синхронизация с Remnawave Panel
 - Просмотр логов действий с CSV-экспортом
+- **Переключение режима бота**: inline-workflow ↔ Web App (только кнопка «Личный кабинет» → Mini App)
 
 ### Веб-дашборд (`app.your-domain.com`)
 - Аутентификация через Telegram Widget, Email + пароль
-- Личный кабинет: подписка, история платежей, устройства, рефералы
-- Привязка Telegram-аккаунта к веб-аккаунту
+- **Telegram Mini App**: открытие кабинета внутри Telegram с автоматическим входом по `initData` (нативные expand, тема, кнопка «Назад»)
+- Личный кабинет: подписка, история платежей, устройства, рефералы, поддержка
+- **Раздел «Устройства» с двумя вкладками:**
+  - *Устройства* — подключённые устройства (HWID, онлайн-статус, отключение) + список приложений для скачивания по выбранной ОС
+  - *Инструкция* — пошаговый гайд по подключению: выбор ОС → приложение → шаги с кнопками скачивания и deep-link «Добавить подписку». Данные берутся из **Subscription Page** панели Remnawave (см. [раздел ниже](#-страница-подключения-subscription-page))
+- **Поддержка:** тикеты с перепиской и вложениями, real-time уведомления (SSE)
+- Привязка Telegram-аккаунта к веб-аккаунту, Telegram-идентичность в сайдбаре
 - Лента новостей из Telegram-канала (SSE real-time)
-- Покупка и продление подписки через сайт
+- Покупка и продление подписки через сайт (Custom Tariffs: тариф → вариант → оплата)
+- Addon-тарифы с пропорциональной ценой и автопродление по отдельным entitlements
+- Юридические документы (оферта, политики) на странице профиля
 - i18n: русский / английский, динамическое переключение
-- Динамическая тема (бренд, цвета, логотип из БД)
+- Динамическая тема (бренд, цвета, логотип, favicon из БД)
 
 ### Веб-панель администратора (`app.your-domain.com/admin`)
 - Сводный дашборд: пользователи, доход (день/неделя/месяц), подписки
@@ -43,10 +54,14 @@
 - Мониторинг Remnawave: CPU/RAM, ноды, bandwidth, top-users
 - Управление нодами (enable/disable/restart, restart-all)
 - Рассылка через Redis Pub/Sub (прогресс в реальном времени)
-- Настройка бренда: название, цвета, логотип
-- Управление тарифными планами и платёжными провайдерами
-- Включение/выключение разделов (новости, рефералы, устройства)
-- Аудит-лог действий, Toast-уведомления, Confirm-диалоги
+- Настройка бренда: название, цвета, логотип, favicon (с возможностью удаления)
+- **Управление тарифами (Custom Tariffs)**: standalone/addon/trial, Remnawave squad picker, billing model (time/traffic/hybrid), варианты по сроку/трафику, цены RUB/Stars, архивирование, drag-and-drop сортировка
+- Управление платёжными провайдерами
+- **Поддержка:** просмотр тикетов, ответы пользователям, смена статуса, real-time уведомления
+- Карточка пользователя: устройства и таймлайн активности
+- Просмотр пользователей панели Remnawave с детальной карточкой
+- Включение/выключение разделов (новости, рефералы, устройства, поддержка)
+- Аудит-лог действий (включая действия в веб-кабинете), Toast-уведомления, Confirm-диалоги
 
 ---
 
@@ -101,7 +116,7 @@ Browser → /api/* → web/routers/ → core/services/ → core/dal/ → Postgre
 ### Предварительные требования
 
 - Docker и Docker Compose
-- Работающая панель Remnawave ≥ 2.7.0
+- Работающая панель Remnawave **2.7.4** (требуется для Custom Tariffs — используется Internal Squads API: `GET /internal-squads`, `GET /internal-squads/{uuid}`)
 - Токен Telegram-бота
 - Данные для подключения к платёжным системам
 
@@ -173,13 +188,24 @@ WEB_CORS_ORIGINS=https://your-domain.com
 ```
 
 ```nginx
-upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
-upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
-upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
+upstream remnawave-tg-shop {
+    server remnawave-tg-shop:8080;
+}
+
+upstream remnawave-tg-shop-web-api {
+    server remnawave-tg-shop-web-api:8090;
+}
+
+upstream remnawave-tg-shop-web-frontend {
+    server remnawave-tg-shop-web-frontend:3000;
+}
 
 server {
     listen 443 ssl;
     server_name your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.key;
 
     # SSE (лента новостей) — без буферизации
     location = /api/news/stream {
@@ -188,9 +214,17 @@ server {
         proxy_read_timeout 3600s;
     }
 
-    location /api/ { proxy_pass http://remnawave-tg-shop-web-api; }
-    location /webhook/ { proxy_pass http://remnawave-tg-shop; }
-    location / { proxy_pass http://remnawave-tg-shop-web-frontend; }
+    location /api/ {
+        proxy_pass http://remnawave-tg-shop-web-api;
+    }
+
+    location /webhook/ {
+        proxy_pass http://remnawave-tg-shop;
+    }
+    
+    location / {
+        proxy_pass http://remnawave-tg-shop-web-frontend;
+    }
 }
 ```
 
@@ -214,9 +248,17 @@ WEB_CORS_ORIGINS=https://app.your-domain.com
 Nginx должен быть подключен к той же Docker-сети, что и контейнеры проекта, например к `remnawave-network`.
 
 ```nginx
-upstream remnawave-tg-shop         { server remnawave-tg-shop:8080; }
-upstream remnawave-tg-shop-web-api { server remnawave-tg-shop-web-api:8090; }
-upstream remnawave-tg-shop-web-frontend { server remnawave-tg-shop-web-frontend:3000; }
+upstream remnawave-tg-shop {
+    server remnawave-tg-shop:8080;
+}
+
+upstream remnawave-tg-shop-web-api {
+    server remnawave-tg-shop-web-api:8090;
+}
+
+upstream remnawave-tg-shop-web-frontend {
+    server remnawave-tg-shop-web-frontend:3000;
+}
 
 server {
     listen 443 ssl;
@@ -326,6 +368,74 @@ docker compose exec remnawave-tg-shop alembic upgrade head
 
 ---
 
+## 🔑 Настройка внешних сервисов
+
+### Telegram Login (OIDC)
+
+Авторизация через Telegram на сайте работает через OpenID Connect — нужно
+переключить бота в режим OIDC в `@BotFather`, скопировать **Client Secret** в
+`TELEGRAM_OIDC_CLIENT_SECRET` и прописать Redirect URI / Trusted Origins. Без этого
+кнопка «Войти через Telegram» не работает.
+
+📄 Пошаговая инструкция: [docs/authentication.md → Telegram Login (OIDC)](docs/authentication.md#telegram-login-oidc)
+
+### Telegram Mini App (личный кабинет внутри Telegram)
+
+Веб-кабинет можно открывать прямо внутри Telegram как **Mini App** с
+**автоматическим входом** по подписанному `initData` (отдельных env-переменных не
+нужно). Это не то же самое, что OIDC — обе схемы работают параллельно.
+
+📄 Подробнее: [docs/authentication.md → Telegram Mini App](docs/authentication.md#telegram-mini-app-личный-кабинет-внутри-telegram)
+
+### Режим работы бота: inline-workflow или Web App
+
+Главное меню бота переключается **в админке бота** (`/admin` → ⚙️ Система) между
+классическим inline-workflow и режимом `webapp` (одна кнопка «👤 Личный кабинет» →
+Mini App). Значение хранится в БД и переживает рестарты.
+
+📄 Подробнее: [docs/bot-modes.md](docs/bot-modes.md)
+
+### Resend — отправка email
+
+Resend отправляет коды подтверждения при регистрации, смене и восстановлении
+пароля. Нужно верифицировать домен (SPF/DKIM/DMARC) и прописать `RESEND_API_KEY` /
+`RESEND_FROM_EMAIL`. Без настройки email-регистрация недоступна (Telegram-вход
+продолжает работать).
+
+📄 Пошаговая инструкция: [docs/authentication.md → Resend](docs/authentication.md#resend--отправка-email)
+
+---
+
+## 🧩 Custom Tariffs (кастомные тарифы)
+
+Тарифы хранятся в БД и управляются через админку (web или bot), а не через `.env`.
+Поддерживаются несколько тарифов, разные Remnawave Internal Squads, тарифы по
+сроку / по трафику / смешанные, пробный период как тариф и добавочные (addon)
+тарифы. Старые `.env`-цены и `USER_SQUAD_UUIDS` помечены **deprecated** —
+используются только для bootstrap тарифа `legacy-default` на пустой БД.
+
+> Требуется **Remnawave 2.7.4** — тарифы валидируют Internal Squads через API
+> панели.
+
+📄 Понятия (standalone / addon / trial / billing model), миграция старых
+установок и настройка тарифов в web/bot admin: [docs/custom-tariffs.md](docs/custom-tariffs.md)
+
+---
+
+## 📱 Страница подключения (Subscription Page)
+
+Вкладки **«Устройства»** и **«Инструкция»** в веб-кабинете показывают список
+приложений и пошаговый гайд по подключению — те же данные, что и официальная
+[Remnawave Subscription Page](https://github.com/remnawave/subscription-page).
+Кабинет **подтягивает конфиг прямо из панели** (по `PANEL_API_URL` /
+`PANEL_API_KEY`), отдельный файл или токен не нужны. Для вкладки «Инструкция»
+в панели должна быть создана хотя бы одна Subscription Page.
+
+📄 Обязательная настройка, кэширование, выбор конфига и офлайн-override:
+[docs/subscription-page.md](docs/subscription-page.md)
+
+---
+
 ## 📋 Переменные окружения
 
 <details>
@@ -383,7 +493,12 @@ docker compose exec remnawave-tg-shop alembic upgrade head
 </details>
 
 <details>
-<summary><b>Тарифные планы</b></summary>
+<summary><b>Тарифные планы (DEPRECATED — legacy bootstrap)</b></summary>
+
+> ⚠️ **Deprecated.** С появлением Custom Tariffs тарифы хранятся в БД и
+> управляются через админку. Эти поля используются **только** при первом старте
+> на пустой БД — для bootstrap тарифа `legacy-default`. После bootstrap правьте
+> тарифы в web/bot admin, а не здесь. См. раздел [Custom Tariffs](#-custom-tariffs-кастомные-тарифы).
 
 ```env
 1_MONTH_ENABLED=true
@@ -399,11 +514,14 @@ RUB_PRICE_6_MONTHS=500
 12_MONTHS_ENABLED=true
 RUB_PRICE_12_MONTHS=900
 
-# Пакеты трафика (опционально)
+# Пакеты трафика (legacy, опционально)
 TRAFFIC_PACKAGES=10:199,50:799
-```
 
-> Цены и планы можно управлять через веб-панель администратора — настройки из БД имеют приоритет над `.env`.
+# Нижняя граница пропорциональной цены addon (глобальный fallback;
+# переопределяется min_price на уровне тарифа)
+MIN_PRORATED_PRICE_RUB=
+MIN_PRORATED_PRICE_STARS=
+```
 
 </details>
 
@@ -419,6 +537,8 @@ TRAFFIC_PACKAGES=10:199,50:799
 | `USER_EXTERNAL_SQUAD_UUID` | UUID External Squad (опционально) |
 | `USER_TRAFFIC_LIMIT_GB` | Лимит трафика (0 = безлимит) |
 | `USER_HWID_DEVICE_LIMIT` | Лимит устройств HWID (0 = безлимит) |
+| `SUBSCRIPTION_PAGE_CONFIG_UUID` | UUID Subscription Page для вкладок «Устройства»/«Инструкция» (пусто = конфиг «Default» из панели) |
+| `SUBSCRIPTION_PAGE_CONFIG_PATH` | Опциональный офлайн-override: путь к смонтированному `app-config-v2.json` (приоритет над панелью) |
 
 </details>
 
@@ -524,7 +644,8 @@ Production-образы публикуются в GitHub Container Registry ав
 
 | Метод | Путь | Описание |
 |-------|------|---------|
-| POST | `/auth/telegram` | Вход через Telegram Widget |
+| POST | `/auth/telegram` | Вход через Telegram Widget (OIDC) |
+| POST | `/auth/telegram/miniapp` | Автовход из Telegram Mini App (валидация `initData`) |
 | POST | `/auth/register/send-code` | Регистрация: отправить код на email |
 | POST | `/auth/register/verify` | Регистрация: подтвердить код |
 | POST | `/auth/login` | Вход по email + пароль |
@@ -542,15 +663,24 @@ Production-образы публикуются в GitHub Container Registry ав
 |-------|------|---------|
 | GET/PATCH | `/api/profile` | Профиль |
 | GET | `/api/subscription` | Активная подписка |
-| GET | `/api/subscription/plans` | Доступные тарифы |
+| GET | `/api/subscription/plans` | Доступные тарифы (catalog) |
+| GET | `/api/subscription/addons` | Доступные addon для активного standalone |
+| GET | `/api/subscription/entitlements` | Активные standalone/addon пользователя |
+| PATCH | `/api/subscription/entitlements/{id}/auto-renew` | Автопродление entitlement |
 | GET | `/api/subscription/connection` | Ссылка на конфиг |
-| PATCH | `/api/subscription/auto-renew` | Автопродление |
+| PATCH | `/api/subscription/auto-renew` | Автопродление (legacy) |
 | GET | `/api/payments` | История платежей |
 | POST | `/api/payments/create` | Создать платёж |
 | GET | `/api/payments/{id}/status` | Статус платежа |
 | POST | `/api/promo/apply` | Применить промокод |
 | GET | `/api/referral` | Реферальная статистика |
 | GET/DELETE | `/api/devices` | Список устройств / отключить |
+| GET | `/api/devices/app-config` | Конфиг Subscription Page (приложения + инструкции) |
+| GET/POST | `/api/support/tickets` | Список тикетов / создать тикет |
+| GET | `/api/support/tickets/{id}` | Детали тикета |
+| POST | `/api/support/tickets/{id}/messages` | Отправить сообщение |
+| POST | `/api/support/tickets/{id}/close` | Закрыть тикет |
+| GET | `/api/support/stream` | SSE real-time поток поддержки |
 | GET | `/api/news` | Лента новостей |
 | GET | `/api/news/stream` | SSE real-time поток |
 
@@ -566,7 +696,9 @@ Production-образы публикуются в GitHub Container Registry ав
 | GET/PATCH | `/admin/branding` | Настройки бренда |
 | POST | `/admin/branding/logo` | Загрузка логотипа |
 | GET/PATCH | `/admin/features` | Вкл/выкл разделов |
-| GET/POST/PATCH/DELETE | `/admin/plans` | Тарифные планы |
+| GET/POST/PATCH/DELETE | `/admin/plans` | Тарифные планы (Custom Tariffs) |
+| POST/PATCH/DELETE | `/admin/plans/{id}/options/...` | Варианты тарифа |
+| GET | `/admin/remnawave/squads` | Список Internal Squads из Remnawave |
 | GET/PATCH | `/admin/payment-providers` | Платёжные провайдеры |
 | GET | `/admin/users` | Список пользователей |
 | GET | `/admin/users/{id}` | Детали пользователя |
@@ -584,6 +716,12 @@ Production-образы публикуются в GitHub Container Registry ав
 | POST | `/admin/panel/nodes/{uuid}/enable\|disable\|restart` | Управление нодой |
 | POST | `/admin/panel/nodes/restart-all` | Рестарт всех нод |
 | GET | `/admin/panel/users` | Пользователи панели |
+| GET | `/admin/panel/users/{uuid}` | Детали пользователя панели |
+| GET | `/admin/support/tickets` | Тикеты поддержки |
+| GET | `/admin/support/tickets/{id}` | Детали тикета |
+| POST | `/admin/support/tickets/{id}/messages` | Ответить пользователю |
+| POST | `/admin/support/tickets/{id}/take\|close` | Взять в работу / закрыть |
+| GET | `/admin/support/stream` | SSE поток уведомлений поддержки |
 
 </details>
 

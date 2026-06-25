@@ -33,13 +33,7 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{t('subcard_title')}</CardTitle>
-          <Badge
-            className={
-              sub.is_active
-                ? 'bg-green-100 text-green-700'
-                : 'bg-red-100 text-red-700'
-            }
-          >
+          <Badge dot variant={sub.is_active ? 'success' : 'danger'}>
             {sub.is_active ? t('subcard_active') : t('subcard_inactive')}
           </Badge>
         </div>
@@ -47,14 +41,14 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
       <CardContent className="space-y-3">
         <div className="flex justify-between text-sm">
           <span className="text-[hsl(var(--muted-foreground))]">{t('subcard_valid_until')}</span>
-          <span className={`font-medium ${isExpiring ? 'text-red-600' : ''}`}>
+          <span className={`font-medium ${isExpiring ? 'text-[var(--danger)]' : ''}`}>
             {formattedDate}
           </span>
         </div>
 
         <div className="flex justify-between text-sm">
           <span className="text-[hsl(var(--muted-foreground))]">{t('subcard_days_left')}</span>
-          <span className={`font-semibold ${isExpiring ? 'text-red-600' : 'text-[hsl(var(--primary))]'}`}>
+          <span className={`font-bold ${isExpiring ? 'text-[var(--danger)]' : 'text-[hsl(var(--primary))]'}`}>
             {days} {t('subcard_days_suffix')}
           </span>
         </div>
@@ -69,21 +63,25 @@ export function SubscriptionCard({ subscription: sub }: SubscriptionCardProps) {
               </span>
             </div>
             {sub.traffic_limit_bytes ? (
-              <div className="h-2 bg-[hsl(var(--muted))] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[hsl(var(--primary))] rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(100, (sub.traffic_used_bytes / sub.traffic_limit_bytes) * 100).toFixed(1)}%`,
-                  }}
-                />
-              </div>
+              (() => {
+                const pct = Math.min(100, (sub.traffic_used_bytes! / sub.traffic_limit_bytes) * 100)
+                const color = pct >= 90 ? 'var(--danger)' : pct >= 75 ? 'var(--warning)' : 'hsl(var(--primary))'
+                return (
+                  <div className="h-2 overflow-hidden rounded-full bg-[hsl(var(--muted))]">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct.toFixed(1)}%`, background: color }}
+                    />
+                  </div>
+                )
+              })()
             ) : (
-              <div className="h-2 bg-[hsl(var(--muted))] rounded-full" />
+              <div className="h-2 rounded-full bg-[hsl(var(--muted))]" />
             )}
           </div>
         )}
 
-        {sub.auto_renew_enabled && (
+        {sub.auto_renew_enabled && sub.auto_renew_available && (
           <p className="text-xs text-[hsl(var(--muted-foreground))]">
             {t('subcard_auto_renew')}
           </p>

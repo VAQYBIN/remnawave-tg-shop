@@ -6,6 +6,8 @@ import { getAdminUsers } from '@/api/admin/users'
 import type { AdminUserListItem } from '@/api/admin/users'
 import { DataTable } from '@/components/admin/DataTable'
 import type { Column, SortingConfig } from '@/components/admin/DataTable'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTranslation } from 'react-i18next'
 
@@ -104,8 +106,8 @@ export function AdminUsersPage() {
         <div className="flex items-center gap-1.5">
           {row.has_active_subscription ? (
             <>
-              <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-              <span className="text-xs text-green-700">
+              <CheckCircle2 size={14} className="text-[var(--success)] shrink-0" />
+              <span className="text-xs text-[var(--success)]">
                 {t('admin_users_until', { date: formatDate(row.subscription_end_date) })}
               </span>
             </>
@@ -125,14 +127,14 @@ export function AdminUsersPage() {
       size: 110,
       render: (row) =>
         row.is_banned ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+          <Badge variant="danger">
             <ShieldAlert size={11} />
             {t('admin_users_banned')}
-          </span>
+          </Badge>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+          <Badge variant="success" dot>
             {t('admin_users_active')}
-          </span>
+          </Badge>
         ),
     },
     {
@@ -150,22 +152,16 @@ export function AdminUsersPage() {
       size: 90,
       enableResizing: false,
       render: (row) => (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => navigate(`/admin/users/${row.user_id}`)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] transition-colors"
         >
           {t('admin_details')}
-        </button>
+        </Button>
       ),
     },
   ]
-
-  const filterBtnClass = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-      active
-        ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]'
-        : 'border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
-    }`
 
   return (
     <div className="px-4 py-6 sm:p-8 space-y-6">
@@ -186,7 +182,7 @@ export function AdminUsersPage() {
               placeholder={t('admin_users_search_placeholder')}
               value={searchInput}
               onChange={(e) => { setSearchInput(e.target.value); setPage(0) }}
-              className="w-full pl-9 pr-8 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
+              className="w-full h-10 pl-9 pr-8 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm text-[hsl(var(--foreground))] transition-[border-color,box-shadow] duration-150 placeholder:text-[#b6ada3] focus:border-[hsl(var(--primary))] focus:outline-none focus:[box-shadow:var(--ring-primary)]"
             />
             {searchInput && (
               <button
@@ -202,35 +198,39 @@ export function AdminUsersPage() {
 
         {/* Quick filters */}
         <div className="flex gap-2 flex-wrap">
-          <button
-            className={filterBtnClass(isBanned === undefined && hasSub === undefined)}
+          <Button
+            variant={isBanned === undefined && hasSub === undefined ? 'default' : 'outline'}
+            size="sm"
             onClick={() => { handleFilter('banned', undefined); handleFilter('sub', undefined) }}
           >
             {t('admin_filter_all')}
-          </button>
-          <button
-            className={filterBtnClass(hasSub === true)}
+          </Button>
+          <Button
+            variant={hasSub === true ? 'default' : 'outline'}
+            size="sm"
             onClick={() => handleFilter('sub', hasSub === true ? undefined : true)}
           >
             {t('admin_users_filter_subscribed')}
-          </button>
-          <button
-            className={filterBtnClass(hasSub === false)}
+          </Button>
+          <Button
+            variant={hasSub === false ? 'default' : 'outline'}
+            size="sm"
             onClick={() => handleFilter('sub', hasSub === false ? undefined : false)}
           >
             {t('admin_users_filter_no_sub')}
-          </button>
-          <button
-            className={filterBtnClass(isBanned === true)}
+          </Button>
+          <Button
+            variant={isBanned === true ? 'default' : 'outline'}
+            size="sm"
             onClick={() => handleFilter('banned', isBanned === true ? undefined : true)}
           >
             {t('admin_users_filter_banned')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {isError && (
-        <p className="text-sm text-red-600">{t('admin_users_load_error')}</p>
+        <p className="text-sm text-[var(--danger)]">{t('admin_users_load_error')}</p>
       )}
 
       <DataTable

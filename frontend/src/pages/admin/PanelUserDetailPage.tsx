@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, HardDrive, User, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { getPanelUser } from '@/api/admin/panel'
 import { formatBytes, formatScalar, getNumber, getObject, getString } from './panel-utils'
@@ -26,7 +27,7 @@ export function PanelUserDetailPage() {
   const traffic = getObject(user, 'userTraffic')
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div className="flex items-center gap-3">
         <Link to="/admin/panel/users">
           <Button variant="ghost" size="icon"><ArrowLeft size={18} /></Button>
@@ -44,17 +45,17 @@ export function PanelUserDetailPage() {
         <StatsCard title={t('admin_panel_online')} value={fmtDate(traffic.onlineAt)} icon={Wifi} />
       </div>
 
-      <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-        <h2 className="text-sm font-semibold mb-4">{t('admin_panel_user_detail_data')}</h2>
+      <Card className="p-5">
+        <h2 className="text-sm font-bold mb-4">{t('admin_panel_user_detail_data')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <div className="flex justify-between gap-4"><span>Email</span><strong>{getString(user, 'email')}</strong></div>
-          <div className="flex justify-between gap-4"><span>Telegram ID</span><strong>{formatScalar(user.telegramId)}</strong></div>
-          <div className="flex justify-between gap-4"><span>Expire at</span><strong>{fmtDate(user.expireAt)}</strong></div>
-          <div className="flex justify-between gap-4"><span>Traffic strategy</span><strong>{getString(user, 'trafficLimitStrategy')}</strong></div>
-          <div className="flex justify-between gap-4"><span>Created</span><strong>{fmtDate(user.createdAt)}</strong></div>
-          <div className="flex justify-between gap-4"><span>Updated</span><strong>{fmtDate(user.updatedAt)}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Email</span><strong>{getString(user, 'email')}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Telegram ID</span><strong>{formatScalar(user.telegramId)}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Expire at</span><strong>{fmtDate(user.expireAt)}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Traffic strategy</span><strong>{getString(user, 'trafficLimitStrategy')}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Created</span><strong>{fmtDate(user.createdAt)}</strong></div>
+          <div className="flex justify-between gap-4"><span className="text-[hsl(var(--muted-foreground))]">Updated</span><strong>{fmtDate(user.updatedAt)}</strong></div>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { patchLanguage } from '@/api/profile'
 import { getAdminMe } from '@/api/admin'
 import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { shouldWarnAdminMobile } from '@/lib/telegram'
 import {
   LayoutDashboard,
   CreditCard,
@@ -20,6 +21,7 @@ import {
   X,
   Globe,
   Settings,
+  LifeBuoy,
 } from 'lucide-react'
 
 function LangToggle() {
@@ -50,7 +52,8 @@ export function MobileNav() {
   const navigate = useNavigate()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { newsEnabled, referralEnabled, devicesEnabled } = useBrandingContext()
+  const [adminWarnOpen, setAdminWarnOpen] = useState(false)
+  const { newsEnabled, referralEnabled, devicesEnabled, supportEnabled } = useBrandingContext()
 
   const { data: adminData } = useQuery({
     queryKey: ['admin', 'me'],
@@ -72,6 +75,7 @@ export function MobileNav() {
     { to: '/payments', icon: History, label: t('nav_payments') },
     ...(referralEnabled ? [{ to: '/referral', icon: Users, label: t('nav_referral') }] : []),
     ...(devicesEnabled ? [{ to: '/devices', icon: Monitor, label: t('nav_devices') }] : []),
+    ...(supportEnabled ? [{ to: '/support', icon: LifeBuoy, label: t('nav_support') }] : []),
   ]
 
   const handleMoreNav = (to: string) => {
@@ -86,7 +90,10 @@ export function MobileNav() {
   return (
     <>
       {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-[hsl(var(--card))] border-t border-[hsl(var(--border))] flex z-50">
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + var(--tg-content-bottom, 0px))' }}
+      >
         {PRIMARY_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -160,11 +167,15 @@ export function MobileNav() {
             <>
               <button
                 type="button"
-                onClick={() => handleMoreNav('/admin')}
+                onClick={() => {
+                  setMoreOpen(false)
+                  if (shouldWarnAdminMobile()) setAdminWarnOpen(true)
+                  else navigate('/admin')
+                }}
                 className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
               >
                 <Settings size={20} className="text-[hsl(var(--muted-foreground))]" />
-                Админка
+                {t('admin_title')}
               </button>
               <div className="h-px bg-[hsl(var(--border))] my-2" />
             </>
@@ -177,7 +188,7 @@ export function MobileNav() {
           <button
             type="button"
             onClick={handleLogoutClick}
-            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-colors"
           >
             <LogOut size={20} />
             {t('nav_logout')}
@@ -194,6 +205,19 @@ export function MobileNav() {
         destructive
         onConfirm={logout}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={adminWarnOpen}
+        title={t('admin_mobile_warning_title')}
+        description={t('admin_mobile_warning_desc')}
+        confirmLabel={t('admin_mobile_warning_continue')}
+        cancelLabel={t('admin_mobile_warning_back')}
+        onConfirm={() => {
+          setAdminWarnOpen(false)
+          navigate('/admin')
+        }}
+        onCancel={() => setAdminWarnOpen(false)}
       />
     </>
   )

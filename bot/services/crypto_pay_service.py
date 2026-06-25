@@ -66,6 +66,9 @@ class CryptoPayService:
         description: str,
         sale_mode: str = "subscription",
         promo_code_service=None,
+        pricing_plan_option_id: Optional[int] = None,
+        pricing_plan_id: Optional[int] = None,
+        auto_renew_bundle_snapshot: Optional[str] = None,
     ) -> Optional[str]:
         if not self.configured or not self.client:
             logging.error("CryptoPayService not configured")
@@ -127,6 +130,10 @@ class CryptoPayService:
                     "subscription_duration_months": int(months),
                     "provider": "cryptopay",
                     "promo_code_id": promo_code_id,
+                    "pricing_plan_option_id": pricing_plan_option_id,
+                    "pricing_plan_id": pricing_plan_id,
+                    "sale_mode": sale_mode if pricing_plan_option_id else None,
+                    "auto_renew_bundle_snapshot": auto_renew_bundle_snapshot,
                 },
             )
             await session.commit()

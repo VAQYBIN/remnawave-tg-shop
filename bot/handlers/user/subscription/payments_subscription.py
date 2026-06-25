@@ -1,5 +1,6 @@
 import logging
 import math
+from datetime import datetime, timezone
 from typing import Optional
 
 from aiogram import F, Router, types
@@ -10,6 +11,102 @@ from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 
 router = Router(name="user_subscription_payments_selection_router")
+
+
+async def resolve_catalog_offer_for_payment(
+    session: AsyncSession,
+    parts: list,
+    user_id: int,
+    settings: Settings,
+) -> Optional[dict]:
+    """
+    Called when callback parts[0] starts with 'o' (catalog option id).
+    Loads option from DB, computes price (prorated for addon), returns resolved dict.
+    Returns None on any error.
+
+    Dict keys: option_id, option, plan_kind, sale_mode, price_rub, price_stars,
+               months_for_legacy, pricing_plan_id, back_callback.
+    """
+    from core.dal.pricing_plan_dal import get_plan_option_by_id
+    from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+    from core.services.tariff_pricing import prorate_option
+
+    try:
+        option_id = int(parts[0][1:])
+        callback_price = float(parts[1])
+        sale_mode_hint = parts[2] if len(parts) > 2 else "standalone"
+    except (ValueError, IndexError):
+        return None
+
+    opt = await get_plan_option_by_id(session, option_id)
+    if not opt or not opt.is_enabled or not opt.plan:
+        return None
+    # plan.is_enabled у archived принудительно False — отдаём guard policy
+    if not opt.plan.is_enabled and not opt.plan.is_archived:
+        return None
+
+    plan = opt.plan
+    plan_kind = plan.plan_kind  # "standalone" or "addon"
+    now = datetime.now(timezone.utc)
+
+    # Единый guard: archived можно купить только как продление своего же тарифа
+    from core.services.plan_purchase_policy import can_purchase_plan_option
+    allowed, _reason = await can_purchase_plan_option(session, [user_id], opt, now=now)
+    if not allowed:
+        return None
+
+    bundle_snapshot_json = None
+
+    if plan_kind == "addon":
+        standalone = await get_active_standalone_entitlement(session, user_id, now=now)
+        if not standalone or not standalone.ends_at or standalone.ends_at <= now:
+            return None
+
+        global_min_rub = getattr(settings, "MIN_PRORATED_PRICE_RUB", None)
+        global_min_stars = getattr(settings, "MIN_PRORATED_PRICE_STARS", None)
+        price_rub, price_stars = prorate_option(
+            price_rub=float(opt.price_rub) if opt.price_rub is not None else None,
+            price_stars=opt.price_stars,
+            duration_months=opt.duration_months,
+            duration_days=opt.duration_days,
+            plan_min_price_rub=plan.min_price_rub,
+            plan_min_price_stars=plan.min_price_stars,
+            standalone_ends_at=standalone.ends_at,
+            now=now,
+            global_min_rub=global_min_rub,
+            global_min_stars=global_min_stars,
+        )
+    else:
+        price_rub = float(opt.price_rub) if opt.price_rub is not None else None
+        price_stars = opt.price_stars
+        from core.services.tariff_renewal_bundle import build_standalone_renewal_bundle
+        bundle = await build_standalone_renewal_bundle(
+            session,
+            user_id=user_id,
+            standalone_option=opt,
+            now=now,
+        )
+        if bundle:
+            price_rub = bundle["total_price_rub"]
+            price_stars = bundle["total_price_stars"]
+            bundle_snapshot_json = bundle["snapshot_json"]
+        else:
+            bundle_snapshot_json = None
+
+    months_for_legacy = opt.duration_months or max(1, round((opt.duration_days or 30) / 30.0))
+
+    return {
+        "option_id": option_id,
+        "option": opt,
+        "plan_kind": plan_kind,
+        "sale_mode": plan_kind,
+        "price_rub": price_rub,
+        "price_stars": price_stars,
+        "auto_renew_bundle_snapshot": bundle_snapshot_json if plan_kind == "standalone" else None,
+        "months_for_legacy": months_for_legacy,
+        "pricing_plan_id": opt.plan_id,
+        "back_callback": f"subscribe_option:{option_id}",
+    }
 
 
 async def resolve_fiat_offer_price_for_user(

@@ -3,12 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>VPN Shop</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Telegram Mini App SDK. Must load from telegram.org (SRI not applicable —
+         Telegram updates this file on their CDN). Enables auto-auth via initData. -->
+    <script src="https://telegram.org/js/telegram-web-app.js?62"></script>
     <script src="/env-config.js"></script>
+    <script>
+      // Anti-flash: apply the stored colour-scheme preference before React mounts.
+      // (Palette colours still load with branding; this just avoids a light/dark flash.)
+      try {
+        var pref = localStorage.getItem('color-scheme-pref');
+        // null (first visit) follows the OS, matching BrandingProvider's initial
+        // 'system' state, so there is no flash before React mounts.
+        var dark = pref === 'dark' ||
+          ((pref === 'system' || pref === null) &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

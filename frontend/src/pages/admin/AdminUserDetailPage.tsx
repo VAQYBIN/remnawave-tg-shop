@@ -11,17 +11,37 @@ import {
   X,
   Copy,
   ExternalLink,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Laptop,
+  Wifi,
+  CreditCard,
+  Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   getAdminUserDetail,
+  getAdminUserDevices,
+  getAdminUserActivity,
   banUser,
   unbanUser,
   resetUserTrial,
   addDaysToUser,
   addTrafficToUser,
 } from '@/api/admin/users'
-import type { AdminUserDetailResponse, AdminPaymentItem } from '@/api/admin/users'
+import type {
+  AdminUserDetailResponse,
+  AdminPaymentItem,
+  AdminActivityItem,
+  Device,
+} from '@/api/admin/users'
 import { useToast } from '@/hooks/useToast'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Tabs } from '@/components/ui/tabs'
 import { useTranslation } from 'react-i18next'
 
 function formatDate(iso: string | null | undefined): string {
@@ -35,12 +55,28 @@ function formatDate(iso: string | null | undefined): string {
   })
 }
 
+function formatDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null) return '—'
   if (bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`
+}
+
+function initials(name: string): string {
+  const parts = name.trim().replace(/^@/, '').split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -53,16 +89,12 @@ const STATUS_LABELS: Record<string, string> = {
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation()
   const label = STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : status
-  const cls =
-    status === 'succeeded'
-      ? 'bg-green-100 text-green-700'
-      : status === 'failed'
-      ? 'bg-red-100 text-red-700'
-      : 'bg-yellow-100 text-yellow-700'
+  const variant: BadgeProps['variant'] =
+    status === 'succeeded' ? 'success' : status === 'failed' ? 'danger' : 'warning'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+    <Badge variant={variant} dot>
       {label}
-    </span>
+    </Badge>
   )
 }
 
@@ -92,21 +124,16 @@ function ConfirmModal({
         <h3 className="text-base font-semibold text-[hsl(var(--foreground))] mb-2">{title}</h3>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">{description}</p>
         <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]"
-          >
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={danger ? 'destructive' : 'default'}
             onClick={onConfirm}
-            disabled={isLoading}
-            className={`px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 ${
-              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[hsl(var(--primary))] hover:opacity-90'
-            }`}
+            isLoading={isLoading}
           >
             {isLoading ? t('admin_loading_action') : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -132,29 +159,22 @@ function AddDaysModal({
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            {t('admin_promos_label_bonus_days')}
-          </label>
-          <input
+          <Input
+            label={t('admin_promos_label_bonus_days')}
             type="number"
             min={1}
             max={3650}
             value={days}
             onChange={(e) => setDays(Math.max(1, Number(e.target.value)))}
-            className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
           />
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
-            onClick={() => onSubmit(days)}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={() => onSubmit(days)} isLoading={isLoading}>
             {isLoading ? t('admin_loading_action') : t('admin_users_add_days_button', { count: days })}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -180,31 +200,83 @@ function AddTrafficModal({
           <button onClick={onClose} className="text-[hsl(var(--muted-foreground))]"><X size={18} /></button>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-            GB
-          </label>
-          <input
+          <Input
+            label="GB"
             type="number"
             min={1}
             max={10240}
             value={gb}
             onChange={(e) => setGb(Math.max(1, Number(e.target.value)))}
-            className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)]"
           />
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))]">
+          <Button variant="outline" onClick={onClose}>
             {t('admin_cancel')}
-          </button>
-          <button
-            onClick={() => onSubmit(gb)}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={() => onSubmit(gb)} isLoading={isLoading}>
             {isLoading ? t('admin_loading_action') : t('admin_users_add_traffic_button', { count: gb })}
-          </button>
+          </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Devices & activity helpers ────────────────────────────────────────────────
+
+function platformIcon(platform: string | null, model: string | null): LucideIcon {
+  const p = `${platform ?? ''} ${model ?? ''}`.toLowerCase()
+  if (p.includes('router') || p.includes('openwrt') || p.includes('wrt')) return Wifi
+  if (p.includes('tablet') || p.includes('ipad')) return Tablet
+  if (p.includes('android') || p.includes('ios') || p.includes('iphone') || p.includes('phone')) return Smartphone
+  if (p.includes('mac') || p.includes('windows') || p.includes('linux') || p.includes('book')) return Laptop
+  return Monitor
+}
+
+function deviceLabel(device: Device): string {
+  if (device.model) return device.model
+  if (device.name) return device.name
+  if (device.platform && device.os_version) return `${device.platform} ${device.os_version}`
+  if (device.platform) return device.platform
+  return 'Device'
+}
+
+/** Treat a device active within the last 5 minutes as online. */
+function isOnline(updatedAt: string | null): boolean {
+  if (!updatedAt) return false
+  const ts = new Date(/[Z+]/.test(updatedAt) ? updatedAt : updatedAt + 'Z').getTime()
+  if (Number.isNaN(ts)) return false
+  return Date.now() - ts < 5 * 60 * 1000
+}
+
+const ACTIVITY_ICON: Record<string, LucideIcon> = {
+  signup: Sparkles,
+  payment: CreditCard,
+  admin_ban: ShieldAlert,
+  admin_unban: ShieldCheck,
+  admin_add_days: CalendarPlus,
+  admin_add_traffic: Database,
+  admin_reset_trial: RotateCcw,
+}
+
+// ── Small building blocks ─────────────────────────────────────────────────────
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-[hsl(var(--muted-foreground))]">
+        {label}
+      </div>
+      <div className="mt-1 text-base font-bold text-[hsl(var(--foreground))]">{value}</div>
+    </div>
+  )
+}
+
+function KVRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-[hsl(var(--border))] last:border-0">
+      <span className="text-sm text-[hsl(var(--muted-foreground))] shrink-0">{label}</span>
+      <span className="text-sm text-right font-semibold text-[hsl(var(--foreground))] break-all">{value}</span>
     </div>
   )
 }
@@ -218,16 +290,28 @@ export function AdminUserDetailPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [modal, setModal] = useState<Modal>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'subscription' | 'payments'>('info')
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'activity'>('overview')
 
   const uid = Number(userId)
   const toast = useToast()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const { data: user, isLoading, isError } = useQuery<AdminUserDetailResponse>({
     queryKey: ['admin', 'user', uid],
     queryFn: () => getAdminUserDetail(uid),
     enabled: !isNaN(uid),
+  })
+
+  const devicesQuery = useQuery({
+    queryKey: ['admin', 'user', uid, 'devices'],
+    queryFn: () => getAdminUserDevices(uid),
+    enabled: !isNaN(uid) && Boolean(user?.panel_user_uuid),
+  })
+
+  const activityQuery = useQuery({
+    queryKey: ['admin', 'user', uid, 'activity'],
+    queryFn: () => getAdminUserActivity(uid),
+    enabled: !isNaN(uid) && activeTab === 'activity',
   })
 
   const invalidate = () => {
@@ -283,7 +367,7 @@ export function AdminUserDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-4">
+      <div className="px-4 py-6 sm:p-8 space-y-4">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="h-16 bg-[hsl(var(--muted))] rounded-xl animate-pulse" />
         ))}
@@ -293,8 +377,8 @@ export function AdminUserDetailPage() {
 
   if (isError || !user) {
     return (
-      <div className="p-8">
-        <p className="text-red-600 text-sm">{t('admin_error')}</p>
+      <div className="px-4 py-6 sm:p-8">
+        <p className="text-[var(--danger)] text-sm">{t('admin_error')}</p>
       </div>
     )
   }
@@ -303,196 +387,298 @@ export function AdminUserDetailPage() {
     [user.first_name, user.last_name].filter(Boolean).join(' ') ||
     (user.username ? `@${user.username}` : `ID ${user.user_id}`)
 
-  function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-      <div className="flex items-start justify-between gap-4 py-2.5 border-b border-[hsl(var(--border))] last:border-0">
-        <span className="text-sm text-[hsl(var(--muted-foreground))] shrink-0">{label}</span>
-        <span className="text-sm text-right text-[hsl(var(--foreground))] break-all">{value}</span>
-      </div>
-    )
+  const sub = user.subscription
+  const planLabel = sub?.duration_months
+    ? `${sub.duration_months} ${t('admin_month_short')}`
+    : t('admin_user_detail_no_subscription_short')
+  const locale = i18n.language.startsWith('ru') ? 'ru-RU' : 'en-US'
+
+  function formatActivityTime(iso: string | null): string {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString(locale, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  function activityText(item: AdminActivityItem): string {
+    switch (item.type) {
+      case 'signup':
+        return t('admin_activity_signup')
+      case 'admin_ban':
+        return t('admin_activity_ban')
+      case 'admin_unban':
+        return t('admin_activity_unban')
+      case 'admin_add_days':
+        return t('admin_activity_add_days', { count: item.days ?? 0 })
+      case 'admin_add_traffic':
+        return t('admin_activity_add_traffic', { count: item.gigabytes ?? 0 })
+      case 'admin_reset_trial':
+        return t('admin_activity_reset_trial')
+      case 'payment': {
+        const amount =
+          item.amount != null
+            ? item.amount.toLocaleString(locale, {
+                style: 'currency',
+                currency: item.currency || 'RUB',
+                maximumFractionDigits: 0,
+              })
+            : '—'
+        const plan = item.duration_months ? `, ${item.duration_months} ${t('admin_month_short')}` : ''
+        const via = item.provider ? ` (${item.provider})` : ''
+        return item.status === 'succeeded'
+          ? t('admin_activity_payment_paid', { amount, plan, via })
+          : t('admin_activity_payment_other', { amount, plan, via, status: item.status || '' })
+      }
+      default:
+        return item.type
+    }
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-3xl">
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <button
-          onClick={() => navigate('/admin/users')}
-          className="mt-1 p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{displayName}</h1>
-            {user.is_banned && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">
-                <ShieldAlert size={12} />
-                {t('admin_users_banned')}
-              </span>
+    <div className="px-4 py-6 sm:p-8 space-y-6 max-w-4xl">
+      {/* Back */}
+      <button
+        onClick={() => navigate('/admin/users')}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+      >
+        <ArrowLeft size={15} />
+        {t('admin_user_detail_back')}
+      </button>
+
+      {/* Header card */}
+      <Card className="p-6 sm:p-7">
+        <div className="flex flex-wrap items-start gap-5">
+          {/* Avatar */}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-lg font-bold text-[var(--primary-press)]">
+            {initials(displayName)}
+          </div>
+
+          {/* Identity */}
+          <div className="min-w-[200px] flex-1">
+            <h1 className="text-2xl font-extrabold tracking-tight text-[hsl(var(--foreground))]">{displayName}</h1>
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
+              {[user.username ? `@${user.username}` : null, user.email].filter(Boolean).join(' · ') || '—'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {user.is_banned ? (
+                <Badge variant="danger" dot>{t('admin_users_banned')}</Badge>
+              ) : sub?.is_active ? (
+                <Badge variant="success" dot>{t('admin_user_detail_subscription_active')}</Badge>
+              ) : (
+                <Badge variant="secondary" dot>{t('admin_user_detail_subscription_inactive')}</Badge>
+              )}
+              <Badge variant="secondary">{planLabel}</Badge>
+              <Badge variant="outline">ID {user.user_id}</Badge>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            {user.panel_user_uuid && (
+              <>
+                <Button size="sm" onClick={() => setModal('add-days')}>
+                  <CalendarPlus size={15} />
+                  {t('admin_user_detail_extend_manual')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setModal('add-traffic')}>
+                  <Database size={15} />
+                  {t('admin_users_add_traffic')}
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setModal('reset-trial')}>
+              <RotateCcw size={15} />
+              {t('admin_users_reset_trial')}
+            </Button>
+            {user.is_banned ? (
+              <Button variant="ghost" size="sm" onClick={() => setModal('unban')}>
+                <ShieldCheck size={15} />
+                {t('admin_users_unban')}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[var(--danger)] hover:bg-[var(--danger-bg)]"
+                onClick={() => setModal('ban')}
+              >
+                <ShieldAlert size={15} />
+                {t('admin_users_ban')}
+              </Button>
             )}
           </div>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-0.5">
-            Telegram ID: {user.user_id}
-          </p>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {user.is_banned ? (
-            <button
-              onClick={() => setModal('unban')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700"
-            >
-              <ShieldCheck size={15} />
-              {t('admin_users_unban')}
-            </button>
-          ) : (
-            <button
-              onClick={() => setModal('ban')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700"
-            >
-              <ShieldAlert size={15} />
-              {t('admin_users_ban')}
-            </button>
-          )}
-          {user.panel_user_uuid && (
-            <>
-              <button
-                onClick={() => setModal('add-days')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-              >
-                <CalendarPlus size={15} />
-                {t('admin_users_add_days')}
-              </button>
-              <button
-                onClick={() => setModal('add-traffic')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-              >
-                <Database size={15} />
-                {t('admin_users_add_traffic')}
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setModal('reset-trial')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]"
-          >
-            <RotateCcw size={15} />
-            {t('admin_users_reset_trial')}
-          </button>
+        {/* Stats */}
+        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[hsl(var(--border))] pt-5 sm:grid-cols-4">
+          <Stat
+            label={t('admin_user_detail_total_paid')}
+            value={user.total_paid.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 })}
+          />
+          <Stat label={t('admin_user_detail_plan')} value={planLabel} />
+          <Stat label={t('admin_user_detail_subscription_end')} value={formatDay(sub?.end_date)} />
+          <Stat label={t('admin_users_registered')} value={formatDay(user.registration_date)} />
         </div>
-      </div>
+      </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[hsl(var(--border))]">
-        {(['info', 'subscription', 'payments'] as const).map((tab) => {
-          const labels = { info: t('admin_user_detail_info'), subscription: t('admin_user_detail_subscription'), payments: t('admin_user_detail_payments') }
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-                  : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-              }`}
-            >
-              {labels[tab]}
-            </button>
-          )
-        })}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'overview' | 'payments' | 'activity')}
+        items={[
+          { value: 'overview', label: t('admin_user_detail_overview') },
+          { value: 'payments', label: t('admin_user_detail_payments') },
+          { value: 'activity', label: t('admin_user_detail_activity') },
+        ]}
+      />
 
-      {/* Tab: Info */}
-      {activeTab === 'info' && (
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <InfoRow label={t('admin_user_detail_first_name')} value={[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'} />
-          <InfoRow
-            label={t('admin_user_detail_username')}
-            value={user.username ? `@${user.username}` : '—'}
-          />
-          <InfoRow label={t('admin_users_email')} value={user.email || '—'} />
-          <InfoRow label={t('admin_user_detail_language')} value={user.language_code || '—'} />
-          <InfoRow
-            label="Referral code"
-            value={
-              user.referral_code ? (
-                <span className="font-mono">{user.referral_code}</span>
-              ) : (
-                '—'
-              )
-            }
-          />
-          <InfoRow label={t('admin_users_registered')} value={formatDate(user.registration_date)} />
-          <InfoRow
-            label={t('admin_user_detail_panel_uuid')}
-            value={
-              user.panel_user_uuid ? (
-                <span className="font-mono text-xs flex items-center gap-1">
-                  {user.panel_user_uuid.slice(0, 8)}…
-                  <button
-                    onClick={() => navigator.clipboard.writeText(user.panel_user_uuid!)}
-                    className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                  >
-                    <Copy size={12} />
-                  </button>
-                </span>
-              ) : (
-                '—'
-              )
-            }
-          />
-          <InfoRow
-            label={t('admin_user_detail_total_paid')}
-            value={
-              <span className="font-semibold">
-                {user.total_paid.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' })}
-              </span>
-            }
-          />
-        </div>
-      )}
-
-      {/* Tab: Subscription */}
-      {activeTab === 'subscription' && (
+      {/* Tab: Overview */}
+      {activeTab === 'overview' && (
         <div className="space-y-4">
-          {user.subscription ? (
-            <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-              <InfoRow label={t('admin_status')} value={user.subscription.is_active ? t('admin_user_detail_subscription_active') : t('admin_user_detail_subscription_inactive')} />
-              <InfoRow label="Start" value={formatDate(user.subscription.start_date)} />
-              <InfoRow label={t('admin_user_detail_subscription_end')} value={formatDate(user.subscription.end_date)} />
-              <InfoRow
-                label={t('admin_period')}
-                value={user.subscription.duration_months ? `${user.subscription.duration_months} ${t('admin_month_short')}` : '—'}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Current subscription */}
+            <Card className="p-5">
+              <h3 className="mb-2 text-sm font-bold text-[hsl(var(--foreground))]">
+                {t('admin_user_detail_current_subscription')}
+              </h3>
+              {sub ? (
+                <>
+                  <KVRow
+                    label={t('admin_status')}
+                    value={
+                      sub.is_active ? (
+                        <Badge variant="success" dot>{t('admin_user_detail_subscription_active')}</Badge>
+                      ) : (
+                        <Badge variant="secondary">{t('admin_off')}</Badge>
+                      )
+                    }
+                  />
+                  <KVRow label={t('admin_user_detail_plan')} value={planLabel} />
+                  <KVRow label={t('admin_user_detail_start')} value={formatDay(sub.start_date)} />
+                  <KVRow label={t('admin_user_detail_subscription_end')} value={formatDay(sub.end_date)} />
+                  <KVRow
+                    label={t('admin_user_detail_auto_renew')}
+                    value={
+                      sub.auto_renew_enabled ? (
+                        <Badge variant="success">{t('admin_on')}</Badge>
+                      ) : (
+                        <Badge variant="secondary">{t('admin_off')}</Badge>
+                      )
+                    }
+                  />
+                  <KVRow label={t('admin_provider')} value={sub.provider || '—'} />
+                  <KVRow
+                    label={t('admin_user_detail_traffic')}
+                    value={`${formatBytes(sub.traffic_used_bytes)} / ${
+                      sub.traffic_limit_bytes ? formatBytes(sub.traffic_limit_bytes) : '∞'
+                    }`}
+                  />
+                </>
+              ) : (
+                <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">
+                  {t('admin_user_detail_subscription_inactive')}
+                </p>
+              )}
+            </Card>
+
+            {/* Devices */}
+            <Card className="p-5">
+              <h3 className="mb-2 text-sm font-bold text-[hsl(var(--foreground))]">
+                {t('admin_user_detail_devices')}
+              </h3>
+              {!user.panel_user_uuid ? (
+                <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">
+                  {t('admin_user_detail_devices_empty')}
+                </p>
+              ) : devicesQuery.isLoading ? (
+                <div className="space-y-2 py-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-9 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />
+                  ))}
+                </div>
+              ) : devicesQuery.isError ? (
+                <p className="py-4 text-sm text-[var(--danger)]">{t('admin_user_detail_devices_error')}</p>
+              ) : !devicesQuery.data || devicesQuery.data.devices.length === 0 ? (
+                <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">
+                  {t('admin_user_detail_devices_empty')}
+                </p>
+              ) : (
+                devicesQuery.data.devices.map((device) => {
+                  const Icon = platformIcon(device.platform, device.model)
+                  const online = isOnline(device.updated_at)
+                  return (
+                    <div
+                      key={device.hwid}
+                      className="flex items-center justify-between gap-3 py-2.5 border-b border-[hsl(var(--border))] last:border-0"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Icon size={16} className="shrink-0 text-[hsl(var(--muted-foreground))]" />
+                        <span className="truncate text-sm font-semibold text-[hsl(var(--foreground))]">
+                          {deviceLabel(device)}
+                        </span>
+                      </span>
+                      <Badge variant={online ? 'success' : 'secondary'} dot className="shrink-0">
+                        {online ? t('admin_user_detail_online') : t('admin_user_detail_offline')}
+                      </Badge>
+                    </div>
+                  )
+                })
+              )}
+            </Card>
+          </div>
+
+          {/* Account info */}
+          <Card className="p-5">
+            <h3 className="mb-2 text-sm font-bold text-[hsl(var(--foreground))]">
+              {t('admin_user_detail_account')}
+            </h3>
+            <div className="grid gap-x-8 sm:grid-cols-2">
+              <KVRow
+                label={t('admin_user_detail_first_name')}
+                value={[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'}
               />
-              <InfoRow label={t('admin_provider')} value={user.subscription.provider || '—'} />
-              <InfoRow
-                label="Auto-renew"
-                value={user.subscription.auto_renew_enabled ? t('admin_on') : t('admin_off')}
+              <KVRow label={t('admin_user_detail_username')} value={user.username ? `@${user.username}` : '—'} />
+              <KVRow label={t('admin_users_email')} value={user.email || '—'} />
+              <KVRow label={t('admin_user_detail_language')} value={user.language_code || '—'} />
+              <KVRow
+                label="Referral code"
+                value={user.referral_code ? <span className="font-mono">{user.referral_code}</span> : '—'}
               />
-              <InfoRow
-                label="Traffic limit"
-                value={formatBytes(user.subscription.traffic_limit_bytes)}
-              />
-              <InfoRow
-                label="Traffic used"
-                value={formatBytes(user.subscription.traffic_used_bytes)}
+              <KVRow label={t('admin_users_registered')} value={formatDate(user.registration_date)} />
+              <KVRow
+                label={t('admin_user_detail_panel_uuid')}
+                value={
+                  user.panel_user_uuid ? (
+                    <span className="flex items-center justify-end gap-1 font-mono text-xs">
+                      {user.panel_user_uuid.slice(0, 8)}…
+                      <button
+                        onClick={() => navigator.clipboard.writeText(user.panel_user_uuid!)}
+                        className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </span>
+                  ) : (
+                    '—'
+                  )
+                }
               />
             </div>
-          ) : (
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_subscription_inactive')}</p>
-          )}
+          </Card>
 
-          {/* Panel data */}
+          {/* Raw panel data */}
           {user.panel_data && (
             <div>
-              <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-2 flex items-center gap-1.5">
+              <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-[hsl(var(--foreground))]">
                 <ExternalLink size={14} />
                 {t('admin_user_detail_panel')}
               </h3>
-              <div className="bg-[hsl(var(--muted))] rounded-xl p-4">
-                <pre className="text-xs text-[hsl(var(--foreground))] overflow-x-auto whitespace-pre-wrap break-all">
+              <div className="rounded-xl bg-[hsl(var(--muted))] p-4">
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs text-[hsl(var(--foreground))]">
                   {JSON.stringify(user.panel_data, null, 2)}
                 </pre>
               </div>
@@ -507,27 +693,27 @@ export function AdminUserDetailPage() {
           {user.recent_payments.length === 0 ? (
             <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('admin_user_detail_no_payments')}</p>
           ) : (
-            <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.5)]">
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">ID</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_status')}</th>
-                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">ID</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_amount')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_provider')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_status')}</th>
+                    <th className="text-left px-4 py-3.5 uppercase text-[10px] font-bold tracking-[0.06em] text-[hsl(var(--muted-foreground))]">{t('admin_date')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[hsl(var(--border))]">
+                <tbody>
                   {user.recent_payments.map((p: AdminPaymentItem) => (
-                    <tr key={p.payment_id} className="hover:bg-[hsl(var(--muted)/0.3)]">
-                      <td className="px-4 py-3 font-mono text-xs text-[hsl(var(--muted-foreground))]">#{p.payment_id}</td>
-                      <td className="px-4 py-3 font-medium">
+                    <tr key={p.payment_id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted)/0.5)]">
+                      <td className="px-4 py-3.5 font-mono text-xs text-[hsl(var(--muted-foreground))]">#{p.payment_id}</td>
+                      <td className="px-4 py-3.5 font-bold text-[hsl(var(--primary))] tabular-nums">
                         {p.amount.toLocaleString('ru-RU', { style: 'currency', currency: p.currency })}
                       </td>
-                      <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">{p.provider || '—'}</td>
-                      <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                      <td className="px-4 py-3 text-xs text-[hsl(var(--muted-foreground))]">
+                      <td className="px-4 py-3.5 text-[hsl(var(--muted-foreground))]">{p.provider || '—'}</td>
+                      <td className="px-4 py-3.5"><StatusBadge status={p.status} /></td>
+                      <td className="px-4 py-3.5 text-xs text-[hsl(var(--muted-foreground))]">
                         {formatDate(p.created_at)}
                       </td>
                     </tr>
@@ -537,6 +723,44 @@ export function AdminUserDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Tab: Activity */}
+      {activeTab === 'activity' && (
+        <Card className="p-5">
+          {activityQuery.isLoading ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />
+              ))}
+            </div>
+          ) : activityQuery.isError ? (
+            <p className="py-4 text-sm text-[var(--danger)]">{t('admin_error')}</p>
+          ) : !activityQuery.data || activityQuery.data.items.length === 0 ? (
+            <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">
+              {t('admin_user_detail_activity_empty')}
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {activityQuery.data.items.map((item) => {
+                const Icon = ACTIVITY_ICON[item.type] ?? Sparkles
+                return (
+                  <li key={item.id} className="flex items-start gap-3 py-2">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[hsl(var(--primary))]">
+                      <Icon size={16} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{activityText(item)}</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        {formatActivityTime(item.timestamp)}
+                      </p>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Card>
       )}
 
       {/* Modals */}

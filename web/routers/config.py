@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from web.dependencies import get_db, get_settings_dep
 from web.schemas.admin.branding import PublicBrandingResponse
+from web.routers.admin.branding import build_branding_response
 from core.dal.site_settings_dal import get_site_settings
 from config.settings import Settings
 
@@ -17,7 +18,13 @@ async def get_public_branding(
 ):
     """Returns brand settings, feature flags, and legal document URLs. Public, no auth."""
     site = await get_site_settings(db)
-    response = PublicBrandingResponse.model_validate(site)
+    response = PublicBrandingResponse(
+        **build_branding_response(site).model_dump(),
+        news_enabled=site.news_enabled,
+        referral_enabled=site.referral_enabled,
+        devices_enabled=site.devices_enabled,
+        support_enabled=site.support_enabled,
+    )
     # Apply .env fallbacks for legal URLs when admin hasn't set them via panel
     if not response.terms_of_service_url and settings.TERMS_OF_SERVICE_URL:
         response.terms_of_service_url = settings.TERMS_OF_SERVICE_URL

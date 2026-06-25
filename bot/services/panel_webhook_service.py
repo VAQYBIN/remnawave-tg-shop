@@ -27,6 +27,15 @@ class PanelWebhookService:
         self.async_session_factory = async_session_factory
         self.panel_service = panel_service
 
+    async def _subscription_auto_renew_enabled(self, session, sub) -> bool:
+        if not sub or sub.provider != "yookassa":
+            return False
+        if getattr(sub, "pricing_plan_option_id", None):
+            from core.dal.plan_entitlement_dal import get_active_standalone_entitlement
+            ent = await get_active_standalone_entitlement(session, sub.user_id)
+            return bool(ent and ent.auto_renew_enabled)
+        return bool(sub.auto_renew_enabled)
+
     async def _send_message(
         self,
         user_id: int,
@@ -70,7 +79,7 @@ class PanelWebhookService:
                         async with self.async_session_factory() as session:
                             from db.dal import subscription_dal
                             sub = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
-                            if sub and sub.auto_renew_enabled and sub.provider == 'yookassa':
+                            if sub and await self._subscription_auto_renew_enabled(session, sub):
                                 try:
                                     ok = await subscription_service.charge_subscription_renewal(session, sub)
                                     # If initiation succeeded, suppress the 24h reminder by returning early
@@ -97,7 +106,7 @@ class PanelWebhookService:
                             getattr(sub, 'auto_renew_enabled', None) if sub else None,
                             getattr(sub, 'provider', None) if sub else None,
                         )
-                        if sub and sub.auto_renew_enabled and sub.provider == 'yookassa':
+                        if sub and await self._subscription_auto_renew_enabled(session, sub):
                             cancel_kb = get_autorenew_cancel_keyboard(lang, self.i18n)
                             await self._send_message(
                                 user_id,

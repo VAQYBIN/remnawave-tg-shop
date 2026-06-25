@@ -14,6 +14,8 @@ services:
     depends_on:
       remnawave-tg-shop-db:
         condition: service_healthy
+      remnawave-tg-shop-redis:
+        condition: service_healthy
 
   remnawave-tg-shop-db:
     image: postgres:17
@@ -64,7 +66,17 @@ services:
       - remnawave-network
     volumes:
       - remnawave-tg-shop-web-static:/app/web/static
+      # The Subscription Page app config (Devices/Guide tabs) is pulled live from
+      # the panel by default. To override it offline, drop an app-config-v2.json
+      # next to this file, mount it, and set SUBSCRIPTION_PAGE_CONFIG_PATH:
+      # - ./app-config-v2.json:/app/app-config-v2.json:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/api/health')\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       remnawave-tg-shop-db:
         condition: service_healthy
@@ -84,6 +96,9 @@ services:
     networks:
       - remnawave-network
     restart: unless-stopped
+    depends_on:
+      remnawave-tg-shop-web-api:
+        condition: service_healthy
 
 networks:
   remnawave-network:

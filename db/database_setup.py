@@ -81,6 +81,7 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
 
     async with session_factory() as session:
         from .dal.panel_sync_dal import get_panel_sync_status, update_panel_sync_status
+        from core.services.tariff_bootstrap import bootstrap_legacy_tariff
         try:
             current_status = await get_panel_sync_status(session)
             if current_status is None:
@@ -90,7 +91,8 @@ async def init_db(settings: Settings, session_factory: sessionmaker):
                                                details="System initialized",
                                                users_processed=0,
                                                subs_synced=0)
-                await session.commit()
+            await bootstrap_legacy_tariff(session, settings)
+            await session.commit()
         except Exception as e_sync_init:
             await session.rollback()
             logging.error(

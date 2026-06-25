@@ -12,6 +12,9 @@ import {
   type PromoUpdateRequest,
 } from '@/api/admin/promos'
 import { useToast } from '@/hooks/useToast'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useTranslation } from 'react-i18next'
 
 function fmtDate(dt: string | null) {
@@ -21,14 +24,10 @@ function fmtDate(dt: string | null) {
 
 function PromoTypeBadge({ type }: { type: string }) {
   const { t } = useTranslation()
-  const cls =
-    type === 'discount'
-      ? 'bg-purple-100 text-purple-700'
-      : 'bg-blue-100 text-blue-700'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+    <Badge variant={type === 'discount' ? 'info' : 'secondary'}>
       {type === 'discount' ? t('admin_promos_discount') : t('admin_promos_bonus_days')}
-    </span>
+    </Badge>
   )
 }
 
@@ -88,101 +87,76 @@ function CreateModal({ onClose, onCreated }: CreateModalProps) {
       <div className="bg-[hsl(var(--card))] rounded-2xl border border-[hsl(var(--border))] w-full max-w-md p-6 shadow-xl">
         <h2 className="text-lg font-bold mb-4">{t('admin_promos_create')}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('admin_code')}</label>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="SUMMER25"
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-            />
-          </div>
+          <Input
+            label={t('admin_code')}
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="SUMMER25"
+            className="font-mono"
+          />
 
           <div>
             <label className="block text-sm font-medium mb-1">{t('admin_type')}</label>
             <div className="flex gap-2">
               {(['bonus_days', 'discount'] as const).map((type) => (
-                <button
+                <Button
                   key={type}
                   type="button"
+                  variant={promoType === type ? 'default' : 'outline'}
                   onClick={() => setPromoType(type)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    promoType === type
-                      ? 'bg-[hsl(var(--primary))] text-white border-transparent'
-                      : 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]'
-                  }`}
+                  className="flex-1"
                 >
                   {type === 'bonus_days' ? t('admin_promos_bonus_days') : t('admin_promos_discount_percent')}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
           {promoType === 'bonus_days' ? (
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_bonus_days')}</label>
-              <input
-                type="number"
-                min={1}
-                value={bonusDays}
-                onChange={(e) => setBonusDays(e.target.value)}
-                placeholder="30"
-                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_discount')}</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={discountPct}
-                onChange={(e) => setDiscountPct(e.target.value)}
-                placeholder="20"
-                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_max_activations')}</label>
-            <input
+            <Input
+              label={t('admin_promos_label_bonus_days')}
               type="number"
               min={1}
-              value={maxActivations}
-              onChange={(e) => setMaxActivations(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+              value={bonusDays}
+              onChange={(e) => setBonusDays(e.target.value)}
+              placeholder="30"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_valid_until')}</label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+          ) : (
+            <Input
+              label={t('admin_promos_label_discount')}
+              type="number"
+              min={1}
+              max={100}
+              value={discountPct}
+              onChange={(e) => setDiscountPct(e.target.value)}
+              placeholder="20"
             />
-          </div>
+          )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          <Input
+            label={t('admin_promos_label_max_activations')}
+            type="number"
+            min={1}
+            value={maxActivations}
+            onChange={(e) => setMaxActivations(e.target.value)}
+          />
+
+          <Input
+            label={t('admin_promos_label_valid_until')}
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
+
+          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
           <div className="flex gap-2 mt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               {t('admin_cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="flex-1 h-9 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" isLoading={mutation.isPending} className="flex-1">
               {mutation.isPending ? t('admin_creating') : t('admin_create')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -217,19 +191,17 @@ function DeleteConfirm({ promo, onClose, onDeleted }: DeleteConfirmProps) {
           {t('admin_promos_delete_description', { code: promo.code })}
         </p>
         <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
-          >
+          <Button variant="outline" onClick={onClose} className="flex-1">
             {t('admin_cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="destructive"
             onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            className="flex-1 h-9 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+            isLoading={mutation.isPending}
+            className="flex-1"
           >
             {mutation.isPending ? t('admin_deleting') : t('admin_delete')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -295,68 +267,48 @@ function EditModal({ promo, onClose, onUpdated }: EditModalProps) {
         <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4 font-mono">{promo.code}</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {promo.promo_type === 'bonus_days' ? (
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_bonus_days')}</label>
-              <input
-                type="number"
-                min={1}
-                value={bonusDays}
-                onChange={(e) => setBonusDays(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('admin_promos_label_discount')}</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={discountPct}
-                onChange={(e) => setDiscountPct(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_max_activations')}</label>
-            <input
+            <Input
+              label={t('admin_promos_label_bonus_days')}
               type="number"
               min={1}
-              value={maxActivations}
-              onChange={(e) => setMaxActivations(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+              value={bonusDays}
+              onChange={(e) => setBonusDays(e.target.value)}
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('admin_promos_label_valid_until')}</label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
+          ) : (
+            <Input
+              label={t('admin_promos_label_discount')}
+              type="number"
+              min={1}
+              max={100}
+              value={discountPct}
+              onChange={(e) => setDiscountPct(e.target.value)}
             />
-          </div>
+          )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          <Input
+            label={t('admin_promos_label_max_activations')}
+            type="number"
+            min={1}
+            value={maxActivations}
+            onChange={(e) => setMaxActivations(e.target.value)}
+          />
+
+          <Input
+            label={t('admin_promos_label_valid_until')}
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
+
+          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
           <div className="flex gap-2 mt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 h-9 rounded-lg border border-[hsl(var(--border))] text-sm hover:bg-[hsl(var(--muted))] transition-colors"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               {t('admin_cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending}
-              className="flex-1 h-9 rounded-lg bg-[hsl(var(--primary))] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" isLoading={mutation.isPending} className="flex-1">
               {mutation.isPending ? t('admin_saving') : t('admin_save')}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -486,7 +438,7 @@ export function AdminPromosPage() {
           </button>
           <button
             onClick={() => setDeleteTarget(r)}
-            className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[var(--danger-bg)] text-[var(--danger)] transition-colors"
             title={t('admin_delete')}
           >
             <Trash2 size={14} />
@@ -505,13 +457,13 @@ export function AdminPromosPage() {
             {t('admin_promos_subtitle')}
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setShowCreate(true)}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
+          className="w-full sm:w-auto"
         >
           <Plus size={16} />
           {t('admin_promos_create_short')}
-        </button>
+        </Button>
       </div>
 
       {data?.total === 0 && !isLoading && (

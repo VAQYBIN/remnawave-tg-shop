@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import type { Plan } from '@/api/subscription'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Check } from 'lucide-react'
 
 interface PlanSelectorProps {
   plans: Plan[]
@@ -67,20 +69,22 @@ export function PlanSelector({ plans, selectedMonths, discountPercentage, onSele
             className={cn(
               'relative rounded-xl border-2 p-4 cursor-pointer transition-all select-none',
               selected
-                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/8%)] shadow-md'
-                : 'border-[hsl(var(--border))] bg-white hover:border-[hsl(var(--primary)/50%)] hover:shadow-sm',
+                ? 'border-[hsl(var(--primary))] bg-[color-mix(in_srgb,hsl(var(--primary))_6%,white)] shadow-[var(--shadow-md)]'
+                : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[color-mix(in_srgb,hsl(var(--primary))_45%,transparent)] hover:shadow-[var(--shadow-sm)]',
             )}
           >
+            {selected && (
+              <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]">
+                <Check size={12} strokeWidth={3} />
+              </span>
+            )}
+
             {/* Badge row */}
             <div className="h-5 mb-2">
               {isBest ? (
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[hsl(var(--primary))] text-white">
-                  {isRu ? 'Лучший выбор' : 'Best value'}
-                </span>
+                <Badge>{isRu ? 'Лучший выбор' : 'Best value'}</Badge>
               ) : savingsPct > 0 ? (
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-[hsl(var(--primary)/15%)] text-[hsl(var(--primary))]">
-                  -{savingsPct}%
-                </span>
+                <Badge variant="info">-{savingsPct}%</Badge>
               ) : null}
             </div>
 

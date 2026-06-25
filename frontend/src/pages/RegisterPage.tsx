@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
+import { Alert } from '@/components/ui/alert'
 import { useAuth } from '@/auth/useAuth'
 import { registerSendCode, registerCheckCode, registerVerify } from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -13,6 +14,8 @@ import { resolveLogoUrl } from '@/hooks/useBranding'
 import type { PublicBrandingResponse } from '@/api/admin/branding'
 
 type Step = 'email' | 'code' | 'password'
+
+const REF_CODE_KEY = 'referral_ref_code'
 
 function ConsentText({ branding }: { branding: PublicBrandingResponse | undefined }) {
   const { t } = useTranslation()
@@ -65,6 +68,19 @@ export function RegisterPage() {
   const { branding } = useBrandingContext()
   const logoUrl = resolveLogoUrl(branding?.logo_url)
 
+  const [searchParams] = useSearchParams()
+  const [refCode, setRefCode] = useState<string | null>(() => sessionStorage.getItem(REF_CODE_KEY))
+
+  // Capture a ?ref=CODE referral link and persist it across the multi-step flow.
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      const trimmed = ref.trim()
+      sessionStorage.setItem(REF_CODE_KEY, trimmed)
+      setRefCode(trimmed)
+    }
+  }, [searchParams])
+
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -106,7 +122,8 @@ export function RegisterPage() {
 
     setIsLoading(true)
     try {
-      const resp = await registerVerify(email, code, password)
+      const resp = await registerVerify(email, code, password, refCode)
+      sessionStorage.removeItem(REF_CODE_KEY)
       setAuth(resp)
       navigate('/dashboard', { replace: true })
     } catch (err) {
@@ -121,11 +138,11 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-[hsl(var(--background))]">
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
           {logoUrl && (
-            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
+            <img src={logoUrl} alt={branding?.brand_name} referrerPolicy="no-referrer" className="h-16 w-16 object-contain mx-auto mb-3 rounded-2xl" />
           )}
           <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
             {branding?.brand_name ?? ''}
@@ -133,7 +150,7 @@ export function RegisterPage() {
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 
-        <Card>
+        <Card className="shadow-[var(--shadow-md)]">
           <CardHeader>
             <CardTitle>{t('register_title')}</CardTitle>
             <CardDescription>
@@ -143,11 +160,9 @@ export function RegisterPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-[var(--radius)] bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-                {error}
-              </div>
-            )}
+            {error && <Alert variant="danger">{error}</Alert>}
+
+            {refCode && <Alert variant="success">{t('register_referral_hint')}</Alert>}
 
             {step === 'email' && (
               <form onSubmit={handleSendCode} className="flex flex-col gap-3">
@@ -188,9 +203,7 @@ export function RegisterPage() {
                 }}
                 className="flex flex-col gap-3"
               >
-                <div className="rounded-[var(--radius)] bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
-                  {t('register_email_sent', { email })}
-                </div>
+                <Alert variant="info">{t('register_email_sent', { email })}</Alert>
                 <Input
                   label={t('register_code_label')}
                   id="code"

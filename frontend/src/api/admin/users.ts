@@ -1,4 +1,32 @@
 import { apiRequest } from '@/api/client'
+import type { DevicesResponse } from '@/api/devices'
+
+export type { Device, DevicesResponse } from '@/api/devices'
+
+export interface AdminActivityItem {
+  id: string
+  type:
+    | 'signup'
+    | 'payment'
+    | 'admin_ban'
+    | 'admin_unban'
+    | 'admin_add_days'
+    | 'admin_add_traffic'
+    | 'admin_reset_trial'
+    | string
+  timestamp: string | null
+  amount: number | null
+  currency: string | null
+  provider: string | null
+  duration_months: number | null
+  days: number | null
+  gigabytes: number | null
+  status: string | null
+}
+
+export interface AdminActivityResponse {
+  items: AdminActivityItem[]
+}
 
 export interface AdminUserListItem {
   user_id: number
@@ -85,6 +113,14 @@ export function getAdminUsers(params: UsersListParams = {}): Promise<AdminUserLi
 
 export function getAdminUserDetail(userId: number): Promise<AdminUserDetailResponse> {
   return apiRequest<AdminUserDetailResponse>(`/admin/users/${userId}`)
+}
+
+export function getAdminUserDevices(userId: number): Promise<DevicesResponse> {
+  return apiRequest<DevicesResponse>(`/admin/users/${userId}/devices`)
+}
+
+export function getAdminUserActivity(userId: number): Promise<AdminActivityResponse> {
+  return apiRequest<AdminActivityResponse>(`/admin/users/${userId}/activity`)
 }
 
 export function banUser(userId: number, reason?: string): Promise<{ ok: boolean }> {

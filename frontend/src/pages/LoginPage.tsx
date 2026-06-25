@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Button } from '@/components/ui/button'
+import { Alert } from '@/components/ui/alert'
 import { useAuth } from '@/auth/useAuth'
 import { login, getTelegramClientId } from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -65,11 +66,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[hsl(var(--background))]">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-[hsl(var(--background))]">
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
           {logoUrl && (
-            <img src={logoUrl} alt={branding?.brand_name} className="h-16 w-16 object-contain mx-auto mb-3" />
+            <img src={logoUrl} alt={branding?.brand_name} referrerPolicy="no-referrer" className="h-16 w-16 object-contain mx-auto mb-3 rounded-2xl" />
           )}
           <h1 className="text-3xl font-extrabold text-[hsl(var(--primary))]">
             {branding?.brand_name ?? ''}
@@ -77,7 +78,7 @@ export function LoginPage() {
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{t('personal_cabinet')}</p>
         </div>
 
-        <Card>
+        <Card className="shadow-[var(--shadow-md)]">
           <CardHeader>
             <CardTitle>{t('login_title')}</CardTitle>
             <CardDescription>{t('login_subtitle')}</CardDescription>
@@ -92,11 +93,7 @@ export function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              {error && (
-                <div className="rounded-[var(--radius)] bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-                  {error}
-                </div>
-              )}
+              {error && <Alert variant="danger">{error}</Alert>}
               <Input
                 label={t('login_email')}
                 id="email"
@@ -209,7 +206,7 @@ function TelegramLoginButton({ setError }: { setError: (msg: string) => void }) 
     <button
       type="button"
       onClick={handleClick}
-      className="w-full flex items-center justify-center gap-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-white px-4 py-2 text-sm font-medium hover:bg-[hsl(var(--muted))] transition-colors"
+      className="w-full flex items-center justify-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2.5 text-sm font-medium text-[hsl(var(--foreground))] shadow-[var(--shadow-xs)] hover:bg-[hsl(var(--muted))] transition-colors"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path

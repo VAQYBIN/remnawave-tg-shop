@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getPaymentStatus } from '@/api/payment'
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, BookOpen } from 'lucide-react'
 
 type Status = 'polling' | 'succeeded' | 'failed' | 'error'
 
@@ -17,6 +17,8 @@ export function PaymentCallbackPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const attemptsRef = useRef(0)
   const MAX_ATTEMPTS = 60 // 2 min at 2s intervals
+  // Set by SubscriptionPage for first-ever purchases — drives the "connect now" nudge.
+  const firstPurchase = paymentId ? sessionStorage.getItem(`payment_first_${paymentId}`) === '1' : false
 
   useEffect(() => {
     if (!paymentId) {
@@ -66,7 +68,7 @@ export function PaymentCallbackPage() {
 
   return (
     <div className="min-h-screen bg-[hsl(var(--background))] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-[var(--shadow-md)]">
         <CardContent className="p-8 text-center space-y-4">
           {status === 'polling' && (
             <>
@@ -80,18 +82,36 @@ export function PaymentCallbackPage() {
 
           {status === 'succeeded' && (
             <>
-              <CheckCircle size={48} className="mx-auto text-green-500" />
-              <p className="font-semibold text-lg">Оплата успешна!</p>
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">{message}</p>
-              <Button onClick={() => navigate('/subscription')} className="w-full">
-                Перейти к подписке
-              </Button>
+              <CheckCircle size={48} className="mx-auto text-[var(--success)]" />
+              <p className="font-semibold text-lg">
+                {firstPurchase ? 'Спасибо за покупку! 🎉' : 'Оплата успешна!'}
+              </p>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                {firstPurchase
+                  ? 'Подписка активирована. Осталось только подключить — откройте инструкцию по подключению.'
+                  : message}
+              </p>
+              {firstPurchase ? (
+                <div className="flex flex-col gap-2">
+                  <Button onClick={() => navigate('/devices?tab=guide')} className="w-full">
+                    <BookOpen size={16} className="mr-2" />
+                    Перейти к инструкции
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/subscription')} className="w-full">
+                    Перейти к подписке
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => navigate('/subscription')} className="w-full">
+                  Перейти к подписке
+                </Button>
+              )}
             </>
           )}
 
           {(status === 'failed' || status === 'error') && (
             <>
-              <XCircle size={48} className="mx-auto text-red-500" />
+              <XCircle size={48} className="mx-auto text-[var(--danger)]" />
               <p className="font-semibold text-lg">
                 {status === 'failed' ? 'Платёж не завершён' : 'Ошибка'}
               </p>

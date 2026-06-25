@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   Users,
@@ -14,15 +15,18 @@ import {
   Activity,
   Server,
   Megaphone,
+  LifeBuoy,
   X,
 } from 'lucide-react'
 import { AdminLanguageToggle } from '@/components/admin/AdminLanguageToggle'
+import { getAdminSupportUnread } from '@/api/admin/support'
 
 const NAV_ITEMS = [
   { to: '/admin/dashboard', icon: LayoutDashboard, labelKey: 'admin_nav_overview' },
   { to: '/admin/users', icon: Users, labelKey: 'admin_nav_users' },
   { to: '/admin/payments', icon: CreditCard, labelKey: 'admin_nav_payments' },
   { to: '/admin/promos', icon: Tag, labelKey: 'admin_nav_promos' },
+  { to: '/admin/support', icon: LifeBuoy, labelKey: 'admin_nav_support' },
   { to: '/admin/broadcast', icon: Megaphone, labelKey: 'admin_nav_broadcast' },
 ]
 
@@ -47,6 +51,12 @@ interface AdminSidebarProps {
 export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps) {
   const location = useLocation()
   const { t } = useTranslation()
+  const { data: supportUnread } = useQuery({
+    queryKey: ['admin', 'support', 'unread'],
+    queryFn: getAdminSupportUnread,
+    staleTime: 30_000,
+  })
+  const supportCount = supportUnread?.count ?? 0
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -65,16 +75,19 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     [
-      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
       isActive
-        ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))]'
-        : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
+        ? 'bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] font-semibold'
+        : 'text-[hsl(var(--muted-foreground))] font-medium hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]',
     ].join(' ')
+
+  const groupLabelClass = 'mt-4 mb-1 px-3'
+  const groupLabelText = 'text-[10px] font-bold uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]'
 
   const sidebarContent = (
     <aside className="flex flex-col w-64 h-full bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] p-4">
       <div className="mb-8 px-2 flex items-center justify-between">
-        <span className="text-xl font-bold text-[hsl(var(--primary))]">⚙️ {t('admin_title')}</span>
+        <span className="text-xl font-extrabold text-[hsl(var(--primary))]">{t('admin_title')}</span>
         {/* Close button — only shown in mobile drawer */}
         <button
           onClick={onMobileClose}
@@ -89,12 +102,17 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
         {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => (
           <NavLink key={to} to={to} className={linkClass}>
             <Icon size={18} />
-            {t(labelKey)}
+            <span className="flex-1">{t(labelKey)}</span>
+            {to === '/admin/support' && supportCount > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--danger)] px-1.5 text-[11px] font-bold text-white">
+                {supportCount}
+              </span>
+            )}
           </NavLink>
         ))}
 
-        <div className="mt-4 mb-1 px-3">
-          <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+        <div className={groupLabelClass}>
+          <span className={groupLabelText}>
             {t('admin_nav_customization')}
           </span>
         </div>
@@ -106,8 +124,8 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           </NavLink>
         ))}
 
-        <div className="mt-4 mb-1 px-3">
-          <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+        <div className={groupLabelClass}>
+          <span className={groupLabelText}>
             Remnawave
           </span>
         </div>

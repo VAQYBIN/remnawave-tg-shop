@@ -1,75 +1,83 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getProfile, patchLanguage, sendEmailChangeCode, verifyEmailChange, unlinkTelegram } from '@/api/profile'
+import { Select } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Alert } from '@/components/ui/alert'
+import {
+  getProfile,
+  patchLanguage,
+  sendEmailChangeCode,
+  verifyEmailChange,
+  unlinkTelegram,
+} from '@/api/profile'
 import { getTelegramClientId } from '@/api/auth'
 import { TELEGRAM_OAUTH_URL, TG_MODE_KEY, TG_PKCE_KEY, TG_STATE_KEY, generatePKCE, generateState } from '@/pages/LoginPage'
 import { useToast } from '@/hooks/useToast'
-import { User, Mail, Globe, MessageCircle, Check, AlertCircle } from 'lucide-react'
+import { useBrandingContext } from '@/hooks/BrandingProvider'
+import { Mail, Send, Check, AlertCircle, Lock, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-// ─── Language Section ─────────────────────────────────────────────────────────
+// ─── Field shell (label + input-like control) ─────────────────────────────────
 
-function LanguageSection() {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-semibold text-[hsl(var(--foreground))]">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+function ReadonlyBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-10 items-center gap-2 rounded-[var(--radius)] border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3">
+      {children}
+    </div>
+  )
+}
+
+// ─── Profile Page ─────────────────────────────────────────────────────────────
+
+export function ProfilePage() {
   const queryClient = useQueryClient()
-  const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: getProfile })
+  const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handledProfileNotice = useRef(false)
+  const { branding } = useBrandingContext()
 
-  const mutation = useMutation({
+  // Legal documents configured in Branding — shown as quick-access buttons.
+  const legalDocs = [
+    { url: branding?.terms_of_service_url, to: '/legal/terms', label: t('legal_terms_title') },
+    { url: branding?.privacy_policy_url, to: '/legal/privacy', label: t('legal_privacy_title') },
+    { url: branding?.personal_data_url, to: '/legal/personal-data', label: t('legal_personal_data_title') },
+    { url: branding?.refund_policy_url, to: '/legal/refund', label: t('legal_refund_title') },
+  ].filter((d) => !!d.url)
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile,
+  })
+
+  // ── Language ──────────────────────────────────────────────────────────────
+  const langMutation = useMutation({
     mutationFn: (lang: string) => patchLanguage(lang),
     onSuccess: (_data, lang) => {
       i18n.changeLanguage(lang)
       queryClient.invalidateQueries({ queryKey: ['profile'] })
     },
   })
-
-  const langs = [
-    { code: 'ru', label: 'Русский' },
-    { code: 'en', label: 'English' },
-  ]
-
-  // Use i18n.language as source of truth for visual selection
   const currentLang = i18n.language.startsWith('ru') ? 'ru' : 'en'
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Globe size={18} className="text-[hsl(var(--primary))]" />
-          {t('profile_language')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-2">
-          {langs.map(({ code, label }) => (
-            <Button
-              key={code}
-              variant={currentLang === code ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => mutation.mutate(code)}
-              disabled={mutation.isPending}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Email Section ────────────────────────────────────────────────────────────
-
-function EmailSection() {
-  const queryClient = useQueryClient()
-  const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: getProfile })
-  const { t } = useTranslation()
-  const toast = useToast()
-
+  // ── Email change ──────────────────────────────────────────────────────────
+  const [emailOpen, setEmailOpen] = useState(false)
   const [step, setStep] = useState<'idle' | 'code'>('idle')
   const [newEmail, setNewEmail] = useState('')
   const [code, setCode] = useState('')
@@ -88,6 +96,7 @@ function EmailSection() {
     mutationFn: () => verifyEmailChange(newEmail, code),
     onSuccess: (data) => {
       toast.success(t('profile_email_updated', { email: data.email }))
+      setEmailOpen(false)
       setStep('idle')
       setNewEmail('')
       setCode('')
@@ -96,98 +105,15 @@ function EmailSection() {
     onError: (err: Error) => setErrorMsg(err.message || t('profile_error_code')),
   })
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Mail size={18} className="text-[hsl(var(--primary))]" />
-          Email
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {profile?.email && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm">{profile.email}</span>
-            {profile.is_email_verified ? (
-              <span className="inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                <Check size={12} /> {t('profile_email_verified')}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                <AlertCircle size={12} /> {t('profile_email_unverified')}
-              </span>
-            )}
-          </div>
-        )}
+  function resetEmailFlow() {
+    setEmailOpen(false)
+    setStep('idle')
+    setNewEmail('')
+    setCode('')
+    setErrorMsg('')
+  }
 
-        {step === 'idle' && (
-          <div className="flex gap-2">
-            <Input
-              type="email"
-              placeholder={t('profile_new_email')}
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              size="sm"
-              onClick={() => sendCode.mutate()}
-              disabled={!newEmail || sendCode.isPending}
-            >
-              {sendCode.isPending ? t('profile_sending') : t('profile_change_email')}
-            </Button>
-          </div>
-        )}
-
-        {step === 'code' && (
-          <div className="space-y-2">
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">
-              {t('profile_code_sent', { email: newEmail })}
-            </p>
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder={t('profile_code_placeholder')}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                maxLength={6}
-                className="flex-1"
-              />
-              <Button
-                size="sm"
-                onClick={() => verifyCode.mutate()}
-                disabled={!code || verifyCode.isPending}
-              >
-                {verifyCode.isPending ? t('profile_checking') : t('profile_confirm')}
-              </Button>
-            </div>
-            <button
-              className="text-xs text-[hsl(var(--muted-foreground))] hover:underline"
-              onClick={() => { setStep('idle'); setCode(''); setErrorMsg('') }}
-            >
-              {t('profile_change_email_link')}
-            </button>
-          </div>
-        )}
-
-        {errorMsg && (
-          <p className="text-sm text-red-500 flex items-center gap-1">
-            <AlertCircle size={14} /> {errorMsg}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Telegram Section ─────────────────────────────────────────────────────────
-
-function TelegramSection() {
-  const queryClient = useQueryClient()
-  const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: getProfile })
-  const { t } = useTranslation()
-  const toast = useToast()
-
+  // ── Telegram link / unlink ──────────────────────────────────────────────────
   const isLinked = Boolean(profile?.telegram_user_id)
 
   const unlinkMutation = useMutation({
@@ -227,67 +153,7 @@ function TelegramSection() {
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MessageCircle size={18} className="text-[hsl(var(--primary))]" />
-          Telegram
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLinked ? (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[hsl(var(--primary)/0.1)] flex items-center justify-center">
-              <MessageCircle size={16} className="text-[hsl(var(--primary))]" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">
-                {profile?.telegram_first_name || profile?.telegram_username || `ID: ${profile?.telegram_user_id}`}
-              </p>
-              {profile?.telegram_username && (
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">@{profile.telegram_username}</p>
-              )}
-            </div>
-            <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-              <Check size={12} /> {t('profile_telegram_linked')}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => unlinkMutation.mutate()}
-              disabled={unlinkMutation.isPending}
-            >
-              {t('profile_telegram_unlink')}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">
-              {t('profile_telegram_not_linked')}
-            </p>
-            <Button size="sm" onClick={handleLink}>
-              {t('profile_telegram_link')}
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Profile Page ─────────────────────────────────────────────────────────────
-
-export function ProfilePage() {
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile'],
-    queryFn: getProfile,
-  })
-  const { t } = useTranslation()
-  const toast = useToast()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const handledProfileNotice = useRef(false)
-
+  // ── Telegram OAuth return notices ────────────────────────────────────────────
   useEffect(() => {
     if (handledProfileNotice.current) return
     const hasNotice = searchParams.has('telegram_linked') || searchParams.has('error')
@@ -304,41 +170,221 @@ export function ProfilePage() {
     setSearchParams({}, { replace: true })
   }, [searchParams, setSearchParams, t, toast])
 
+  // ── Identity ─────────────────────────────────────────────────────────────────
+  const displayName =
+    profile?.telegram_first_name || profile?.email?.split('@')[0] || t('profile_account')
+  const initial = (displayName[0] ?? 'A').toUpperCase()
+
   return (
     <AppShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">{t('profile_title')}</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm">
-            {t('profile_subtitle')}
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">{t('profile_title')}</h1>
 
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 bg-[hsl(var(--muted))] animate-pulse rounded-xl" />
+            {[1, 2].map((i) => (
+              <div key={i} className="h-48 animate-pulse rounded-xl bg-[hsl(var(--muted))]" />
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <User size={18} className="text-[hsl(var(--primary))]" />
-                  {t('profile_account')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('profile_account_id')}</p>
-                <p className="text-sm font-mono mt-0.5 truncate">{profile?.account_id}</p>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t('profile_account')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Identity */}
+              <div className="flex items-center gap-4">
+                <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-3xl font-extrabold text-[var(--primary-press)]">
+                  {initial}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-extrabold text-[hsl(var(--foreground))]">{displayName}</p>
+                  {profile?.email && (
+                    <p className="truncate text-sm text-[hsl(var(--muted-foreground))]">{profile.email}</p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {profile?.telegram_username && (
+                      <Badge variant="info">@{profile.telegram_username}</Badge>
+                    )}
+                    {profile?.email &&
+                      (profile.is_email_verified ? (
+                        <Badge variant="success" dot>
+                          {t('profile_email_verified')}
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning" dot>
+                          {t('profile_email_unverified')}
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
+              </div>
 
-            <LanguageSection />
-            <EmailSection />
-            <TelegramSection />
-          </div>
+              {/* Fields */}
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
+                <Field label="Email">
+                  <ReadonlyBox>
+                    <Mail size={16} className="shrink-0 text-[hsl(var(--muted-foreground))]" />
+                    <span className="min-w-0 flex-1 truncate text-sm">{profile?.email || '—'}</span>
+                  </ReadonlyBox>
+                </Field>
+
+                <Field label="Telegram">
+                  <ReadonlyBox>
+                    <Send size={16} className="shrink-0 text-[hsl(var(--primary))]" />
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {profile?.telegram_username
+                        ? `@${profile.telegram_username}`
+                        : isLinked
+                          ? `ID: ${profile?.telegram_user_id}`
+                          : t('profile_telegram_field_empty')}
+                    </span>
+                    {isLinked && (
+                      <Badge variant="success" className="shrink-0">
+                        <Check size={12} /> {t('profile_telegram_linked')}
+                      </Badge>
+                    )}
+                  </ReadonlyBox>
+                </Field>
+
+                <Field label={t('profile_interface_language')}>
+                  <Select
+                    value={currentLang}
+                    onChange={(e) => langMutation.mutate(e.target.value)}
+                    disabled={langMutation.isPending}
+                  >
+                    <option value="ru">🇷🇺 Русский</option>
+                    <option value="en">🇬🇧 English</option>
+                  </Select>
+                </Field>
+
+                <Field label={t('profile_account_id')}>
+                  <ReadonlyBox>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                      {profile?.account_id}
+                    </span>
+                  </ReadonlyBox>
+                </Field>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => (emailOpen ? resetEmailFlow() : setEmailOpen(true))}>
+                  <Mail size={16} /> {t('profile_change_email_link')}
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/forgot-password')}>
+                  <Lock size={16} /> {t('profile_change_password')}
+                </Button>
+                {isLinked ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => unlinkMutation.mutate()}
+                    isLoading={unlinkMutation.isPending}
+                  >
+                    <Send size={16} /> {t('profile_telegram_unlink')}
+                  </Button>
+                ) : (
+                  <Button onClick={handleLink}>
+                    <Send size={16} /> {t('profile_telegram_link')}
+                  </Button>
+                )}
+              </div>
+
+              {/* Email change panel */}
+              {emailOpen && (
+                <div className="space-y-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.4)] p-4">
+                  {step === 'idle' && (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        type="email"
+                        placeholder={t('profile_new_email')}
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => sendCode.mutate()}
+                        disabled={!newEmail}
+                        isLoading={sendCode.isPending}
+                      >
+                        {t('profile_change_email')}
+                      </Button>
+                    </div>
+                  )}
+
+                  {step === 'code' && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                        {t('profile_code_sent', { email: newEmail })}
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Input
+                          type="text"
+                          placeholder={t('profile_code_placeholder')}
+                          value={code}
+                          onChange={(e) => setCode(e.target.value)}
+                          maxLength={6}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => verifyCode.mutate()}
+                          disabled={!code}
+                          isLoading={verifyCode.isPending}
+                        >
+                          {t('profile_confirm')}
+                        </Button>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-xs text-[hsl(var(--muted-foreground))] hover:underline"
+                        onClick={() => {
+                          setStep('idle')
+                          setCode('')
+                          setErrorMsg('')
+                        }}
+                      >
+                        {t('profile_change_email_link')}
+                      </button>
+                    </div>
+                  )}
+
+                  {errorMsg && (
+                    <Alert variant="danger" icon={<AlertCircle size={16} />}>
+                      {errorMsg}
+                    </Alert>
+                  )}
+                </div>
+              )}
+
+              {/* Legal documents */}
+              {legalDocs.length > 0 && (
+                <div className="border-t border-[hsl(var(--border))] pt-5">
+                  <p className="mb-3 text-sm font-semibold text-[hsl(var(--foreground))]">
+                    {t('profile_legal_documents')}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {legalDocs.map((doc, i) => {
+                      const lastOdd = legalDocs.length % 2 === 1 && i === legalDocs.length - 1
+                      return (
+                        <Link
+                          key={doc.to}
+                          to={doc.to}
+                          className={cn(
+                            buttonVariants({ variant: 'outline' }),
+                            'w-full',
+                            lastOdd && 'col-span-2',
+                          )}
+                        >
+                          <ExternalLink size={16} className="shrink-0" />
+                          <span className="min-w-0 truncate">{doc.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </AppShell>

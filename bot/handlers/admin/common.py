@@ -137,6 +137,20 @@ async def admin_panel_actions_callback_handler(
         await callback.answer(_("admin_sync_initiated_from_panel"))
     elif action == "queue_status":
         await show_queue_status_handler(callback, i18n_data)
+    elif action == "toggle_bot_ui_mode":
+        from core.dal.site_settings_dal import get_site_settings, update_site_settings
+        site = await get_site_settings(session)
+        new_mode = "webapp" if site.bot_ui_mode == "inline" else "inline"
+        await update_site_settings(session, bot_ui_mode=new_mode)
+        mode_label = _(key=f"admin_bot_ui_mode_{new_mode}")
+        try:
+            await callback.message.edit_text(
+                _("admin_system_functions_section"),
+                reply_markup=get_system_functions_keyboard(i18n, current_lang, new_mode),
+            )
+        except Exception as exc:
+            logging.debug("Suppressed edit error in toggle_bot_ui_mode: %s", exc)
+        await callback.answer(_("admin_bot_ui_mode_toggled", mode=mode_label))
     elif action == "view_payments":
         from . import payments as admin_payments_handlers
         await admin_payments_handlers.view_payments_handler(
@@ -203,9 +217,12 @@ async def admin_section_handler(callback: types.CallbackQuery, state: FSMContext
                 reply_markup=get_promo_marketing_keyboard(i18n, current_lang)
             )
         elif section == "system_functions":
+            from core.dal.site_settings_dal import get_site_settings
+            site = await get_site_settings(session)
             await callback.message.edit_text(
                 _("admin_system_functions_section"),
-                reply_markup=get_system_functions_keyboard(i18n, current_lang)
+                reply_markup=get_system_functions_keyboard(
+                    i18n, current_lang, site.bot_ui_mode)
             )
         else:
             await callback.answer(_("admin_unknown_action"), show_alert=True)

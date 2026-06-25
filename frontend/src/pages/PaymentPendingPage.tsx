@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getPaymentStatus, expirePayment, type PaymentStatus } from '@/api/payment'
-import { CheckCircle, XCircle, Loader2, Clock, AlertTriangle, ExternalLink } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Clock, AlertTriangle, ExternalLink, BookOpen } from 'lucide-react'
 
 const PROVIDER_LABELS: Record<string, string> = {
   yookassa: 'YooKassa',
@@ -52,6 +52,8 @@ export function PaymentPendingPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const redirectedKey = paymentId ? `payment_redirected_${paymentId}` : null
+  // Set by SubscriptionPage for first-ever purchases — drives the "connect now" nudge.
+  const firstPurchase = paymentId ? sessionStorage.getItem(`payment_first_${paymentId}`) === '1' : false
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -78,7 +80,6 @@ export function PaymentPendingPage() {
       stopCountdown()
       setPageState('succeeded')
       queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
-      setTimeout(() => navigate('/subscription'), 3000)
       return
     }
     if (p.status === 'failed' || p.status === 'cancelled' || p.status === 'canceled') {
@@ -111,7 +112,6 @@ export function PaymentPendingPage() {
         if (p.status === 'succeeded') {
           setPageState('succeeded')
           queryClient.invalidateQueries({ queryKey: ['pending-payment'] })
-          setTimeout(() => navigate('/subscription'), 3000)
           return
         }
         if (p.status === 'failed' || p.status === 'cancelled' || p.status === 'canceled') {
@@ -199,7 +199,7 @@ export function PaymentPendingPage() {
           {pageState === 'countdown' && payment && (
             <div className="space-y-5">
               <div className="text-center space-y-2">
-                <div className="mx-auto w-16 h-16 rounded-full bg-[hsl(var(--primary)/0.1)] flex items-center justify-center">
+                <div className="mx-auto w-16 h-16 rounded-full bg-[var(--primary-soft)] flex items-center justify-center">
                   <span className="text-2xl font-bold text-[hsl(var(--primary))]">{countdown}</span>
                 </div>
                 <p className="font-semibold text-lg">Переход к оплате через {countdown} сек.</p>
@@ -262,14 +262,30 @@ export function PaymentPendingPage() {
           {/* Success */}
           {pageState === 'succeeded' && (
             <div className="text-center space-y-4">
-              <CheckCircle size={56} className="mx-auto text-green-500" />
-              <p className="font-semibold text-lg">Оплата прошла успешно!</p>
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                Подписка активирована. Переходим...
+              <CheckCircle size={56} className="mx-auto text-[var(--success)]" />
+              <p className="font-semibold text-lg">
+                {firstPurchase ? 'Спасибо за покупку! 🎉' : 'Оплата прошла успешно!'}
               </p>
-              <Button className="w-full" onClick={() => navigate('/subscription')}>
-                Перейти к подписке
-              </Button>
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                {firstPurchase
+                  ? 'Подписка активирована. Осталось только подключить — откройте инструкцию по подключению.'
+                  : 'Подписка активирована.'}
+              </p>
+              {firstPurchase ? (
+                <div className="flex flex-col gap-2">
+                  <Button className="w-full" onClick={() => navigate('/devices?tab=guide')}>
+                    <BookOpen size={16} className="mr-2" />
+                    Перейти к инструкции
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/subscription')}>
+                    Перейти к подписке
+                  </Button>
+                </div>
+              ) : (
+                <Button className="w-full" onClick={() => navigate('/subscription')}>
+                  Перейти к подписке
+                </Button>
+              )}
             </div>
           )}
 
@@ -309,7 +325,7 @@ export function PaymentPendingPage() {
           {/* Failed */}
           {pageState === 'failed' && (
             <div className="text-center space-y-4">
-              <XCircle size={56} className="mx-auto text-red-500" />
+              <XCircle size={56} className="mx-auto text-[var(--danger)]" />
               <p className="font-semibold text-lg">Платёж не завершён</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">
                 Оплата была отклонена или отменена.
@@ -342,7 +358,7 @@ export function PaymentPendingPage() {
           {/* Error */}
           {pageState === 'error' && (
             <div className="text-center space-y-4">
-              <AlertTriangle size={56} className="mx-auto text-amber-500" />
+              <AlertTriangle size={56} className="mx-auto text-[var(--warning)]" />
               <p className="font-semibold text-lg">Ошибка</p>
               <p className="text-sm text-[hsl(var(--muted-foreground))]">{errorMsg}</p>
               <Button variant="outline" className="w-full" onClick={() => navigate('/payments')}>

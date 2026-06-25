@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { ArrowLeft, HardDrive, Radio, Server, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { getPanelNode } from '@/api/admin/panel'
 import { formatBytes, getArray, getBool, getNumber, getObject, getString } from './panel-utils'
@@ -42,7 +43,7 @@ export function NodeDetailPage() {
       : 'offline'
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div className="flex items-center gap-3">
         <Link to="/admin/nodes">
           <Button variant="ghost" size="icon"><ArrowLeft size={18} /></Button>
@@ -62,8 +63,8 @@ export function NodeDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">{t('admin_nodes_top_users')}</h2>
+        <Card className="xl:col-span-2 p-5">
+          <h2 className="text-sm font-bold mb-4">{t('admin_nodes_top_users')}</h2>
           {topUsers.length === 0 ? (
             <div className="h-72 flex items-center justify-center text-sm text-[hsl(var(--muted-foreground))]">
               {t('admin_no_data')}
@@ -85,19 +86,19 @@ export function NodeDetailPage() {
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </Card>
 
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-5">
-          <h2 className="text-sm font-semibold mb-4">System</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-bold mb-4">System</h2>
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between gap-3"><span>CPU</span><strong>{getString(info, 'cpuModel')}</strong></div>
-            <div className="flex justify-between gap-3"><span>RAM</span><strong>{formatBytes(getNumber(stats, 'memoryUsed'))} / {formatBytes(getNumber(info, 'memoryTotal'))}</strong></div>
-            <div className="flex justify-between gap-3"><span>RX/s</span><strong>{formatBytes(getNumber(iface, 'rxBytesPerSec'))}</strong></div>
-            <div className="flex justify-between gap-3"><span>TX/s</span><strong>{formatBytes(getNumber(iface, 'txBytesPerSec'))}</strong></div>
-            <div className="flex justify-between gap-3"><span>Country</span><strong>{getString(node, 'countryCode')}</strong></div>
-            <div className="flex justify-between gap-3"><span>Provider</span><strong>{getString(getObject(node, 'provider'), 'name')}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">CPU</span><strong>{getString(info, 'cpuModel')}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">RAM</span><strong className="tabular-nums">{formatBytes(getNumber(stats, 'memoryUsed'))} / {formatBytes(getNumber(info, 'memoryTotal'))}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">RX/s</span><strong className="tabular-nums">{formatBytes(getNumber(iface, 'rxBytesPerSec'))}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">TX/s</span><strong className="tabular-nums">{formatBytes(getNumber(iface, 'txBytesPerSec'))}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">Country</span><strong>{getString(node, 'countryCode')}</strong></div>
+            <div className="flex justify-between gap-3"><span className="text-[hsl(var(--muted-foreground))]">Provider</span><strong>{getString(getObject(node, 'provider'), 'name')}</strong></div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   )

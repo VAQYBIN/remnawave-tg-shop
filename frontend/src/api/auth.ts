@@ -30,6 +30,14 @@ export async function authTelegram(data: TelegramCallbackData): Promise<TokenRes
   })
 }
 
+/** Automatic Mini App auth: send the raw Telegram WebApp initData, get JWT back. */
+export async function authTelegramMiniApp(initData: string): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>('/auth/telegram/miniapp', {
+    method: 'POST',
+    body: JSON.stringify({ init_data: initData }),
+  })
+}
+
 export async function registerSendCode(email: string): Promise<MessageResponse> {
   return apiRequest<MessageResponse>('/auth/register/send-code', {
     method: 'POST',
@@ -51,10 +59,11 @@ export async function registerVerify(
   email: string,
   code: string,
   password: string,
+  refCode?: string | null,
 ): Promise<TokenResponse> {
   return apiRequest<TokenResponse>('/auth/register/verify', {
     method: 'POST',
-    body: JSON.stringify({ email, code, password }),
+    body: JSON.stringify({ email, code, password, ref_code: refCode || undefined }),
   })
 }
 

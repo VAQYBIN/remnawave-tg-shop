@@ -18,6 +18,9 @@ import { startBroadcast, getBroadcastStatus } from '@/api/admin/broadcast'
 import type { BroadcastFilter, BroadcastStatusResponse, ButtonColor, ButtonItem } from '@/api/admin/broadcast'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -117,16 +120,16 @@ const COLOR_OPTIONS: { value: ButtonColor; labelKey: string }[] = [
 // For the button editor color chips
 const COLOR_CHIP: Record<ButtonColor, string> = {
   '': 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border-[hsl(var(--border))]',
-  primary: 'bg-blue-100 text-blue-800 border-blue-300',
-  success: 'bg-green-100 text-green-800 border-green-300',
-  danger: 'bg-red-100 text-red-800 border-red-300',
+  primary: 'bg-[var(--info-bg)] text-[var(--primary-press)] border-[color-mix(in_srgb,hsl(var(--primary))_25%,transparent)]',
+  success: 'bg-[var(--success-bg)] text-[#186e45] border-[#b6e2c7]',
+  danger: 'bg-[var(--danger-bg)] text-[#9c2828] border-[#f2b6b6]',
 }
 
 const COLOR_DOT: Record<ButtonColor, string> = {
   '': 'bg-[hsl(var(--muted-foreground))]',
-  primary: 'bg-blue-500',
-  success: 'bg-green-500',
-  danger: 'bg-red-500',
+  primary: 'bg-[hsl(var(--primary))]',
+  success: 'bg-[var(--success)]',
+  danger: 'bg-[var(--danger)]',
 }
 
 // Telegram-accurate button colours (Bot API 9.4)
@@ -177,7 +180,7 @@ function ButtonEditor({
           type="button"
           onClick={onRemove}
           title={t('admin_broadcast_button_delete')}
-          className="flex items-center justify-center w-8 h-8 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+          className="flex items-center justify-center w-8 h-8 rounded-md text-[hsl(var(--muted-foreground))] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] transition-colors shrink-0"
         >
           <Trash2 size={14} />
         </button>
@@ -259,7 +262,7 @@ function RowEditor({
             <ChevronDown size={14} />
           </button>
           <button type="button" onClick={onRemoveRow} title={t('admin_broadcast_row_delete')}
-            className="p-1 rounded hover:bg-red-50 text-[hsl(var(--muted-foreground))] hover:text-red-600 transition-colors ml-1">
+            className="p-1 rounded hover:bg-[var(--danger-bg)] text-[hsl(var(--muted-foreground))] hover:text-[var(--danger)] transition-colors ml-1">
             <Trash2 size={14} />
           </button>
         </div>
@@ -391,16 +394,17 @@ function SendBlock({
   if (!confirming) {
     return (
       <div className="space-y-2">
-        <button
+        <Button
           onClick={onSend}
           disabled={!canSend}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--primary))] text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          size="lg"
+          className="w-full"
         >
           <Send size={16} />
           {t('admin_broadcast_send')}
-        </button>
+        </Button>
         {error && (
-          <p className="text-xs text-red-600 text-center">
+          <p className="text-xs text-[var(--danger)] text-center">
             {t('admin_broadcast_error_prefix', { error })}
           </p>
         )}
@@ -409,34 +413,31 @@ function SendBlock({
   }
 
   return (
-    <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
-      <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
+    <Alert variant="warning" className="flex-col gap-3">
+      <div className="flex items-center gap-2 font-semibold text-sm">
         <AlertCircle size={16} />
         {t('admin_broadcast_confirm_heading')}
       </div>
-      <p className="text-xs text-amber-700 leading-relaxed">
+      <p className="text-xs leading-relaxed opacity-90">
         {t('admin_broadcast_confirm_body', {
           buttons: btnCount > 0 ? t('admin_broadcast_with_buttons', { count: btnCount, label: pluralBtn(btnCount, t) }) : '',
           filter: filterLabel,
         })}
       </p>
       <div className="flex gap-2">
-        <button
+        <Button
           onClick={onConfirm}
-          disabled={isPending}
-          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition disabled:opacity-50"
+          isLoading={isPending}
+          className="flex-1 bg-[var(--warning)] hover:bg-[#c07d14] text-white"
         >
-          {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          {!isPending && <Send size={14} />}
           {t('admin_broadcast_confirm_send')}
-        </button>
-        <button
-          onClick={onCancel}
-          className="flex-1 py-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium hover:bg-[hsl(var(--muted))] transition"
-        >
+        </Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1">
           {t('admin_cancel')}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Alert>
   )
 }
 
@@ -530,7 +531,7 @@ export function BroadcastPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="px-4 py-6 sm:p-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_broadcast_title')}</h1>
@@ -543,15 +544,15 @@ export function BroadcastPage() {
       {broadcastId && statusData && (
         <div
           className={[
-            'max-w-xl rounded-xl border p-5 space-y-3',
-            isCompleted ? 'border-green-300 bg-green-50'
-              : isFailed ? 'border-red-300 bg-red-50'
+            'max-w-xl rounded-xl border p-5 space-y-3 shadow-[var(--shadow-sm)]',
+            isCompleted ? 'border-[#b6e2c7] bg-[var(--success-bg)]'
+              : isFailed ? 'border-[#f2b6b6] bg-[var(--danger-bg)]'
               : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]',
           ].join(' ')}
         >
           <div className="flex items-center gap-2 font-semibold">
-            {isCompleted && <CheckCircle2 size={18} className="text-green-600" />}
-            {isFailed && <AlertCircle size={18} className="text-red-600" />}
+            {isCompleted && <CheckCircle2 size={18} className="text-[var(--success)]" />}
+            {isFailed && <AlertCircle size={18} className="text-[var(--danger)]" />}
             {isRunning && <Loader2 size={18} className="animate-spin text-[hsl(var(--primary))]" />}
             <span>
               {isCompleted && t('admin_broadcast_completed')}
@@ -565,14 +566,14 @@ export function BroadcastPage() {
               <ProgressBar value={statusData.sent + statusData.failed} max={statusData.total} />
               <div className="flex gap-6 text-sm">
                 <span>{t('admin_broadcast_total')} <b>{statusData.total}</b></span>
-                <span className="text-green-700">{t('admin_broadcast_sent')} <b>{statusData.sent}</b></span>
+                <span className="text-[var(--success)]">{t('admin_broadcast_sent')} <b>{statusData.sent}</b></span>
                 {statusData.failed > 0 && (
-                  <span className="text-red-700">{t('admin_broadcast_failed')} <b>{statusData.failed}</b></span>
+                  <span className="text-[var(--danger)]">{t('admin_broadcast_failed')} <b>{statusData.failed}</b></span>
                 )}
               </div>
             </>
           )}
-          {statusData.error && <p className="text-sm text-red-700">{statusData.error}</p>}
+          {statusData.error && <p className="text-sm text-[var(--danger)]">{statusData.error}</p>}
           {(isCompleted || isFailed) && (
             <button
               onClick={handleReset}
@@ -592,7 +593,7 @@ export function BroadcastPage() {
           <div className="space-y-5">
 
             {/* Text */}
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 space-y-3">
+            <Card className="p-5 space-y-3">
               <label className="block text-sm font-semibold text-[hsl(var(--foreground))]">
                 {t('admin_broadcast_text')}
               </label>
@@ -604,7 +605,7 @@ export function BroadcastPage() {
                 className="w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.4)] resize-y"
               />
               <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('admin_broadcast_chars', { count: text.length })}</p>
-            </div>
+            </Card>
 
             {/* Button builder */}
             <div className="space-y-3">
@@ -612,14 +613,10 @@ export function BroadcastPage() {
                 <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
                   {t('admin_broadcast_buttons')}{btnCount > 0 && ` (${btnCount})`}
                 </p>
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[hsl(var(--border))] text-sm font-medium text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] transition-colors"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={addRow}>
                   <Plus size={14} />
                   {t('admin_broadcast_add_row')}
-                </button>
+                </Button>
               </div>
 
               {rows.length === 0 ? (
@@ -645,7 +642,7 @@ export function BroadcastPage() {
             </div>
 
             {/* Filter */}
-            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 space-y-3">
+            <Card className="p-5 space-y-3">
               <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('admin_broadcast_filter')}</p>
               <div className="space-y-2">
                 {FILTER_OPTIONS.map(({ value, labelKey, icon: Icon, descriptionKey }) => (
@@ -674,7 +671,7 @@ export function BroadcastPage() {
                   </label>
                 ))}
               </div>
-            </div>
+            </Card>
 
           </div>{/* /Left */}
 

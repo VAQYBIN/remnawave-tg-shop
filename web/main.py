@@ -14,6 +14,21 @@ logger = logging.getLogger(__name__)
 _CLEANUP_INTERVAL_SECONDS = 10 * 60  # run every 10 minutes
 
 
+class _HealthCheckLogFilter(logging.Filter):
+    """Drop uvicorn access-log lines for the health endpoint.
+
+    Docker polls /api/health on every healthcheck interval, which otherwise
+    floods the access log. Real traffic is still logged as usual.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        # uvicorn.access record args: (client_addr, method, full_path, http_version, status)
+        if isinstance(args, tuple) and len(args) >= 3 and "/api/health" in str(args[2]):
+            return False
+        return True
+
+
 async def _payment_cleanup_loop(session_factory) -> None:
     """Background task: expire stale pending payments every 10 minutes."""
     from core.dal.payment_dal import expire_stale_pending_payments
@@ -59,6 +74,9 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    # Keep healthcheck pings out of the access log.
+    logging.getLogger("uvicorn.access").addFilter(_HealthCheckLogFilter())
 
     docs_enabled = settings.WEB_DOCS_ENABLED
 
@@ -122,6 +140,9 @@ def create_app() -> FastAPI:
 
     from web.routers.news import router as news_router
     app.include_router(news_router, prefix="/api")
+
+    from web.routers.support import router as support_router
+    app.include_router(support_router, prefix="/api")
 
     from web.routers.admin import admin_router
     app.include_router(admin_router, prefix="/api")

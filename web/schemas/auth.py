@@ -16,6 +16,11 @@ class TelegramConfigResponse(BaseModel):
     client_id: int
 
 
+class MiniAppAuthRequest(BaseModel):
+    """Raw ``window.Telegram.WebApp.initData`` from a Telegram Mini App."""
+    init_data: str
+
+
 class RegisterSendCodeRequest(BaseModel):
     email: EmailStr
 
@@ -29,6 +34,7 @@ class RegisterVerifyRequest(BaseModel):
     email: EmailStr
     code: str
     password: str
+    ref_code: Optional[str] = None  # referral code from a /register?ref=... link
 
     @field_validator("email", mode="before")
     @classmethod

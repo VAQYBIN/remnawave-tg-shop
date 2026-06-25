@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     PERSONAL_DATA_URL: Optional[str] = Field(default=None)
     REFUND_POLICY_URL: Optional[str] = Field(default=None)
+    # Subscription Page app config (Devices/Guide tabs). Pulled live from the panel
+    # via PANEL_API_URL/PANEL_API_KEY. Optionally pin a specific config by UUID
+    # (empty = the panel "Default" config). SUBSCRIPTION_PAGE_CONFIG_PATH is an
+    # optional offline override: if set and the file exists, it wins over the panel.
+    SUBSCRIPTION_PAGE_CONFIG_UUID: str = Field(default="")
+    SUBSCRIPTION_PAGE_CONFIG_PATH: str = Field(default="")
     REQUIRED_CHANNEL_SUBSCRIBE_TO_USE: bool = Field(
         default=False,
         description="Require users to subscribe to REQUIRED_CHANNEL_ID before using the bot",
@@ -654,6 +660,15 @@ class Settings(BaseSettings):
         default=None,
         description="Telegram OIDC Client Secret from BotFather OAuth Settings (separate from BOT_TOKEN)",
     )
+    MIN_PRORATED_PRICE_RUB: Optional[float] = Field(
+        default=None,
+        description="Global minimum prorated addon price in RUB (overridden by per-plan min_price_rub)",
+    )
+    MIN_PRORATED_PRICE_STARS: Optional[int] = Field(
+        default=None,
+        description="Global minimum prorated addon price in Stars (overridden by per-plan min_price_stars)",
+    )
+
     WEB_JWT_SECRET: Optional[str] = Field(default=None, description="Secret key for JWT signing")
     WEB_JWT_ACCESS_EXPIRE_MINUTES: int = Field(default=15)
     WEB_JWT_REFRESH_EXPIRE_DAYS: int = Field(default=7)
@@ -668,6 +683,20 @@ class Settings(BaseSettings):
     BOT_USERNAME: Optional[str] = Field(
         default=None,
         description="Telegram bot username (without @). Used for referral link generation in Web Dashboard.",
+    )
+
+    # Support tickets (web)
+    SUPPORT_MAX_OPEN_TICKETS_PER_USER: int = Field(
+        default=5,
+        description="Maximum number of non-closed support tickets a single account can have open.",
+    )
+    SUPPORT_MAX_ATTACHMENTS_PER_MESSAGE: int = Field(
+        default=5,
+        description="Maximum number of image attachments per support message.",
+    )
+    SUPPORT_MAX_ATTACHMENT_SIZE_MB: int = Field(
+        default=5,
+        description="Maximum size (in MB) of a single support image attachment.",
     )
 
     @computed_field

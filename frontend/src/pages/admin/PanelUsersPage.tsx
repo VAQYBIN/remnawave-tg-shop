@@ -4,15 +4,17 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { DataTable, type Column } from '@/components/admin/DataTable'
 import { getPanelUsers, type PanelObject } from '@/api/admin/panel'
 import { formatBytes, formatScalar, getNumber, getObject, getString } from './panel-utils'
 
-const STATUS_BADGE: Record<string, string> = {
-  ACTIVE: 'bg-green-100 text-green-700',
-  DISABLED: 'bg-gray-100 text-gray-600',
-  LIMITED: 'bg-yellow-100 text-yellow-700',
-  EXPIRED: 'bg-red-100 text-red-700',
+const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
+  ACTIVE: 'success',
+  DISABLED: 'secondary',
+  LIMITED: 'warning',
+  EXPIRED: 'danger',
 }
 
 function fmtDate(value: unknown) {
@@ -41,7 +43,7 @@ export function PanelUsersPage() {
       size: 190,
       render: (user) => (
         <div className="flex flex-col">
-          <span className="font-medium">{getString(user, 'username')}</span>
+          <span className="font-semibold">{getString(user, 'username')}</span>
           <span className="text-xs text-[hsl(var(--muted-foreground))]">{getString(user, 'uuid')}</span>
         </div>
       ),
@@ -53,9 +55,9 @@ export function PanelUsersPage() {
       render: (user) => {
         const status = getString(user, 'status')
         return (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+          <Badge variant={STATUS_VARIANT[status] ?? 'secondary'} dot>
             {status}
-          </span>
+          </Badge>
         )
       },
     },
@@ -67,7 +69,7 @@ export function PanelUsersPage() {
         const traffic = getObject(user, 'userTraffic')
         return (
           <div className="flex flex-col">
-            <span className="font-medium">{formatBytes(getNumber(traffic, 'usedTrafficBytes'))}</span>
+            <span className="font-bold tabular-nums">{formatBytes(getNumber(traffic, 'usedTrafficBytes'))}</span>
             <span className="text-xs text-[hsl(var(--muted-foreground))]">
               {t('admin_panel_user_detail_limit', { limit: formatBytes(user.trafficLimitBytes) })}
             </span>
@@ -91,7 +93,7 @@ export function PanelUsersPage() {
   ]
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 py-6 sm:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{t('admin_panel_users_title')}</h1>
         <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
@@ -107,12 +109,13 @@ export function PanelUsersPage() {
           setSearch(query.trim())
         }}
       >
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('admin_panel_users_search_placeholder')}
-          className="h-10 w-full max-w-sm px-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary)/0.3)]"
-        />
+        <div className="w-full max-w-sm">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('admin_panel_users_search_placeholder')}
+          />
+        </div>
         <Button type="submit">{t('admin_search')}</Button>
         {search && (
           <Button
