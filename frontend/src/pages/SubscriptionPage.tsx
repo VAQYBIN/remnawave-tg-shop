@@ -338,11 +338,11 @@ export function SubscriptionPage() {
           <>
             <SubscriptionCard subscription={subscription} />
 
-            {/* VPN link */}
+            {/* Connection link */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{t('sub_vpn_link')}</CardTitle>
-                <CardDescription>{t('sub_vpn_link_desc')}</CardDescription>
+                <CardTitle className="text-base">{t('sub_connection_link')}</CardTitle>
+                <CardDescription>{t('sub_connection_link_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {connLoading ? (
