@@ -177,6 +177,7 @@ async def _get_or_create_panel_user_link_details(
             external_squad_uuid=settings.parsed_user_external_squad_uuid,
             default_traffic_limit_bytes=settings.user_traffic_limit_bytes,
             default_traffic_limit_strategy=settings.USER_TRAFFIC_STRATEGY,
+            hwid_device_limit=settings.TRIAL_HWID_DEVICE_LIMIT,
         )
         if created and not created.get("error") and created.get("response"):
             panel_user = created["response"]
@@ -227,6 +228,10 @@ def _build_panel_update_payload(
         "trafficLimitStrategy": settings.USER_TRAFFIC_STRATEGY,
         "description": description,
     }
+    hwid_limit = settings.TRIAL_HWID_DEVICE_LIMIT
+    if hwid_limit is not None and int(hwid_limit) >= 0:
+        payload["hwidDeviceLimit"] = int(hwid_limit)
+
     if telegram_user_id is not None:
         payload["telegramId"] = telegram_user_id
     if settings.parsed_user_squad_uuids:
