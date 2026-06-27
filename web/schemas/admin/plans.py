@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Optional
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from web.schemas.types import UTCDatetime
 
@@ -106,6 +106,7 @@ class PricingPlanResponse(BaseModel):
     traffic_reset_strategy: str
     min_price_rub: Optional[float] = None
     min_price_stars: Optional[int] = None
+    hwid_device_limit: Optional[int] = Field(default=None, ge=0)
     is_trial: bool
     is_enabled: bool
     is_archived: bool
@@ -140,6 +141,7 @@ class PricingPlanCreateRequest(BaseModel):
     traffic_reset_strategy: str = "NO_RESET"
     min_price_rub: Optional[float] = None
     min_price_stars: Optional[int] = None
+    hwid_device_limit: Optional[int] = Field(default=None, ge=0)
     is_trial: bool = False
     is_enabled: bool = False
     sort_order: int = 0
@@ -161,6 +163,7 @@ class PricingPlanUpdateRequest(BaseModel):
     traffic_reset_strategy: Optional[str] = None
     min_price_rub: Optional[float] = None
     min_price_stars: Optional[int] = None
+    hwid_device_limit: Optional[int] = Field(default=None, ge=0)
     is_trial: Optional[bool] = None
     is_enabled: Optional[bool] = None
     sort_order: Optional[int] = None

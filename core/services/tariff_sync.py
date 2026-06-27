@@ -5,6 +5,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, List
 
+from config.settings import Settings
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dal import plan_entitlement_dal
@@ -17,6 +19,7 @@ async def build_panel_state(
     session: AsyncSession,
     user_id: int,
     now: Optional[datetime] = None,
+    settings: Optional[Settings] = None,
 ) -> Optional[dict]:
     """
     Build target Remnawave state from active entitlements.
@@ -70,6 +73,10 @@ async def build_panel_state(
 
     strategy = (standalone.plan.traffic_reset_strategy or "NO_RESET").upper()
 
+    hwid_limit = standalone.plan.hwid_device_limit
+    if hwid_limit is None and settings is not None:
+        hwid_limit = settings.TRIAL_HWID_DEVICE_LIMIT if standalone.plan.is_trial else settings.USER_HWID_DEVICE_LIMIT
+
     expire_iso = expire_at.isoformat(timespec="milliseconds")
     if expire_iso.endswith("+00:00"):
         expire_iso = expire_iso[:-6] + "Z"
@@ -82,6 +89,7 @@ async def build_panel_state(
         "trafficLimitBytes": traffic_limit_bytes,
         "trafficLimitStrategy": strategy,
         "status": "ACTIVE",
+        **({"hwidDeviceLimit": int(hwid_limit)} if hwid_limit is not None and int(hwid_limit) >= 0 else {}),
     }
 
 
@@ -96,7 +104,7 @@ async def sync_entitlements_to_panel(
     Build state from active entitlements and push to Remnawave via single PATCH /users.
     Returns True if Remnawave accepted the update, False otherwise.
     """
-    state = await build_panel_state(session, user_id, now=now)
+    state = await build_panel_state(session, user_id, now=now, settings=panel_service.settings)
     if state is None:
         logger.warning(
             "sync_entitlements_to_panel: no standalone for user %s; skipping Remnawave sync",

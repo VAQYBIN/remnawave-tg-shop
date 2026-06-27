@@ -496,6 +496,7 @@ class PricingPlan(Base):
     traffic_reset_strategy: Mapped[str] = mapped_column(String(30), nullable=False, default="NO_RESET")
     min_price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     min_price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    hwid_device_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)

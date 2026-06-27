@@ -191,6 +191,7 @@ async def create_new_plan(
         traffic_reset_strategy=body.traffic_reset_strategy,
         min_price_rub=body.min_price_rub,
         min_price_stars=body.min_price_stars,
+        hwid_device_limit=body.hwid_device_limit,
         is_trial=body.is_trial,
         is_enabled=body.is_enabled,
         sort_order=body.sort_order,
