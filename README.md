@@ -453,6 +453,7 @@ Resend отправляет коды подтверждения при реги�
 | `REFERRAL_ENABLED` | Реферальная система | `true` |
 | `TRIAL_ENABLED` | Пробный период | `true` |
 | `TRIAL_DURATION_DAYS` | Длительность пробного периода (дней) | `5` |
+| `TRIAL_HWID_DEVICE_LIMIT` | Лимит устройств HWID для пробного периода (`0` = безлимит) | `1` |
 
 </details>
 
@@ -536,7 +537,7 @@ MIN_PRORATED_PRICE_STARS=
 | `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
 | `USER_EXTERNAL_SQUAD_UUID` | UUID External Squad (опционально) |
 | `USER_TRAFFIC_LIMIT_GB` | Лимит трафика (0 = безлимит) |
-| `USER_HWID_DEVICE_LIMIT` | Лимит устройств HWID (0 = безлимит) |
+| `USER_HWID_DEVICE_LIMIT` | Дефолтный лимит устройств HWID для платных тарифов (0 = безлимит). В админке у каждого тарифа можно задать свой лимит, который хранится в БД и переопределяет это значение. |
 | `SUBSCRIPTION_PAGE_CONFIG_UUID` | UUID Subscription Page для вкладок «Устройства»/«Инструкция» (пусто = конфиг «Default» из панели) |
 | `SUBSCRIPTION_PAGE_CONFIG_PATH` | Опциональный офлайн-override: путь к смонтированному `app-config-v2.json` (приоритет над панелью) |
 
