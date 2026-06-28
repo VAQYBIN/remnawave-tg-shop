@@ -124,7 +124,7 @@ function SquadPicker({ value, onChange }: { value: string; onChange: (v: string)
               key={sq.uuid}
               type="button"
               className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--muted))] flex justify-between items-center gap-2"
-              onClick={() => { onChange(sq.uuid); setOpen(false) }}
+              onClick={() => { onChange(value ? `${value}, ${sq.uuid}` : sq.uuid); setOpen(false) }}
             >
               <span className="font-medium">{sq.name}</span>
               <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{sq.uuid}</span>
@@ -363,7 +363,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   const [resetStrategy, setResetStrategy] = useState<ResetStrategy>(
     (plan?.traffic_reset_strategy as ResetStrategy) ?? 'NO_RESET'
   )
-  const [squadUuid, setSquadUuid] = useState(plan?.remnawave_squad_uuid ?? '')
+  const [squadUuid, setSquadUuid] = useState((plan?.remnawave_squad_uuids?.length ? plan.remnawave_squad_uuids.join(', ') : plan?.remnawave_squad_uuid) ?? '')
   const [isEnabled, setIsEnabled] = useState(plan?.is_enabled ?? true)
   const [minPriceRub, setMinPriceRub] = useState(plan?.min_price_rub?.toString() ?? '')
   const [minPriceStars, setMinPriceStars] = useState(plan?.min_price_stars?.toString() ?? '')
@@ -438,7 +438,8 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameRu.trim()) return
-    if (planKind === 'standalone' && !squadUuid.trim()) {
+    const squadUuids = squadUuid.split(',').map(v => v.trim()).filter(Boolean)
+    if (planKind === 'standalone' && squadUuids.length === 0) {
       toast(t('admin_plans_squad_required'), 'error')
       return
     }
@@ -454,7 +455,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           name_en: nameEn.trim() || null,
           description_ru: descRu.trim() || null,
           description_en: descEn.trim() || null,
-          remnawave_squad_uuid: squadUuid.trim() || null,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : null,
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
@@ -474,7 +475,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           name_en: nameEn.trim() || undefined,
           description_ru: descRu.trim() || undefined,
           description_en: descEn.trim() || undefined,
-          remnawave_squad_uuid: squadUuid.trim() || undefined,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : undefined,
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
@@ -1063,7 +1064,7 @@ function TrialModal({
   const [days, setDays] = useState(String(trialOption?.duration_days ?? ''))
   const [trafficGb, setTrafficGb] = useState(String(trialOption?.traffic_gb ?? ''))
   const [trafficUnlimited, setTrafficUnlimited] = useState(trialOption?.traffic_unlimited ?? false)
-  const [squadUuid, setSquadUuid] = useState(trialPlan?.remnawave_squad_uuid ?? '')
+  const [squadUuid, setSquadUuid] = useState((trialPlan?.remnawave_squad_uuids?.length ? trialPlan.remnawave_squad_uuids.join(', ') : trialPlan?.remnawave_squad_uuid) ?? '')
   const [hwidDeviceLimit, setHwidDeviceLimit] = useState(trialPlan?.hwid_device_limit?.toString() ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -1071,12 +1072,13 @@ function TrialModal({
     setSaving(true)
     try {
       const daysVal = parseInt(days)
+      const squadUuids = squadUuid.split(',').map(v => v.trim()).filter(Boolean)
       const trafficVal = parseFloat(trafficGb)
       const hwidLimit = parseInt(hwidDeviceLimit)
 
       if (trialPlan) {
         await updatePlan(trialPlan.id, {
-          remnawave_squad_uuid: squadUuid || null,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : null,
           hwid_device_limit: !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : null,
         })
         if (trialOption) {
@@ -1107,7 +1109,7 @@ function TrialModal({
           traffic_reset_strategy: 'NO_RESET',
           is_trial: true,
           is_enabled: false,
-          remnawave_squad_uuid: squadUuid || undefined,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : undefined,
           hwid_device_limit: !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : undefined,
         })
         await createPlanOption(created.id, {

@@ -25,6 +25,7 @@ export interface PricingPlanResponse {
   description_ru: string | null
   description_en: string | null
   remnawave_squad_uuid: string | null
+  remnawave_squad_uuids: string[]
   remnawave_squad_name_snapshot: string | null
   plan_kind: string
   billing_model: string
@@ -53,6 +54,7 @@ export interface PricingPlanCreateRequest {
   description_ru?: string
   description_en?: string
   remnawave_squad_uuid?: string
+  remnawave_squad_uuids?: string[]
   plan_kind?: string
   billing_model?: string
   traffic_reset_strategy?: string
@@ -70,6 +72,7 @@ export interface PricingPlanUpdateRequest {
   description_ru?: string | null
   description_en?: string | null
   remnawave_squad_uuid?: string | null
+  remnawave_squad_uuids?: string[] | null
   plan_kind?: string
   billing_model?: string
   traffic_reset_strategy?: string

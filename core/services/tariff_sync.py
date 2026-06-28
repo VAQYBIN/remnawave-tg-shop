@@ -45,15 +45,19 @@ async def build_panel_state(
         logger.debug("build_panel_state: no active standalone for user %s", user_id)
         return None
 
-    # activeInternalSquads: standalone first, then addons (no duplicates)
+    # activeInternalSquads: all standalone squads first, then addon squads (no duplicates)
     squad_uuids: List[str] = []
-    if standalone.plan.remnawave_squad_uuid:
-        squad_uuids.append(standalone.plan.remnawave_squad_uuid)
-    for addon in addons:
-        if addon.plan and addon.plan.remnawave_squad_uuid:
-            uuid_val = addon.plan.remnawave_squad_uuid
-            if uuid_val not in squad_uuids:
+
+    def add_plan_squads(plan) -> None:
+        values = plan.remnawave_squad_uuids or ([plan.remnawave_squad_uuid] if plan.remnawave_squad_uuid else [])
+        for uuid_val in values:
+            if uuid_val and uuid_val not in squad_uuids:
                 squad_uuids.append(uuid_val)
+
+    add_plan_squads(standalone.plan)
+    for addon in addons:
+        if addon.plan:
+            add_plan_squads(addon.plan)
 
     expire_at = standalone.ends_at
     if expire_at is None:
