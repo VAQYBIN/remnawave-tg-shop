@@ -17,6 +17,7 @@ _PROVIDER_LABELS = {
     "platega": "Platega",
     "freekassa": "FreeKassa",
     "severpay": "SeverPay",
+    "lavapay": "LavaPay",
     "cryptopay": "CryptoPay",
     "stars": "Telegram Stars",
 }

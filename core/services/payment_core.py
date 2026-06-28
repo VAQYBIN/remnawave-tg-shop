@@ -49,6 +49,8 @@ def get_available_providers(settings: Settings) -> List[str]:
         providers.append("freekassa")
     if settings.SEVERPAY_ENABLED and settings.SEVERPAY_MID and settings.SEVERPAY_TOKEN:
         providers.append("severpay")
+    if settings.LAVAPAY_ENABLED and settings.LAVAPAY_API_KEY and settings.LAVAPAY_PROJECT_ID:
+        providers.append("lavapay")
     if settings.CRYPTOPAY_ENABLED and settings.CRYPTOPAY_TOKEN:
         providers.append("cryptopay")
     return providers
@@ -216,6 +218,53 @@ async def _create_platega_payment(
         )
     if not redirect_url:
         raise RuntimeError("Platega: no redirect URL in response")
+    return provider_id, redirect_url
+
+
+def _lavapay_signature(secret: str, body: dict) -> str:
+    raw = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
+    return hmac.new(secret.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+async def _create_lavapay_payment(
+    settings: Settings,
+    *,
+    payment_db_id: int,
+    amount: float,
+    description: str,
+    return_url: str,
+) -> Tuple[str, str]:
+    hook_url = None
+    if settings.WEBHOOK_BASE_URL:
+        hook_url = f"{settings.WEBHOOK_BASE_URL.rstrip('/')}/webhook/lavapay"
+    body = {
+        "sum": float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+        "orderId": str(payment_db_id),
+        "shopId": settings.LAVAPAY_PROJECT_ID,
+        "hookUrl": hook_url,
+        "successUrl": settings.LAVAPAY_RETURN_URL or return_url,
+        "failUrl": settings.LAVAPAY_FAIL_URL or return_url,
+        "comment": description[:255],
+        "customFields": json.dumps({"payment_db_id": payment_db_id}, ensure_ascii=False),
+    }
+    body = {k: v for k, v in body.items() if v not in (None, "")}
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Signature": _lavapay_signature(settings.LAVAPAY_API_KEY or "", body),
+    }
+    base_url = (settings.LAVAPAY_BASE_URL or "https://api.lava.ru").rstrip("/")
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(f"{base_url}/business/invoice/create", json=body, headers=headers)
+    if resp.status_code != 200:
+        logger.error("LavaPay error: %s %s", resp.status_code, resp.text[:500])
+        raise RuntimeError(f"LavaPay API error: {resp.status_code}")
+    data = resp.json()
+    response_data = data.get("data") if isinstance(data.get("data"), dict) else data
+    provider_id = str(response_data.get("invoiceId") or response_data.get("id") or payment_db_id)
+    redirect_url = response_data.get("url") or response_data.get("paymentUrl") or response_data.get("payment_url")
+    if not redirect_url:
+        raise RuntimeError("LavaPay: no redirect URL in response")
     return provider_id, redirect_url
 
 
@@ -602,6 +651,14 @@ async def create_web_payment(
             )
         elif provider == "platega":
             provider_id, redirect_url = await _create_platega_payment(
+                settings,
+                payment_db_id=payment_db_id,
+                amount=final_amount,
+                description=description,
+                return_url=return_url,
+            )
+        elif provider == "lavapay":
+            provider_id, redirect_url = await _create_lavapay_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 amount=final_amount,
