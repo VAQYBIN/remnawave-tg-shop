@@ -272,7 +272,7 @@ export function BrandingPage() {
               label={t('admin_branding_brand_name')}
               value={form.brand_name}
               onChange={e => setForm(f => ({ ...f, brand_name: e.target.value }))}
-              placeholder="DonBaton Shop"
+              placeholder="Obereg Shop"
             />
             <FontSelect
               label={t('admin_branding_font_body')}
