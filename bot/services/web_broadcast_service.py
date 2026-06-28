@@ -8,6 +8,9 @@ import logging
 from typing import Optional
 
 from aiogram import Bot
+from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.enums import ParseMode
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from redis.asyncio import Redis
 from sqlalchemy.orm import sessionmaker
@@ -64,6 +67,29 @@ class WebBroadcastService:
         self.settings = settings
         self.async_session_factory = async_session_factory
         self._task: Optional[asyncio.Task] = None
+
+    def _build_broadcast_bots(self) -> list[tuple[str, Bot, bool]]:
+        """Return all bots that should be used for a web-admin broadcast.
+
+        The primary app bot is reused to avoid reopening its session. Additional
+        tokens from BROADCAST_BOT_TOKENS get short-lived Bot instances; send
+        errors are handled per chat/token attempt by _execute.
+        """
+        bots: list[tuple[str, Bot, bool]] = []
+        primary_token = (self.settings.BOT_TOKEN or "").strip()
+        default_props = DefaultBotProperties(parse_mode=ParseMode.HTML)
+
+        for token in self.settings.BROADCAST_TOKENS:
+            if token == primary_token:
+                bots.append((token, self.bot, False))
+                continue
+
+            session = None
+            if self.settings.TELEGRAM_PROXY_URL:
+                session = AiohttpSession(proxy=self.settings.TELEGRAM_PROXY_URL)
+            bots.append((token, Bot(token=token, default=default_props, session=session), True))
+
+        return bots
 
     async def start(self) -> None:
         self._task = asyncio.create_task(self._listen(), name="web-broadcast-listener")
@@ -167,7 +193,8 @@ class WebBroadcastService:
                 else:
                     user_ids = await user_dal.get_all_active_user_ids_for_broadcast(session)
 
-            total = len(user_ids)
+            broadcast_bots = self._build_broadcast_bots()
+            total = len(user_ids) * len(broadcast_bots)
             await self._set_status(
                 redis, broadcast_id, {"status": "running", "total": total, "sent": 0, "failed": 0}
             )
@@ -175,28 +202,41 @@ class WebBroadcastService:
             sent = 0
             failed = 0
 
-            for uid in user_ids:
-                try:
-                    await self.bot.send_message(
-                        chat_id=uid,
-                        text=text,
-                        parse_mode="HTML",
-                        disable_web_page_preview=True,
-                        reply_markup=keyboard,
-                    )
-                    sent += 1
-                except Exception as exc:
-                    failed += 1
-                    logger.debug("Broadcast %s: failed to send to %d: %s", broadcast_id, uid, exc)
+            try:
+                for uid in user_ids:
+                    for token, bot, _should_close in broadcast_bots:
+                        try:
+                            await bot.send_message(
+                                chat_id=uid,
+                                text=text,
+                                parse_mode="HTML",
+                                disable_web_page_preview=True,
+                                reply_markup=keyboard,
+                            )
+                            sent += 1
+                        except Exception as exc:
+                            failed += 1
+                            token_id = token.split(":", 1)[0]
+                            logger.debug(
+                                "Broadcast %s: bot %s failed to send to %d: %s",
+                                broadcast_id,
+                                token_id,
+                                uid,
+                                exc,
+                            )
 
-                if (sent + failed) % _STATUS_UPDATE_EVERY == 0:
-                    await self._set_status(
-                        redis,
-                        broadcast_id,
-                        {"status": "running", "total": total, "sent": sent, "failed": failed},
-                    )
+                        if (sent + failed) % _STATUS_UPDATE_EVERY == 0:
+                            await self._set_status(
+                                redis,
+                                broadcast_id,
+                                {"status": "running", "total": total, "sent": sent, "failed": failed},
+                            )
 
-                await asyncio.sleep(_RATE_LIMIT_DELAY)
+                        await asyncio.sleep(_RATE_LIMIT_DELAY)
+            finally:
+                for _token, bot, should_close in broadcast_bots:
+                    if should_close:
+                        await bot.session.close()
 
             await self._set_status(
                 redis,

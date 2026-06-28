@@ -6,6 +6,10 @@ from typing import Optional, List, Dict, Any
 
 class Settings(BaseSettings):
     BOT_TOKEN: str
+    BROADCAST_BOT_TOKENS: str = Field(
+        default="",
+        description="Comma-separated Telegram bot tokens used for admin broadcasts. Falls back to BOT_TOKEN when empty.",
+    )
     TELEGRAM_PROXY_URL: Optional[str] = None
     ADMIN_IDS_STR: str = Field(
         default="",
@@ -286,6 +290,24 @@ class Settings(BaseSettings):
     def PRIMARY_ADMIN_ID(self) -> Optional[int]:
         ids = self.ADMIN_IDS
         return ids[0] if ids else None
+
+    @computed_field
+    @property
+    def BROADCAST_TOKENS(self) -> List[str]:
+        raw_tokens = (
+            self.BROADCAST_BOT_TOKENS.split(',')
+            if self.BROADCAST_BOT_TOKENS
+            else [self.BOT_TOKEN]
+        )
+
+        tokens: List[str] = []
+        seen: set[str] = set()
+        for token in raw_tokens:
+            token = token.strip()
+            if token and token not in seen:
+                tokens.append(token)
+                seen.add(token)
+        return tokens
 
     @computed_field
     @property
