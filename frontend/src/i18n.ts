@@ -122,7 +122,7 @@ const ru = {
 
   // Subscription page
   sub_title: 'Подписка',
-  sub_connection_link: 'Ссылка ДонБатон',
+  sub_connection_link: 'Ссылка Оберег',
   sub_connection_link_desc: 'Используйте для подключения в клиенте',
   sub_get_link: 'Получить ссылку',
   sub_auto_renew: 'Автопродление',
@@ -141,8 +141,8 @@ const ru = {
   sub_no_plans: 'Тарифы не настроены',
   sub_error_select: 'Выберите тариф и способ оплаты',
   trial_banner_title: 'Попробуйте бесплатно {{days}} дн.',
-  trial_banner_subtitle_limited: 'Ссылка ДонБатон будет доступна сразу. Лимит: {{gb}} ГБ.',
-  trial_banner_subtitle_unlimited: 'Ссылка ДонБатон будет доступна сразу. Трафик без лимита.',
+  trial_banner_subtitle_limited: 'Ссылка Оберег будет доступна сразу. Лимит: {{gb}} ГБ.',
+  trial_banner_subtitle_unlimited: 'Ссылка Оберег будет доступна сразу. Трафик без лимита.',
   trial_activate: 'Активировать',
   trial_activating: 'Активируем...',
   trial_success: 'Пробный период активирован',
@@ -941,7 +941,7 @@ const ru = {
   support_status_in_progress: 'В работе',
   support_status_closed: 'Закрыт',
   support_category_payment: 'Оплата и платежи',
-  support_category_connection: 'Подключение / ДонБатон',
+  support_category_connection: 'Подключение / Оберег',
   support_category_subscription: 'Подписка и тарифы',
   support_category_other: 'Другое / общий вопрос',
 
@@ -1081,7 +1081,7 @@ const en: typeof ru = {
   subcard_auto_renew: 'Auto-renewal enabled',
 
   sub_title: 'Subscription',
-  sub_connection_link: 'DonBaton Link',
+  sub_connection_link: 'Obereg Link',
   sub_connection_link_desc: 'Use to connect in your client',
   sub_get_link: 'Get Link',
   sub_auto_renew: 'Auto-renewal',
@@ -1894,7 +1894,7 @@ const en: typeof ru = {
   support_status_in_progress: 'In progress',
   support_status_closed: 'Closed',
   support_category_payment: 'Payments',
-  support_category_connection: 'Connection / DonBaton',
+  support_category_connection: 'Connection / Obereg',
   support_category_subscription: 'Subscription & plans',
   support_category_other: 'Other / general',
 
