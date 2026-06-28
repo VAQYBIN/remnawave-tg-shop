@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
@@ -56,6 +56,28 @@ async def _validate_squad_uuid(squad_uuid: str, settings: Settings) -> Optional[
             detail=f"Remnawave squad UUID недействителен или панель недоступна: {error_msg}",
         )
     return name
+
+
+def _normalize_squad_uuids(*values: object) -> List[str]:
+    uuids: List[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value:
+            continue
+        raw_items = value if isinstance(value, list) else str(value).split(',')
+        for item in raw_items:
+            uuid = str(item).strip()
+            if uuid and uuid not in seen:
+                uuids.append(uuid)
+                seen.add(uuid)
+    return uuids
+
+
+async def _validate_squad_uuids(squad_uuids: List[str], settings: Settings) -> str | None:
+    names: List[str] = []
+    for squad_uuid in squad_uuids:
+        names.append(await _validate_squad_uuid(squad_uuid, settings) or squad_uuid)
+    return ", ".join(names) if names else None
 
 
 async def _unique_slug(db: AsyncSession, base: str, exclude_id: Optional[int] = None) -> str:
@@ -170,9 +192,8 @@ async def create_new_plan(
     admin: Account = Depends(get_current_admin),
     settings: Settings = Depends(get_settings_dep),
 ) -> PricingPlanResponse:
-    squad_name: Optional[str] = None
-    if body.remnawave_squad_uuid:
-        squad_name = await _validate_squad_uuid(body.remnawave_squad_uuid, settings)
+    squad_uuids = _normalize_squad_uuids(body.remnawave_squad_uuids, body.remnawave_squad_uuid)
+    squad_name = await _validate_squad_uuids(squad_uuids, settings) if squad_uuids else None
 
     base = slugify(body.slug) if body.slug else slugify(body.name_ru)
     slug = await _unique_slug(db, base)
@@ -184,7 +205,8 @@ async def create_new_plan(
         name_en=body.name_en,
         description_ru=body.description_ru,
         description_en=body.description_en,
-        remnawave_squad_uuid=body.remnawave_squad_uuid,
+        remnawave_squad_uuid=squad_uuids[0] if squad_uuids else None,
+        remnawave_squad_uuids=squad_uuids or None,
         remnawave_squad_name_snapshot=squad_name,
         plan_kind=body.plan_kind,
         billing_model=body.billing_model,
@@ -237,13 +259,16 @@ async def update_existing_plan(
                 detail="Нельзя менять plan_kind тарифа с активными правами пользователей",
             )
 
-    if "remnawave_squad_uuid" in updates:
-        uuid_val = updates["remnawave_squad_uuid"]
-        if uuid_val:
-            snapshot = await _validate_squad_uuid(uuid_val, settings)
-            updates["remnawave_squad_name_snapshot"] = snapshot
-        else:
-            updates["remnawave_squad_name_snapshot"] = None
+    if "remnawave_squad_uuid" in updates or "remnawave_squad_uuids" in updates:
+        squad_uuids = _normalize_squad_uuids(
+            updates.get("remnawave_squad_uuids"),
+            updates.get("remnawave_squad_uuid") if "remnawave_squad_uuid" in updates else None,
+        )
+        updates["remnawave_squad_uuids"] = squad_uuids or None
+        updates["remnawave_squad_uuid"] = squad_uuids[0] if squad_uuids else None
+        updates["remnawave_squad_name_snapshot"] = (
+            await _validate_squad_uuids(squad_uuids, settings) if squad_uuids else None
+        )
 
     eff_billing_model = updates.get("billing_model", plan.billing_model)
     eff_reset_strategy = updates.get("traffic_reset_strategy", plan.traffic_reset_strategy)

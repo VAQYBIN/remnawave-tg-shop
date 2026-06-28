@@ -219,10 +219,9 @@ class Settings(BaseSettings):
     PANEL_API_KEY: Optional[str] = None
     USER_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=0.0)
     USER_TRAFFIC_STRATEGY: str = Field(default="NO_RESET")
-    USER_SQUAD_UUIDS: Optional[str] = Field(
+    USER_SQUAD_UUIDS: Optional[List[str]] = Field(
         default=None,
-        description=
-        "Comma-separated UUIDs of internal squads to assign to new panel users")
+        description="Comma-separated UUIDs of internal squads to assign to new panel users")
     USER_EXTERNAL_SQUAD_UUID: Optional[str] = Field(
         default=None,
         description=
@@ -323,16 +322,21 @@ class Settings(BaseSettings):
             return 0
         return int(self.USER_TRAFFIC_LIMIT_GB * (1024**3))
 
+    @field_validator("USER_SQUAD_UUIDS", mode="before")
+    @classmethod
+    def parse_user_squad_uuids(cls, value: object) -> Optional[List[str]]:
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            return [uuid.strip() for uuid in value.split(',') if uuid.strip()] or None
+        if isinstance(value, list):
+            return [str(uuid).strip() for uuid in value if str(uuid).strip()] or None
+        return value
+
     @computed_field
     @property
     def parsed_user_squad_uuids(self) -> Optional[List[str]]:
-        if self.USER_SQUAD_UUIDS:
-            return [
-                uuid.strip()
-                for uuid in self.USER_SQUAD_UUIDS.split(',')
-                if uuid.strip()
-            ]
-        return None
+        return self.USER_SQUAD_UUIDS or None
 
     @computed_field
     @property

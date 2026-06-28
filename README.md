@@ -154,7 +154,7 @@ nano .env
 | `PANEL_API_URL` | URL API Remnawave (например, `http://remnawave:3000/api`) |
 | `PANEL_API_KEY` | API-ключ из UI панели Remnawave |
 | `PANEL_WEBHOOK_SECRET` | Секрет для проверки вебхуков от панели |
-| `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
+| `USER_SQUAD_UUIDS` | Список UUID Internal Squads для новых пользователей, значения через запятую (`uuid1,uuid2`) |
 | `WEB_JWT_SECRET` | Секрет для подписи JWT (придумайте длинную строку) |
 | `REDIS_URL` | `redis://remnawave-tg-shop-redis:6379/0` |
 | `WEB_FRONTEND_URL` | URL фронтенда, например `https://app.your-domain.com` |
@@ -410,10 +410,10 @@ Resend отправляет коды подтверждения при реги�
 ## 🧩 Custom Tariffs (кастомные тарифы)
 
 Тарифы хранятся в БД и управляются через админку (web или bot), а не через `.env`.
-Поддерживаются несколько тарифов, разные Remnawave Internal Squads, тарифы по
+Поддерживаются несколько тарифов, списки Remnawave Internal Squads на один тариф, тарифы по
 сроку / по трафику / смешанные, пробный период как тариф и добавочные (addon)
 тарифы. Старые `.env`-цены и `USER_SQUAD_UUIDS` помечены **deprecated** —
-используются только для bootstrap тарифа `legacy-default` на пустой БД.
+используются только для bootstrap тарифа `legacy-default` на пустой БД. В админке у тарифа можно указать несколько Internal Squad UUID: вручную через запятую или выбирая несколько значений в picker; при синхронизации все UUID применяются списком в `activeInternalSquads`.
 
 > Требуется **Remnawave 2.7.4** — тарифы валидируют Internal Squads через API
 > панели.
@@ -536,7 +536,7 @@ MIN_PRORATED_PRICE_STARS=
 | `PANEL_API_URL` | URL API панели (`http://remnawave:3000/api`) |
 | `PANEL_API_KEY` | API-ключ из UI панели |
 | `PANEL_WEBHOOK_SECRET` | Секрет для проверки вебхуков |
-| `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
+| `USER_SQUAD_UUIDS` | Список UUID Internal Squads для новых пользователей, значения через запятую (`uuid1,uuid2`) |
 | `USER_EXTERNAL_SQUAD_UUID` | UUID External Squad (опционально) |
 | `USER_TRAFFIC_LIMIT_GB` | Лимит трафика (0 = безлимит) |
 | `USER_HWID_DEVICE_LIMIT` | Дефолтный лимит устройств HWID для платных тарифов (0 = безлимит). В админке у каждого тарифа можно задать свой лимит, который хранится в БД и переопределяет это значение. |

@@ -202,6 +202,7 @@ async def ensure_legacy_default_plan(
         description_ru="Тариф, созданный автоматически для совместимости.",
         description_en="Compatibility plan created automatically.",
         remnawave_squad_uuid=squad_uuid,
+        remnawave_squad_uuids=[squad_uuid] if squad_uuid else None,
         plan_kind="standalone",
         billing_model="time",
         traffic_reset_strategy="NO_RESET",
@@ -267,7 +268,7 @@ async def get_plan_by_months(db: AsyncSession, duration_months: int) -> Optional
 
 
 def _validate_legacy_enable(plan: PricingPlan, price_rub: object, price_stars: object) -> None:
-    if not plan.remnawave_squad_uuid:
+    if not (plan.remnawave_squad_uuids or plan.remnawave_squad_uuid):
         raise ValueError(
             "Невозможно включить тариф: USER_SQUAD_UUIDS не настроен (нет squad UUID)."
         )
