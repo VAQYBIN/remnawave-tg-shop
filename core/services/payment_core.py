@@ -92,6 +92,29 @@ async def get_plan_price_db(db: AsyncSession, settings: Settings, months: int) -
     return get_plan_price(settings, months)
 
 
+def _build_yookassa_receipt(settings: Settings, *, amount: float, description: str) -> dict:
+    """Build YooKassa receipt payload required by shops with fiscalization enabled."""
+    if not settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL:
+        raise ValueError("YOOKASSA_DEFAULT_RECEIPT_EMAIL is required for YooKassa receipts")
+
+    receipt: dict = {
+        "customer": {"email": settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL},
+        "items": [
+            {
+                "description": description[:128],
+                "quantity": "1.00",
+                "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
+                "vat_code": int(settings.YOOKASSA_VAT_CODE),
+                "payment_mode": settings.yk_receipt_payment_mode,
+                "payment_subject": settings.yk_receipt_payment_subject,
+            }
+        ],
+    }
+    if settings.YOOKASSA_TAX_SYSTEM_CODE is not None:
+        receipt["tax_system_code"] = int(settings.YOOKASSA_TAX_SYSTEM_CODE)
+    return receipt
+
+
 async def _create_yookassa_payment(
     settings: Settings,
     *,
@@ -115,7 +138,17 @@ async def _create_yookassa_payment(
             "subscription_months": str(months),
             "sale_mode": "subscription",
         },
+        "receipt": _build_yookassa_receipt(
+            settings,
+            amount=amount,
+            description=description,
+        ),
     }
+
+    logger.info(
+        "Creating YooKassa web payment request: %s",
+        json.dumps(payload, ensure_ascii=False, sort_keys=True),
+    )
 
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(

@@ -56,3 +56,34 @@ def test_available_providers_db_preserves_valid_db_order(monkeypatch):
     )
 
     assert providers == ["cryptopay", "yookassa"]
+
+
+def test_build_yookassa_receipt_contains_required_fiscalization_fields():
+    settings = make_settings(
+        YOOKASSA_DEFAULT_RECEIPT_EMAIL="user@example.com",
+        YOOKASSA_VAT_CODE=1,
+        YOOKASSA_TAX_SYSTEM_CODE=2,
+        yk_receipt_payment_mode="full_prepayment",
+        yk_receipt_payment_subject="payment",
+    )
+
+    receipt = payment_core._build_yookassa_receipt(
+        settings,
+        amount=150.0,
+        description="Оплата подписки на 1 мес.",
+    )
+
+    assert receipt == {
+        "customer": {"email": "user@example.com"},
+        "items": [
+            {
+                "description": "Оплата подписки на 1 мес.",
+                "quantity": "1.00",
+                "amount": {"value": "150.00", "currency": "RUB"},
+                "vat_code": 1,
+                "payment_mode": "full_prepayment",
+                "payment_subject": "payment",
+            }
+        ],
+        "tax_system_code": 2,
+    }
