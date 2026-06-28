@@ -55,15 +55,31 @@ def get_available_providers(settings: Settings) -> List[str]:
 
 
 async def get_available_providers_db(db: AsyncSession, settings: Settings) -> List[str]:
-    """Return enabled providers in DB order. Falls back to env vars if DB has no enabled entries."""
+    """Return enabled web providers that are actually configured in .env.
+
+    DB rows are used only for ordering/admin overrides. If the DB contains enabled
+    rows that do not have matching credentials in .env, fall back to the .env list
+    instead of returning an empty list and disabling website payments.
+    """
     from core.dal.payment_provider_config_dal import get_enabled_providers
+
+    env_available = get_available_providers(settings)
+    if not env_available:
+        return []
+
     db_providers = await get_enabled_providers(db)
     if db_providers:
-        # Filter by credentials still present in env vars (DB enables only if credentials exist)
-        env_available = set(get_available_providers(settings))
-        return [p.provider_key for p in db_providers if p.provider_key in env_available]
-    # Legacy: fall back to env vars order
-    return get_available_providers(settings)
+        env_available_set = set(env_available)
+        filtered = [p.provider_key for p in db_providers if p.provider_key in env_available_set]
+        if filtered:
+            return filtered
+        logger.warning(
+            "Enabled payment provider rows in DB do not match configured .env providers; "
+            "falling back to .env providers: %s",
+            ",".join(env_available),
+        )
+
+    return env_available
 
 
 async def get_plan_price_db(db: AsyncSession, settings: Settings, months: int) -> Optional[float]:
