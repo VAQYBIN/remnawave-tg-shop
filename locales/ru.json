@@ -49,7 +49,6 @@
   "pay_with_cryptopay_button": "💎 CryptoBot",
   "pay_with_stars_button": "🌟 Звезды Telegram",
   "connect_button": "🔗 Подключиться",
-
   "devices_button": "📱 Мои устройства ({current_devices}/{max_devices})",
   "my_devices_details": "📱 <b>Список ваших устройств ({current_devices}/{max_devices})</b>\n\n{devices}\n\nВы можете отключить устройство, выбрав его в списке ниже.\n<blockquote><i>Примечание: Если вы отключили устройство, оно будет автоматически подключено заново при следующем использовании. Перед удалением убедитесь, что вы удалили подписку из приложения.</i></blockquote>",
   "no_devices_details_found_message": "📱 <b>Список ваших устройств</b>\n\nУ вас пока нет устройств.\nВам доступно {max_devices} устройств. Подключить их можно через кнопку \"🔗 Подключиться\" в меню подписки.",
@@ -59,7 +58,6 @@
   "no_devices_found": "Ошибка загрузки списка устройств.",
   "devices_unlimited_label": "Без ограничений",
   "my_devices_feature_disabled": "Раздел \"Мои устройства\" сейчас недоступен.",
-
   "cancel_button": "❌ Отмена",
   "payment_description_subscription": "Оплата подписки на {months} мес.",
   "payment_description_traffic": "Пакет трафика {traffic_gb} ГБ",
@@ -537,18 +535,16 @@
   "link_email_code_sent": "📬 Код подтверждения отправлен на <b>{email}</b>.\n\nВведите 6-значный код из письма:",
   "link_email_invalid_code": "❌ Неверный или устаревший код. Попробуйте ещё раз или начните заново командой /link_email.",
   "link_email_success": "✅ Email <b>{email}</b> успешно привязан к вашему аккаунту!\n\nТеперь вы можете войти на <a href=\"{frontend_url}\">{frontend_url}</a> через этот email.\n\n<i>Если вы ещё не устанавливали пароль — воспользуйтесь кнопкой «Забыли пароль?» на странице входа.</i>",
-
   "catalog_select_tariff": "Выберите тариф:",
   "catalog_select_option": "Выберите вариант подписки:",
   "catalog_addons_header": "Дополнения:",
   "catalog_addon_unavailable": "⚠️ Дополнения доступны только при наличии активной подписки.",
-  "back_to_tariff_list_button": "← К тарифам",
+  "back_to_tariff_list_button": "⬅️ К тарифам",
   "back_to_plan_options_button": "← К вариантам",
   "catalog_payment_description": "Оплата: {plan_name}",
   "payment_successful_catalog_full": "✅ Оплата прошла успешно!\nПодписка активна до {end_date}.\n\nКлюч подключения:\n<code>{config_link}</code>\n\nЧтобы подключиться, перейдите по ссылке и следуйте инструкции 👇",
   "catalog_error_option_not_found": "❌ Вариант подписки не найден или недоступен.",
   "catalog_error_no_standalone": "❌ Для покупки дополнения необходима активная подписка.",
-
   "admin_tariffs_section": "🗂 Тарифы",
   "admin_tariffs_list_header": "🗂 <b>Тарифы</b>\n\nВсего тарифов: {count}",
   "admin_tariffs_empty": "🗂 <b>Тарифы</b>\n\nТарифов ещё нет. Создайте первый!",
@@ -578,8 +574,6 @@
   "admin_tariff_unarchive_failed": "❌ Ошибка при восстановлении.",
   "admin_tariff_toggle_success": "✅ Статус тарифа обновлён.",
   "admin_tariff_enable_archived_blocked": "❌ Нельзя включить архивный тариф. Сначала восстановите его из архива.",
-  "back_to_tariff_list_button": "⬅️ К тарифам",
-
   "admin_tariff_step_name_ru": "Шаг 1 — Название тарифа\n\n📝 Введите название тарифа на русском:",
   "admin_tariff_step_name_en": "Шаг 2 — Название (EN)\n\n📝 Введите название тарифа на английском или нажмите «Пропустить»:",
   "admin_tariff_step_desc_ru": "Шаг 3 — Описание (RU)\n\n📝 Введите описание тарифа на русском или нажмите «Пропустить»:",
@@ -600,7 +594,6 @@
   "admin_tariff_create_failed": "❌ Ошибка создания тарифа:\n{error}",
   "admin_tariff_squad_unavailable": "❌ Remnawave недоступен.\n\nСоздание тарифа с привязкой к Squad невозможно. Попробуйте позже или создайте тариф через веб-панель.",
   "admin_tariff_no_options_error": "❌ Добавьте хотя бы одну опцию тарифа.",
-
   "admin_tariff_kind_standalone": "Основной (standalone)",
   "admin_tariff_kind_addon": "Добавочный (addon)",
   "admin_tariff_billing_time": "По времени",
@@ -620,11 +613,9 @@
   "admin_tariff_no_button": "❌ Нет",
   "admin_tariff_confirm_button": "✅ Создать",
   "admin_tariff_cancel_button": "❌ Отмена",
-
   "admin_tariff_opt_duration_invalid": "❌ Неверный формат срока. Введите число (месяцы) или d30 (дни).",
   "admin_tariff_opt_traffic_invalid": "❌ Неверный формат. Введите число ГБ, например: 50",
   "admin_tariff_opt_price_invalid": "❌ Неверный формат цены. Введите число или «skip».",
-
   "admin_trial_menu_button": "🎁 Пробный период",
   "admin_trial_configure_button": "⚙️ Настроить",
   "admin_trial_edit_button": "⚙️ Изменить",
@@ -638,5 +629,6 @@
   "admin_trial_days_invalid": "❌ Введите целое положительное число дней (например: 7, 14, 30).",
   "admin_trial_confirm": "🎁 Подтвердите настройки пробного периода:\n\n{summary}\n\nСохранить?",
   "admin_trial_saved": "✅ Пробный период настроен!",
-  "admin_trial_save_failed": "❌ Ошибка сохранения: {error}"
+  "admin_trial_save_failed": "❌ Ошибка сохранения: {error}",
+  "pay_with_lavapay_button": "💳 LavaPay (карта/СБП)"
 }

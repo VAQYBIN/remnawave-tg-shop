@@ -142,6 +142,16 @@ class Settings(BaseSettings):
         description="Lifetime of the payment link in minutes (30-4320, defaults to provider value)",
     )
 
+    LAVAPAY_ENABLED: bool = Field(default=False)
+    LAVAPAY_API_KEY: Optional[str] = None
+    LAVAPAY_PROJECT_ID: Optional[str] = None
+    LAVAPAY_WEBHOOK_SECRET: Optional[str] = None
+    LAVAPAY_RETURN_URL: Optional[str] = Field(default=None)
+    LAVAPAY_FAIL_URL: Optional[str] = Field(default=None)
+    LAVAPAY_CURRENCY: str = Field(default="RUB")
+    LAVAPAY_AUTOPAYMENTS_ENABLED: bool = Field(default=True)
+    LAVAPAY_BASE_URL: str = Field(default="https://api.lava.ru")
+
     YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     STARS_PROVIDER_TOKEN: Optional[str] = Field(
@@ -150,7 +160,7 @@ class Settings(BaseSettings):
     )
     PAYMENT_METHODS_ORDER: Optional[str] = Field(
         default=None,
-        description="Comma-separated list of payment methods to show (e.g., severpay,freekassa,yookassa,platega,stars,cryptopay)",
+        description="Comma-separated list of payment methods to show (e.g., lavapay,severpay,freekassa,yookassa,platega,stars,cryptopay)",
     )
 
     MONTH_1_ENABLED: bool = Field(default=True, alias="1_MONTH_ENABLED")
@@ -584,6 +594,7 @@ class Settings(BaseSettings):
         Ordered list of payment providers to show in the subscription payment keyboard.
         """
         default_order = [
+            "lavapay",
             "freekassa",
             "platega",
             "severpay",

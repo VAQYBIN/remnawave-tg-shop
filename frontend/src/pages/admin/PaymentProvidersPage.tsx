@@ -32,6 +32,7 @@ const PROVIDER_DESCRIPTION_KEYS: Record<string, string> = {
   freekassa: 'admin_provider_desc_freekassa',
   platega: 'admin_provider_desc_platega',
   severpay: 'admin_provider_desc_severpay',
+  lavapay: 'LavaPay',
   stars: 'admin_provider_desc_stars',
   cryptopay: 'admin_provider_desc_cryptopay',
 }
