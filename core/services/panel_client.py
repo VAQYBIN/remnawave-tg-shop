@@ -742,9 +742,16 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
-    async def _node_action(self, node_uuid: str, action: str) -> Optional[Dict[str, Any]]:
+    async def _node_action(
+            self,
+            node_uuid: str,
+            action: str,
+            json_body: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         response_data = await self._request(
-            "POST", f"/nodes/{node_uuid}/actions/{action}", log_full_response=False
+            "POST",
+            f"/nodes/{node_uuid}/actions/{action}",
+            json=json_body,
+            log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
             return response_data.get("response")
@@ -756,12 +763,20 @@ class PanelApiService:
     async def disable_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
         return await self._node_action(node_uuid, "disable")
 
-    async def restart_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
-        return await self._node_action(node_uuid, "restart")
+    async def restart_node(
+            self, node_uuid: str, force_restart: bool = False) -> Optional[Dict[str, Any]]:
+        # Remnawave >= 2.8.0 requires forceRestart in the restart action body.
+        return await self._node_action(
+            node_uuid, "restart", json_body={"forceRestart": force_restart}
+        )
 
-    async def restart_all_nodes(self) -> bool:
+    async def restart_all_nodes(self, force_restart: bool = False) -> bool:
+        # Remnawave >= 2.8.0 requires forceRestart in the restart-all body.
         response_data = await self._request(
-            "POST", "/nodes/actions/restart-all", log_full_response=False
+            "POST",
+            "/nodes/actions/restart-all",
+            json={"forceRestart": force_restart},
+            log_full_response=False,
         )
         return bool(response_data and not response_data.get("error"))
 
