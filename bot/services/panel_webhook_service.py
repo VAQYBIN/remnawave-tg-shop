@@ -13,10 +13,23 @@ from bot.middlewares.i18n import JsonI18n
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup, get_autorenew_cancel_keyboard
 from db.dal import user_dal
 
+# Legacy discrete expiry events (Remnawave < 2.8.0).
 EVENT_MAP = {
     "user.expires_in_72_hours": (3, "subscription_72h_notification"),
     "user.expires_in_48_hours": (2, "subscription_48h_notification"),
     "user.expires_in_24_hours": (1, "subscription_24h_notification"),
+}
+
+# Remnawave >= 2.8.0 consolidated the discrete events into a single
+# `user.expiration` event carrying `meta.expiration` — a signed hour offset
+# (negative = before expiry, positive = after expiry). Map the pre-expiry
+# offsets back onto the legacy (days_left, message_key) semantics.
+# Requires panel .env: EXPIRATION_NOTIFICATIONS_ENABLED=true and
+# EXPIRATION_NOTIFICATIONS=[-72,-48,-24,24].
+EXPIRATION_OFFSET_MAP = {
+    -72: (3, "subscription_72h_notification"),
+    -48: (2, "subscription_48h_notification"),
+    -24: (1, "subscription_24h_notification"),
 }
 
 class PanelWebhookService:
@@ -52,7 +65,7 @@ class PanelWebhookService:
         except Exception as e:
             logging.error(f"Failed to send notification to {user_id}: {e}")
 
-    async def handle_event(self, event_name: str, user_payload: dict):
+    async def handle_event(self, event_name: str, user_payload: dict, meta: Optional[dict] = None):
         telegram_id = user_payload.get("telegramId")
         if not telegram_id:
             logging.warning("Panel webhook without telegramId received")
@@ -62,6 +75,38 @@ class PanelWebhookService:
         if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
             return
 
+        # Normalize expiry notifications across Remnawave versions:
+        #  - < 2.8.0: discrete events (user.expires_in_*h, user.expired_24_hours_ago)
+        #  - >= 2.8.0: single user.expiration event + meta.expiration (signed hours)
+        pre_expiry: Optional[tuple] = None   # (days_left, message_key)
+        expired_after = False                # post-expiry reminder (e.g. +24h)
+
+        if event_name in EVENT_MAP:
+            pre_expiry = EVENT_MAP[event_name]
+        elif event_name == "user.expired_24_hours_ago":
+            expired_after = True
+        elif event_name == "user.expiration":
+            offset = meta.get("expiration") if isinstance(meta, dict) else None
+            try:
+                offset = int(offset) if offset is not None else None
+            except (TypeError, ValueError):
+                offset = None
+            if offset is None:
+                logging.warning(
+                    "user.expiration webhook missing/invalid meta.expiration; ignoring"
+                )
+                return
+            if offset in EXPIRATION_OFFSET_MAP:
+                pre_expiry = EXPIRATION_OFFSET_MAP[offset]
+            elif offset > 0:
+                expired_after = True
+            else:
+                logging.info(
+                    "user.expiration offset %s has no configured notification; ignoring",
+                    offset,
+                )
+                return
+
         async with self.async_session_factory() as session:
             db_user = await user_dal.get_user_by_id(session, user_id)
             lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
@@ -69,8 +114,8 @@ class PanelWebhookService:
 
         markup = get_subscribe_only_markup(lang, self.i18n)
 
-        if event_name in EVENT_MAP:
-            days_left, msg_key = EVENT_MAP[event_name]
+        if pre_expiry is not None:
+            days_left, msg_key = pre_expiry
             if days_left == 1:
                 # Trigger auto-renew via SubscriptionService (wired in at factory)
                 try:
@@ -134,7 +179,7 @@ class PanelWebhookService:
                     user_name=first_name,
                     end_date=user_payload.get("expireAt", "")[:10],
                 )
-        elif event_name == "user.expired_24_hours_ago" and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE:
+        elif expired_after and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE:
             await self._send_message(
                 user_id,
                 lang,
@@ -168,6 +213,8 @@ class PanelWebhookService:
         user_data = payload.get("payload") or payload.get("data", {})
         if isinstance(user_data, dict) and "user" in user_data:
             user_data = user_data.get("user") or user_data
+        # Remnawave >= 2.8.0 carries the signed expiry offset in top-level meta.
+        meta = payload.get("meta") if isinstance(payload, dict) else None
 
         telegram_id = user_data.get("telegramId") if isinstance(user_data, dict) else None
 
@@ -180,7 +227,7 @@ class PanelWebhookService:
             telegram_id if telegram_id is not None else "N/A",
         )
 
-        await self.handle_event(event_name, user_data)
+        await self.handle_event(event_name, user_data, meta)
         return web.Response(status=200, text="ok")
 
 async def panel_webhook_route(request: web.Request):

@@ -27,7 +27,7 @@ def map_panel_device(raw) -> Device:
         name=raw.get("name"),
         platform=raw.get("platform"),
         os_version=raw.get("osVersion") or raw.get("os_version"),
-        model=raw.get("model"),
+        model=raw.get("deviceModel") or raw.get("model"),
         user_agent=raw.get("userAgent") or raw.get("user_agent"),
         created_at=raw.get("createdAt") or raw.get("created_at"),
         updated_at=raw.get("updatedAt") or raw.get("updated_at"),
