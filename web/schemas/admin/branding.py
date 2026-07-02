@@ -48,6 +48,9 @@ class BrandingResponse(BaseModel):
     terms_of_service_url: Optional[str] = None
     personal_data_url: Optional[str] = None
     refund_policy_url: Optional[str] = None
+    contact_support_tg_username: Optional[str] = None
+    contact_support_email: Optional[str] = None
+    contact_support_phone: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -65,6 +68,9 @@ class BrandingUpdateRequest(BaseModel):
     terms_of_service_url: Optional[str] = None
     personal_data_url: Optional[str] = None
     refund_policy_url: Optional[str] = None
+    contact_support_tg_username: Optional[str] = None
+    contact_support_email: Optional[str] = None
+    contact_support_phone: Optional[str] = None
 
     @field_validator("default_color_scheme")
     @classmethod
