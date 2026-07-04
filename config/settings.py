@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     PERSONAL_DATA_URL: Optional[str] = Field(default=None)
     REFUND_POLICY_URL: Optional[str] = Field(default=None)
+    CONNTACT_SUPPORT_TG_USERNAME: Optional[str] = Field(default=None)
+    CONNTACT_SUPPORT_EMAIL: Optional[str] = Field(default=None)
+    CONNTACT_SUPPORT_PHONE: Optional[str] = Field(default=None)
     # Subscription Page app config (Devices/Guide tabs). Pulled live from the panel
     # via PANEL_API_URL/PANEL_API_KEY. Optionally pin a specific config by UUID
     # (empty = the panel "Default" config). SUBSCRIPTION_PAGE_CONFIG_PATH is an
