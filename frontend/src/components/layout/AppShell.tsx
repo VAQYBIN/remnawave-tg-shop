@@ -10,46 +10,6 @@ import { useSupportNotifications } from '@/hooks/useSupportNotifications'
 import { useTelegramBackButton } from '@/lib/useTelegramBackButton'
 import { SupportContacts } from '@/components/support/SupportContacts'
 
-function normalizeTelegramUsername(value?: string | null) {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed.replace(/^@+/, '') : ''
-}
-
-function SupportFooter() {
-  const { branding } = useBrandingContext()
-  const { t } = useTranslation()
-  const tgUsername = normalizeTelegramUsername(branding?.contact_support_tg_username)
-  const email = branding?.contact_support_email?.trim() ?? ''
-  const phone = branding?.contact_support_phone?.trim() ?? ''
-
-  if (!tgUsername && !email && !phone) return null
-
-  return (
-    <footer className="mt-8 rounded-2xl bg-neutral-800 px-4 py-4 text-neutral-100 shadow-sm">
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-neutral-300">
-        {t('support_footer_title')}
-      </p>
-      <div className="flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap">
-        {tgUsername && (
-          <a className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 transition hover:bg-white/15" href={`https://t.me/${tgUsername}`} target="_blank" rel="noreferrer">
-            <Send size={16} /> @{tgUsername}
-          </a>
-        )}
-        {email && (
-          <a className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 transition hover:bg-white/15" href={`mailto:${email}`}>
-            <Mail size={16} /> {email}
-          </a>
-        )}
-        {phone && (
-          <a className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 transition hover:bg-white/15" href={`tel:${phone}`}>
-            <Phone size={16} /> {phone}
-          </a>
-        )}
-      </div>
-    </footer>
-  )
-}
-
 function MobileTopBar() {
   const { branding } = useBrandingContext()
   const logo = resolveLogoUrl(branding?.logo_url)

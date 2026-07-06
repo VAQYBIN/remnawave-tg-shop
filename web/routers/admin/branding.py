@@ -89,6 +89,7 @@ async def patch_branding(
     settings = await update_site_settings(db, **updates)
     await add_admin_audit_log(db, admin, "admin_branding_update", details={"fields": sorted(updates.keys())})
     await db.commit()
+    await db.refresh(settings)
     return build_branding_response(settings)
 
 

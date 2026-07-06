@@ -72,6 +72,23 @@ class BrandingUpdateRequest(BaseModel):
     contact_support_email: Optional[str] = None
     contact_support_phone: Optional[str] = None
 
+    @field_validator(
+        "privacy_policy_url",
+        "terms_of_service_url",
+        "personal_data_url",
+        "refund_policy_url",
+        "contact_support_tg_username",
+        "contact_support_email",
+        "contact_support_phone",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, v: Optional[str]) -> Optional[str]:
+        if isinstance(v, str):
+            v = v.strip()
+            return v or None
+        return v
+
     @field_validator("default_color_scheme")
     @classmethod
     def _valid_scheme(cls, v: Optional[str]) -> Optional[str]:

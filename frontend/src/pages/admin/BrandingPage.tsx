@@ -77,7 +77,24 @@ export function BrandingPage() {
 
   const saveMutation = useMutation({
     mutationFn: patchBranding,
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      setForm(f => ({
+        ...f,
+        brand_name: updated.brand_name,
+        theme: normaliseTheme(updated.theme),
+        font_family: updated.font_family,
+        heading_font_family: updated.heading_font_family ?? '',
+        default_color_scheme: (updated.default_color_scheme as ColorScheme) || 'light',
+        custom_css: updated.custom_css ?? '',
+        privacy_policy_url: updated.privacy_policy_url ?? '',
+        terms_of_service_url: updated.terms_of_service_url ?? '',
+        personal_data_url: updated.personal_data_url ?? '',
+        refund_policy_url: updated.refund_policy_url ?? '',
+        contact_support_tg_username: updated.contact_support_tg_username ?? '',
+        contact_support_email: updated.contact_support_email ?? '',
+        contact_support_phone: updated.contact_support_phone ?? '',
+      }))
+      qc.setQueryData(['admin', 'branding'], updated)
       qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
       qc.invalidateQueries({ queryKey: ['public', 'branding'] })
       showToast(t('admin_branding_saved'), 'success')
