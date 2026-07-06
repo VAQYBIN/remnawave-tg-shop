@@ -648,6 +648,9 @@ class SiteSettings(Base):
     terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     refund_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    contact_support_tg_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    contact_support_email: Mapped[Optional[str]] = mapped_column(String(320), nullable=True)
+    contact_support_phone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     __table_args__ = (UniqueConstraint('id'),)
