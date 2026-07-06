@@ -4,6 +4,7 @@ from typing import Tuple
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -13,6 +14,7 @@ from config.settings import Settings
 
 import os
 _BASELINE_REVISION = "0001_initial_schema"
+_STALE_SUPPORT_CONTACTS_REVISION = "0020_site_settings_support_contacts"
 
 
 def _build_alembic_config(settings: Settings) -> Config:
@@ -278,9 +280,32 @@ def _run_stamp(connection: Connection, alembic_config: Config, revision: str) ->
     command.stamp(alembic_config, revision)
 
 
+def _resolve_upgrade_target(alembic_config: Config) -> str:
+    """Return the Alembic upgrade target, ignoring one known stale bad head.
+
+    The first support-contacts migration used a revision id longer than the
+    default alembic_version.version_num varchar(32). Some Docker deployments can
+    retain that old .py file when a new image is copied over an existing app
+    directory, which makes Alembic see two heads and abort before it can migrate.
+    Prefer the replacement short revision when that stale head is present.
+    """
+    script = ScriptDirectory.from_config(alembic_config)
+    heads = list(script.get_heads())
+    if _STALE_SUPPORT_CONTACTS_REVISION in heads:
+        valid_heads = [head for head in heads if head != _STALE_SUPPORT_CONTACTS_REVISION]
+        if len(valid_heads) == 1:
+            logging.warning(
+                "Alembic: ignoring stale support contacts revision %s and upgrading to %s.",
+                _STALE_SUPPORT_CONTACTS_REVISION,
+                valid_heads[0],
+            )
+            return valid_heads[0]
+    return "head"
+
+
 def _run_upgrade(connection: Connection, alembic_config: Config) -> None:
     alembic_config.attributes["connection"] = connection
-    command.upgrade(alembic_config, "head")
+    command.upgrade(alembic_config, _resolve_upgrade_target(alembic_config))
 
 
 async def run_alembic_migrations(settings: Settings, async_engine: AsyncEngine) -> None:

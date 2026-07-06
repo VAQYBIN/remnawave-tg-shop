@@ -6,6 +6,7 @@ import { useBrandingContext } from '@/hooks/BrandingProvider'
 import { resolveLogoUrl } from '@/hooks/useBranding'
 import { useSupportNotifications } from '@/hooks/useSupportNotifications'
 import { useTelegramBackButton } from '@/lib/useTelegramBackButton'
+import { SupportContacts } from '@/components/support/SupportContacts'
 
 function MobileTopBar() {
   const { branding } = useBrandingContext()
@@ -26,16 +27,17 @@ function MobileTopBar() {
   )
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, hideSupportFooter = false }: { children: ReactNode; hideSupportFooter?: boolean }) {
   useSupportNotifications()
   useTelegramBackButton()
   return (
     <div className="flex min-h-screen bg-[hsl(var(--background))]">
       <Sidebar />
-      <main className="min-w-0 flex-1">
+      <main className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar />
-        <div className="mx-auto w-full max-w-[1200px] px-4 pb-24 pt-5 md:px-10 md:pb-20 md:pt-8">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 pb-24 pt-5 md:px-10 md:pb-20 md:pt-8">
           {children}
+          {!hideSupportFooter && <SupportContacts className="mt-auto" />}
         </div>
       </main>
       <MobileNav />
