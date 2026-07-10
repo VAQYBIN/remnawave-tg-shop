@@ -675,6 +675,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
     RESEND_API_KEY: Optional[str] = Field(default=None)
     RESEND_FROM_EMAIL: str = Field(default="noreply@domain.com")
+    EMAIL_EXPIRY_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     WEB_FRONTEND_URL: str = Field(default="https://app.domain.com")
     WEB_API_URL: str = Field(default="https://api.domain.com")
     NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
