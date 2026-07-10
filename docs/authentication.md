@@ -5,6 +5,7 @@ email:
 
 - [Telegram Login (OIDC)](#telegram-login-oidc) — вход через виджет Telegram в браузере
 - [Telegram Mini App](#telegram-mini-app-личный-кабинет-внутри-telegram) — автологин внутри Telegram
+- [E-mail passwordless (magic code)](#e-mail-passwordless-magic-code) — вход по одноразовому коду без пароля
 - [Resend — отправка email](#resend--отправка-email) — коды подтверждения для email-регистрации
 
 > Режим главного меню бота (inline / webapp) описан отдельно — см.
@@ -97,6 +98,27 @@ https://app.your-domain.com
 > предпочтительна десктопная версия.
 
 ---
+
+## E-mail passwordless (magic code)
+
+Вход по одноразовому 6-значному коду на e-mail, без пароля. Единый поток
+«ввёл e-mail → получил код → вошёл»: неизвестный e-mail создаёт аккаунт,
+известный — логинит (get-or-create). Отличается от `/auth/register/*` +
+`/auth/login`, где код лишь верифицирует адрес при заведении пароля.
+
+**`POST /api/auth/email/send-code`** — тело `{ "email": "you@mail.com" }` →
+`{ "message": "Код отправлен на email" }`. Отправляет код (Resend, `purpose=login`),
+если `RESEND_API_KEY` задан. Rate-limit 5/300с на IP. Ответ нейтрален независимо
+от существования аккаунта.
+
+**`POST /api/auth/email/verify`** — тело `{ "email", "code", "ref_code"? }` →
+`TokenResponse` (access-JWT в теле + refresh-cookie `refresh_token`). Неверный или
+истёкший код → `400 {"detail": "Неверный или истёкший код"}`. Rate-limit 10/300с.
+Код одноразовый (повторная проверка → `400`). Аккаунт получает `is_email_verified=true`,
+пароля не имеет (можно задать позже через сброс пароля).
+
+> Требует настроенный Resend (см. ниже) — иначе код не отправляется.
+> Telegram-вход и e-mail+пароль продолжают работать параллельно.
 
 ## Resend — отправка email
 
