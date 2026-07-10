@@ -27,3 +27,7 @@ CLAUDE.md
 .claude/
 /nginx
 .codegraph
+
+# Планировочные артефакты внешних проектов (спеки/планы RaccoonitoVPN и т.п.)
+docs/superpowers/
+.superpowers/
