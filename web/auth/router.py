@@ -150,6 +150,24 @@ async def _get_or_create_account_for_telegram(
     return account
 
 
+async def _get_or_create_account_for_email(db: AsyncSession, email: str):
+    """Return the Account for ``email``, creating a passwordless one on first use.
+
+    Returns ``(account, created)``. For an existing but unverified account,
+    proves inbox ownership by setting ``is_email_verified=True``. Mirrors the
+    Telegram get-or-create so both flows provision accounts identically."""
+    account = await get_account_by_email(db, email)
+    if account:
+        if not account.is_email_verified:
+            account = await update_account(
+                db, account_id=account.id, is_email_verified=True
+            )
+        return account, False
+
+    account = await create_account(db, email=email, is_email_verified=True)
+    return account, True
+
+
 # ─── GET /auth/telegram/config ──────────────────────────────────────────────
 
 @router.get("/telegram/config", response_model=TelegramConfigResponse)
@@ -611,3 +629,58 @@ async def email_send_code(
         logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)
 
     return MessageResponse(message="Код отправлен на email")
+
+
+# ─── POST /auth/email/verify ─────────────────────────────────────────────────
+
+@router.post("/email/verify", response_model=TokenResponse)
+async def email_verify(
+    request: Request,
+    response: Response,
+    body: EmailVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis=Depends(get_redis),
+):
+    ip = get_client_ip(request)
+    await check_rate_limit(redis, f"rl:auth:email_verify:{ip}", max_requests=10, window_seconds=300)
+
+    code_record = await get_active_code(db, email=body.email, purpose="login", code=body.code)
+    if not code_record:
+        raise HTTPException(status_code=400, detail="Неверный или истёкший код")
+
+    await mark_code_used(db, code_record.id)
+
+    account, created = await _get_or_create_account_for_email(db, body.email)
+
+    if created:
+        if body.ref_code:
+            try:
+                from core.dal.account_dal import ensure_site_user_for_account
+                from core.services.referral_core import attribute_web_referral
+
+                site_user = await ensure_site_user_for_account(db, account)
+                await attribute_web_referral(db, site_user, body.ref_code)
+            except Exception as exc:
+                logger.warning("Failed to attribute web referral for %s: %s", body.email, exc)
+
+        try:
+            from core.services.telegram_notify import notify_group_web_registration
+            await notify_group_web_registration(
+                settings,
+                account=account,
+                method="email",
+                referred=bool(body.ref_code),
+            )
+        except Exception as exc:
+            logger.warning("Group registration notify failed: %s", exc)
+
+    tokens = await _issue_tokens(account.id, settings, redis, response)
+
+    return TokenResponse(
+        access_token=tokens["access_token"],
+        account_id=account.id,
+        email=account.email,
+        is_email_verified=account.is_email_verified,
+        language_code=account.language_code,
+    )
