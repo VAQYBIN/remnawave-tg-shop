@@ -4,6 +4,7 @@ export interface Profile {
   account_id: string
   email: string | null
   is_email_verified: boolean
+  email_notifications_enabled: boolean
   language_code: string
   telegram_user_id: number | null
   telegram_username: string | null
@@ -18,6 +19,15 @@ export function patchLanguage(language_code: string): Promise<{ language_code: s
   return apiRequest('/profile/language', {
     method: 'PATCH',
     body: JSON.stringify({ language_code }),
+  })
+}
+
+export function patchNotifications(
+  email_notifications_enabled: boolean,
+): Promise<{ email_notifications_enabled: boolean }> {
+  return apiRequest('/profile/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify({ email_notifications_enabled }),
   })
 }
 
