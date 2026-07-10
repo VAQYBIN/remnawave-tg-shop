@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -27,6 +28,10 @@ class PatchLanguageRequest(BaseModel):
         if v not in allowed:
             raise ValueError(f"Supported languages: {allowed}")
         return v
+
+
+class PatchNotificationsRequest(BaseModel):
+    email_notifications_enabled: bool
 
 
 class SendEmailChangeCodeRequest(BaseModel):
@@ -67,6 +72,7 @@ async def get_profile(
         account_id=str(account.id),
         email=account.email,
         is_email_verified=account.is_email_verified,
+        email_notifications_enabled=getattr(account, "email_notifications_enabled", True),
         language_code=account.language_code,
         telegram_user_id=account.telegram_user_id,
         telegram_username=user.username if user else None,
@@ -83,6 +89,82 @@ async def patch_language(
     from core.dal.account_dal import update_account
     await update_account(db, account.id, language_code=body.language_code)
     return {"language_code": body.language_code}
+
+
+@router.patch("/notifications")
+async def patch_notifications(
+    body: PatchNotificationsRequest,
+    account: Account = Depends(get_current_account),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    from core.dal.account_dal import update_account
+    await update_account(
+        db, account.id, email_notifications_enabled=body.email_notifications_enabled
+    )
+    return {"email_notifications_enabled": body.email_notifications_enabled}
+
+
+def _unsubscribe_page(title: str, text: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+</head>
+<body style="margin:0;background:#F5F1ED;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+             display:flex;min-height:100vh;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:40px;max-width:420px;text-align:center;
+              box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <h1 style="color:#2B2B2B;font-size:20px;margin:0 0 12px;">{title}</h1>
+    <p style="color:#897569;font-size:14px;margin:0;">{text}</p>
+  </div>
+</body>
+</html>"""
+
+
+@router.get("/unsubscribe", response_class=HTMLResponse)
+async def unsubscribe_email_notifications(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> HTMLResponse:
+    """Одноразовая отписка по ссылке из письма — без авторизации."""
+    from core.dal.account_dal import get_account_by_id, update_account
+    from core.services.unsubscribe_token import verify_unsubscribe_token
+
+    account_id = None
+    if settings.WEB_JWT_SECRET:
+        account_id = verify_unsubscribe_token(token, settings.WEB_JWT_SECRET)
+    if account_id is None:
+        return HTMLResponse(
+            _unsubscribe_page(
+                "Ссылка недействительна / Invalid link",
+                "Ссылка отписки устарела или повреждена. Управлять уведомлениями "
+                "можно в профиле. / The unsubscribe link is expired or invalid. "
+                "You can manage notifications in your profile.",
+            ),
+            status_code=400,
+        )
+    account = await get_account_by_id(db, account_id)
+    if account is None:
+        return HTMLResponse(
+            _unsubscribe_page(
+                "Аккаунт не найден / Account not found",
+                "Аккаунт для этой ссылки не существует. / "
+                "The account for this link does not exist.",
+            ),
+            status_code=400,
+        )
+    await update_account(db, account_id, email_notifications_enabled=False)
+    return HTMLResponse(
+        _unsubscribe_page(
+            "Вы отписаны / Unsubscribed",
+            "Почтовые уведомления об окончании подписки отключены. Включить их "
+            "снова можно в профиле. / Subscription expiry emails are disabled. "
+            "You can re-enable them in your profile.",
+        )
+    )
 
 
 @router.post("/email/send-code")
