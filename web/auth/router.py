@@ -20,6 +20,8 @@ from web.schemas.auth import (
     TokenResponse,
     MessageResponse,
     TelegramConfigResponse,
+    EmailSendCodeRequest,
+    EmailVerifyRequest,
 )
 from web.auth import jwt_service
 from web.auth.telegram_auth import (
@@ -577,3 +579,35 @@ async def logout(
 
     _clear_refresh_cookie(response)
     return MessageResponse(message="Выход выполнен успешно")
+
+
+# ─── POST /auth/email/send-code ──────────────────────────────────────────────
+
+@router.post("/email/send-code", response_model=MessageResponse)
+async def email_send_code(
+    request: Request,
+    body: EmailSendCodeRequest,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis=Depends(get_redis),
+):
+    ip = get_client_ip(request)
+    await check_rate_limit(redis, f"rl:auth:email:{ip}", max_requests=5, window_seconds=300)
+
+    code_record = await create_verification_code(db, email=body.email, purpose="login")
+
+    if settings.RESEND_API_KEY:
+        from core.dal.site_settings_dal import get_site_settings
+        site_settings = await get_site_settings(db)
+        await send_verification_code(
+            email=body.email,
+            code=code_record.code,
+            purpose="login",
+            api_key=settings.RESEND_API_KEY,
+            from_email=settings.RESEND_FROM_EMAIL,
+            brand=site_settings.brand_name,
+        )
+    else:
+        logger.warning("RESEND_API_KEY not set — skipping email send for %s", body.email)
+
+    return MessageResponse(message="Код отправлен на email")
