@@ -19,7 +19,7 @@ export function useBranding() {
   const { data } = useQuery<PublicBrandingResponse>({
     queryKey: ['public', 'branding'],
     queryFn: getPublicBranding,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     gcTime: 10 * 60 * 1000,
   })
   return data
