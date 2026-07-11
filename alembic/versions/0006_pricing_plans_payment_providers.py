@@ -54,6 +54,7 @@ def upgrade() -> None:
     op.execute("""
         INSERT INTO payment_provider_configs (provider_key, display_name, is_enabled, sort_order)
         VALUES
+            ('lavapay',   'LavaPay',   false, 0),
             ('freekassa',  'FreeKassa',  false, 1),
             ('platega',    'Platega',    false, 2),
             ('severpay',   'SeverPay',   false, 3),
