@@ -36,8 +36,17 @@ class LavaPayService:
     def _amount(value: Any) -> Decimal:
         return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    @staticmethod
+    def _normalize_signature_header(header_signature: str) -> str:
+        """Return a bare Lava signature value from Authorization/Signature headers."""
+        value = (header_signature or "").strip()
+        if value.lower().startswith("bearer "):
+            return value[7:].strip()
+        return value
+
     def _validate_signature(self, raw_body: bytes, payload: Dict[str, Any], header_signature: str) -> bool:
         secret = self.settings.LAVAPAY_WEBHOOK_SECRET or ""
+        header_signature = self._normalize_signature_header(header_signature)
         if not secret or not header_signature:
             return False
         # Lava documentation says webhook signatures use the additional/webhook key over the unchanged JSON string.
@@ -63,9 +72,20 @@ class LavaPayService:
             logging.error("LavaPay webhook: failed to parse JSON: %s", exc)
             return web.json_response({"status": False, "msg": "bad_request"}, status=400)
 
-        signature = request.headers.get("Signature") or request.headers.get("X-Signature") or ""
+        # Lava webhook docs put the validation signature into the Authorization
+        # header. Keep Signature/X-Signature fallbacks for older/test callbacks.
+        signature = (
+            request.headers.get("Authorization")
+            or request.headers.get("Signature")
+            or request.headers.get("X-Signature")
+            or ""
+        )
         if not isinstance(payload, dict) or not self._validate_signature(raw, payload, signature):
-            logging.error("LavaPay webhook: invalid signature or payload")
+            logging.error(
+                "LavaPay webhook: invalid signature or payload (has_authorization=%s, has_signature=%s)",
+                bool(request.headers.get("Authorization")),
+                bool(request.headers.get("Signature") or request.headers.get("X-Signature")),
+            )
             return web.json_response({"status": False, "msg": "invalid_signature"}, status=403)
 
         data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
