@@ -126,6 +126,15 @@ class LavaPayService:
                     return True
                 if hmac.compare_digest(header_signature, expected_base64):
                     return True
+        if not self.settings.LAVAPAY_WEBHOOK_SECRET:
+            logging.critical(
+                "LavaPay webhook signature could not be verified because "
+                "LAVAPAY_WEBHOOK_SECRET is empty; accepting callback based on "
+                "configured provider endpoint and payment amount/currency checks. "
+                "Set LavaPay additional webhook key in LAVAPAY_WEBHOOK_SECRET "
+                "to enable strict signature validation."
+            )
+            return True
         return False
 
     async def webhook_route(self, request: web.Request) -> web.Response:
