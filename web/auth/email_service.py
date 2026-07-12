@@ -5,7 +5,7 @@ import resend
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BRAND = "Don Baton"
+DEFAULT_BRAND = "Obereg"
 
 PURPOSE_SUBJECT_TEMPLATES = {
     "register": "Код подтверждения регистрации — {brand}",

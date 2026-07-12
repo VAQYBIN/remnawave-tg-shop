@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { StatusBadge } from '@/components/support/StatusBadge'
+import { SupportContacts } from '@/components/support/SupportContacts'
 import { CATEGORY_KEY, CATEGORY_ORDER } from '@/components/support/supportMeta'
 import { useToast } from '@/hooks/useToast'
 import { resolveAssetUrl } from '@/api/client'
@@ -196,7 +197,7 @@ export function SupportPage() {
   const tickets = data?.items ?? []
 
   return (
-    <AppShell>
+    <AppShell hideSupportFooter>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -208,6 +209,8 @@ export function SupportPage() {
             <span className="hidden sm:inline">{t('support_new_ticket')}</span>
           </Button>
         </div>
+
+        <SupportContacts />
 
         {isLoading ? (
           <div className="space-y-3">
