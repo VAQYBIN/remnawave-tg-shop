@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -40,25 +41,91 @@ class LavaPayService:
     def _normalize_signature_header(header_signature: str) -> str:
         """Return a bare Lava signature value from Authorization/Signature headers."""
         value = (header_signature or "").strip()
-        if value.lower().startswith("bearer "):
-            return value[7:].strip()
+        lower_value = value.lower()
+        for prefix in ("bearer ", "signature ", "hmac-sha256 ", "sha256="):
+            if lower_value.startswith(prefix):
+                return value[len(prefix):].strip()
         return value
 
+    @staticmethod
+    def _signature_payload_candidates(raw_body: bytes, payload: Dict[str, Any]) -> list[bytes]:
+        """Return JSON byte variants Lava may use for webhook signature checks."""
+        candidates: list[bytes] = [raw_body]
+
+        def _append_json(obj: Dict[str, Any]) -> None:
+            try:
+                value = json.dumps(
+                    obj,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            except Exception:
+                return
+            if value not in candidates:
+                candidates.append(value)
+
+        _append_json(payload)
+
+        # The Lava webhook docs show a fixed field order in their example.
+        # Some providers sign a normalized JSON string rather than the exact
+        # bytes they send, so keep documented-order candidates as a fallback.
+        documented_orders = (
+            (
+                "invoice_id",
+                "status",
+                "pay_time",
+                "amount",
+                "order_id",
+                "pay_service",
+                "payer_details",
+                "custom_fields",
+                "credited",
+            ),
+            (
+                "invoice_id",
+                "order_id",
+                "status",
+                "pay_time",
+                "amount",
+                "custom_fields",
+                "credited",
+            ),
+        )
+        for field_order in documented_orders:
+            ordered = {key: payload[key] for key in field_order if key in payload}
+            for key, value in payload.items():
+                if key not in ordered:
+                    ordered[key] = value
+            _append_json(ordered)
+
+        return candidates
+
     def _validate_signature(self, raw_body: bytes, payload: Dict[str, Any], header_signature: str) -> bool:
-        secret = self.settings.LAVAPAY_WEBHOOK_SECRET or ""
         header_signature = self._normalize_signature_header(header_signature)
-        if not secret or not header_signature:
+        if not header_signature:
             return False
-        # Lava documentation says webhook signatures use the additional/webhook key over the unchanged JSON string.
-        candidates = [raw_body]
-        try:
-            candidates.append(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
-        except Exception:
-            pass
-        for body in candidates:
-            expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-            if hmac.compare_digest(header_signature, expected):
-                return True
+
+        secrets = [
+            value
+            for value in (
+                self.settings.LAVAPAY_WEBHOOK_SECRET,
+                self.settings.LAVAPAY_API_KEY,
+            )
+            if value
+        ]
+        if not secrets:
+            return False
+
+        for secret in secrets:
+            secret_bytes = secret.encode("utf-8")
+            for body in self._signature_payload_candidates(raw_body, payload):
+                digest = hmac.new(secret_bytes, body, hashlib.sha256).digest()
+                expected_hex = digest.hex()
+                expected_base64 = base64.b64encode(digest).decode("ascii")
+                if hmac.compare_digest(header_signature, expected_hex):
+                    return True
+                if hmac.compare_digest(header_signature, expected_base64):
+                    return True
         return False
 
     async def webhook_route(self, request: web.Request) -> web.Response:
