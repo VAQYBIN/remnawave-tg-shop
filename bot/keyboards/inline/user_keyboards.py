@@ -152,7 +152,12 @@ def get_payment_method_keyboard(months: Union[int, float, str], price: float,
     value_str = months if isinstance(months, str) else _format_value(months)
     mode_suffix = f":{sale_mode}"
     for method in settings.payment_methods_order:
-        if method == "severpay" and getattr(settings, "SEVERPAY_ENABLED", False):
+        if method == "lavapay" and settings.LAVAPAY_ENABLED:
+            builder.button(
+                text=_("pay_with_lavapay_button"),
+                callback_data=f"pay_lavapay:{value_str}:{price}{mode_suffix}",
+            )
+        elif method == "severpay" and getattr(settings, "SEVERPAY_ENABLED", False):
             builder.button(
                 text=_("pay_with_severpay_button"),
                 callback_data=f"pay_severpay:{value_str}:{price}{mode_suffix}",
