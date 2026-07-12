@@ -9,6 +9,7 @@ interface Provider {
 // Labels match bot locales: pay_with_*_button keys
 const PROVIDER_META: Provider[] = [
   { id: 'yookassa', label: '💳 Картой/СБП', icon: '' },
+  { id: 'lavapay', label: '💳 LavaPay (карта/СБП)', icon: '' },
   { id: 'platega', label: '💳 Platega (СБП/карты)', icon: '' },
   { id: 'freekassa', label: '📱 СБП', icon: '' },
   { id: 'severpay', label: '💳 SeverPay', icon: '' },
