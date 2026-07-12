@@ -52,6 +52,9 @@ def build_branding_response(settings: SiteSettings) -> BrandingResponse:
         terms_of_service_url=settings.terms_of_service_url,
         personal_data_url=settings.personal_data_url,
         refund_policy_url=settings.refund_policy_url,
+        contact_support_tg_username=settings.contact_support_tg_username,
+        contact_support_email=settings.contact_support_email,
+        contact_support_phone=settings.contact_support_phone,
     )
 
 
@@ -78,7 +81,7 @@ async def patch_branding(
     db: AsyncSession = Depends(get_db),
     admin: Account = Depends(get_current_admin),
 ):
-    updates = body.model_dump(exclude_none=True)
+    updates = body.model_dump(exclude_unset=True)
     theme_obj = body.theme
     updates.pop("theme", None)
     if theme_obj is not None:
@@ -86,6 +89,7 @@ async def patch_branding(
     settings = await update_site_settings(db, **updates)
     await add_admin_audit_log(db, admin, "admin_branding_update", details={"fields": sorted(updates.keys())})
     await db.commit()
+    await db.refresh(settings)
     return build_branding_response(settings)
 
 

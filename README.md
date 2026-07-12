@@ -449,6 +449,9 @@ Resend отправляет коды подтверждения при реги�
 | `ADMIN_IDS` | ID администраторов (через запятую) | `12345678,98765432` |
 | `DEFAULT_LANGUAGE` | Язык по умолчанию | `ru` |
 | `SUPPORT_LINK` | Ссылка на поддержку | `https://t.me/your_support` |
+| `CONNTACT_SUPPORT_TG_USERNAME` | Telegram username поддержки в футере личного кабинета. Значение из админки имеет приоритет; если в админке и `.env` пусто — контакт не показывается. | `your_support` |
+| `CONNTACT_SUPPORT_EMAIL` | Email поддержки в футере личного кабинета. Значение из админки имеет приоритет; если в админке и `.env` пусто — контакт не показывается. | `support@example.com` |
+| `CONNTACT_SUPPORT_PHONE` | Телефон поддержки в футере личного кабинета. Значение из админки имеет приоритет; если в админке и `.env` пусто — контакт не показывается. | `+1 555 0100` |
 | `SUBSCRIPTION_MINI_APP_URL` | URL Mini App | `https://t.me/your_bot/app` |
 | `MY_DEVICES_SECTION_ENABLED` | Раздел «Мои устройства» | `false` |
 | `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE` | Обязательная подписка на канал | `false` |
