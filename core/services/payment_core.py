@@ -80,6 +80,42 @@ async def get_plan_price_db(db: AsyncSession, settings: Settings, months: int) -
     return get_plan_price(settings, months)
 
 
+def build_yookassa_receipt(
+    settings: Settings,
+    *,
+    amount: float,
+    description: str,
+    customer_email: Optional[str] = None,
+) -> Optional[dict]:
+    """Чек 54-ФЗ для магазинов с фискализацией.
+
+    Возвращает None, если контакта покупателя нет: магазины без фискализации
+    должны продолжать принимать оплату, как и раньше — чек в этом случае просто
+    не отправляется. Формат полей — по докам YooKassa (vat_code и
+    tax_system_code целые, quantity число, amount.value строка).
+    """
+    email = (customer_email or settings.YOOKASSA_DEFAULT_RECEIPT_EMAIL or "").strip()
+    if not email:
+        return None
+
+    receipt: dict = {
+        "customer": {"email": email},
+        "items": [
+            {
+                "description": description[:128],
+                "quantity": 1,
+                "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
+                "vat_code": int(settings.YOOKASSA_VAT_CODE),
+                "payment_mode": settings.yk_receipt_payment_mode,
+                "payment_subject": settings.yk_receipt_payment_subject,
+            }
+        ],
+    }
+    if settings.YOOKASSA_TAX_SYSTEM_CODE is not None:
+        receipt["tax_system_code"] = int(settings.YOOKASSA_TAX_SYSTEM_CODE)
+    return receipt
+
+
 async def _create_yookassa_payment(
     settings: Settings,
     *,
@@ -90,6 +126,7 @@ async def _create_yookassa_payment(
     description: str,
     return_url: str,
     idempotency_key: str,
+    customer_email: Optional[str] = None,
 ) -> Tuple[str, str]:
     """Returns (provider_payment_id, redirect_url)."""
     payload = {
@@ -105,6 +142,13 @@ async def _create_yookassa_payment(
         },
     }
 
+    receipt = build_yookassa_receipt(
+        settings, amount=amount, description=description, customer_email=customer_email
+    )
+    if receipt is not None:
+        payload["receipt"] = receipt
+
+    # payload намеренно не логируется: в чеке есть e-mail покупателя
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             "https://api.yookassa.ru/v3/payments",
@@ -578,6 +622,7 @@ async def create_web_payment(
                 description=description,
                 return_url=return_url,
                 idempotency_key=idempotency_key,
+                customer_email=getattr(account, "email", None) if getattr(account, "is_email_verified", False) else None,
             )
         elif provider == "platega":
             provider_id, redirect_url = await _create_platega_payment(
