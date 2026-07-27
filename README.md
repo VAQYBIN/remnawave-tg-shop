@@ -421,6 +421,11 @@ Resend отправляет коды подтверждения при реги�
 тарифы. Старые `.env`-цены и `USER_SQUAD_UUIDS` помечены **deprecated** —
 используются только для bootstrap тарифа `legacy-default` на пустой БД.
 
+У тарифа можно указать **несколько Internal Squad UUID**: через запятую в поле
+или несколькими кликами в picker'е. Все они уходят в `activeInternalSquads` при
+синхронизации с панелью; для обратной совместимости первый UUID дублируется в
+старое одиночное поле, которое читает админка бота.
+
 > Требуется **Remnawave 2.7.4** — тарифы валидируют Internal Squads через API
 > панели.
 
@@ -454,12 +459,16 @@ Resend отправляет коды подтверждения при реги�
 | `ADMIN_IDS` | ID администраторов (через запятую) | `12345678,98765432` |
 | `DEFAULT_LANGUAGE` | Язык по умолчанию | `ru` |
 | `SUPPORT_LINK` | Ссылка на поддержку | `https://t.me/your_support` |
+| `CONTACT_SUPPORT_TG_USERNAME` | Telegram поддержки в футере личного кабинета. Значение из админки в приоритете; если пусто и там, и в `.env` — контакт скрыт | `your_support` |
+| `CONTACT_SUPPORT_EMAIL` | Email поддержки в футере личного кабинета (аналогично) | `support@example.com` |
+| `CONTACT_SUPPORT_PHONE` | Телефон поддержки в футере личного кабинета (аналогично) | `+7 900 000-00-00` |
 | `SUBSCRIPTION_MINI_APP_URL` | URL Mini App | `https://t.me/your_bot/app` |
 | `MY_DEVICES_SECTION_ENABLED` | Раздел «Мои устройства» | `false` |
 | `REQUIRED_CHANNEL_SUBSCRIBE_TO_USE` | Обязательная подписка на канал | `false` |
 | `REFERRAL_ENABLED` | Реферальная система | `true` |
 | `TRIAL_ENABLED` | Пробный период | `true` |
 | `TRIAL_DURATION_DAYS` | Длительность пробного периода (дней) | `5` |
+| `TRIAL_HWID_DEVICE_LIMIT` | Лимит устройств для пробного периода (`0` = безлимит; пусто = берётся `USER_HWID_DEVICE_LIMIT`) | `1` |
 
 </details>
 
@@ -481,7 +490,7 @@ Resend отправляет коды подтверждения при реги�
 
 | Переменная | Описание |
 |-----------|---------|
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты (через запятую): `severpay,yookassa,cryptopay,freekassa,platega,stars` |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты (через запятую): `lavapay,severpay,yookassa,cryptopay,freekassa,platega,stars` |
 | `YOOKASSA_ENABLED` | Включить YooKassa |
 | `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` | Данные магазина YooKassa |
 | `YOOKASSA_AUTOPAYMENTS_ENABLED` | Автопродление через YooKassa |
@@ -494,6 +503,11 @@ Resend отправляет коды подтверждения при реги�
 | `PLATEGA_MERCHANT_ID` / `PLATEGA_SECRET` | Данные магазина Platega |
 | `SEVERPAY_ENABLED` | Включить SeverPay |
 | `SEVERPAY_MID` / `SEVERPAY_TOKEN` | Данные магазина SeverPay |
+| `LAVAPAY_ENABLED` | Включить LavaPay (Lava Business) |
+| `LAVAPAY_SHOP_ID` / `LAVAPAY_SECRET_KEY` | shopId и секретный ключ магазина Lava (подпись запросов) |
+| `LAVAPAY_WEBHOOK_SECRET` | «Дополнительный ключ» магазина — подпись вебхуков. **Обязателен**: без него провайдер не активируется и уведомления об оплате отклоняются |
+| `LAVAPAY_RETURN_URL` / `LAVAPAY_FAIL_URL` | Куда вернуть после оплаты. Ссылки **без query-параметров** — Lava отвечает 422 |
+| `LAVAPAY_EXPIRE_MINUTES` | Срок жизни счёта в минутах (1–7200) |
 | `STARS_ENABLED` | Включить Telegram Stars |
 | `NALOGO_INN` / `NALOGO_PASSWORD` | Самозанятый: интеграция с nalog.ru |
 
@@ -543,7 +557,7 @@ MIN_PRORATED_PRICE_STARS=
 | `USER_SQUAD_UUIDS` | UUID отрядов для новых пользователей |
 | `USER_EXTERNAL_SQUAD_UUID` | UUID External Squad (опционально) |
 | `USER_TRAFFIC_LIMIT_GB` | Лимит трафика (0 = безлимит) |
-| `USER_HWID_DEVICE_LIMIT` | Лимит устройств HWID (0 = безлимит) |
+| `USER_HWID_DEVICE_LIMIT` | Дефолтный лимит устройств HWID (0 = безлимит). У каждого тарифа в админке можно задать свой лимит — он переопределяет это значение |
 | `SUBSCRIPTION_PAGE_CONFIG_UUID` | UUID Subscription Page для вкладок «Устройства»/«Инструкция» (пусто = конфиг «Default» из панели) |
 | `SUBSCRIPTION_PAGE_CONFIG_PATH` | Опциональный офлайн-override: путь к смонтированному `app-config-v2.json` (приоритет над панелью) |
 
@@ -769,6 +783,7 @@ python main.py
 | `/webhook/cryptopay` | CryptoPay |
 | `/webhook/platega` | Platega |
 | `/webhook/severpay` | SeverPay |
+| `/webhook/lavapay` | LavaPay (регистрируется только при заданном `LAVAPAY_WEBHOOK_SECRET`) |
 | `/webhook/panel` | Remnawave Panel |
 
 ---

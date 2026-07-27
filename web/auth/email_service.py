@@ -9,6 +9,7 @@ DEFAULT_BRAND = "VPN"
 
 PURPOSE_SUBJECT_TEMPLATES = {
     "register": "Код подтверждения регистрации — {brand}",
+    "login": "Код для входа — {brand}",
     "reset_password": "Код сброса пароля — {brand}",
     "change_email": "Код подтверждения смены email — {brand}",
     "link_email": "Код привязки email — {brand}",
@@ -16,6 +17,7 @@ PURPOSE_SUBJECT_TEMPLATES = {
 
 PURPOSE_BODY_TEMPLATES = {
     "register": "Ваш код для завершения регистрации",
+    "login": "Ваш код для входа",
     "reset_password": "Ваш код для сброса пароля",
     "change_email": "Ваш код для подтверждения смены email",
     "link_email": "Ваш код для привязки email к аккаунту {brand}",

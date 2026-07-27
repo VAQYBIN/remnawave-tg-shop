@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
-from core.dal.pricing_plan_dal import ensure_legacy_default_plan
+from core.dal.pricing_plan_dal import ensure_legacy_default_plan, plan_squad_uuids
 from db.models import PricingPlan, PricingPlanOption
 
 logger = logging.getLogger(__name__)
@@ -43,8 +43,10 @@ async def bootstrap_legacy_tariff(db: AsyncSession, settings: Settings) -> None:
     )
 
     changed = False
-    if not plan.remnawave_squad_uuid and squad_uuid:
+    if not plan_squad_uuids(plan) and squad_uuid:
+        # Keep both squad columns in sync (see pricing_plan_dal.normalise_squad_fields)
         plan.remnawave_squad_uuid = squad_uuid
+        plan.remnawave_squad_uuids = [squad_uuid]
         changed = True
 
     if should_enable and not plan.is_enabled and not plan.is_archived:

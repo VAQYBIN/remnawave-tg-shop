@@ -52,7 +52,43 @@ def build_branding_response(settings: SiteSettings) -> BrandingResponse:
         terms_of_service_url=settings.terms_of_service_url,
         personal_data_url=settings.personal_data_url,
         refund_policy_url=settings.refund_policy_url,
+        contact_support_tg_username=settings.contact_support_tg_username,
+        contact_support_email=settings.contact_support_email,
+        contact_support_phone=settings.contact_support_phone,
     )
+
+
+# Nullable columns an admin is allowed to clear by sending an empty value.
+# Everything else is NOT NULL in site_settings, so a null from the client is
+# dropped rather than passed to the UPDATE.
+CLEARABLE_FIELDS = frozenset({
+    "logo_url",
+    "favicon_url",
+    "heading_font_family",
+    "custom_css",
+    "privacy_policy_url",
+    "terms_of_service_url",
+    "personal_data_url",
+    "refund_policy_url",
+    "contact_support_tg_username",
+    "contact_support_email",
+    "contact_support_phone",
+})
+
+
+def build_branding_updates(body: BrandingUpdateRequest) -> dict:
+    """Column updates for a PATCH: only fields the client actually sent.
+
+    exclude_unset (not exclude_none) is what makes clearing possible — an empty
+    string arrives as None via the schema validators and must reach the UPDATE.
+    """
+    updates = {
+        key: value
+        for key, value in body.model_dump(exclude_unset=True).items()
+        if value is not None or key in CLEARABLE_FIELDS
+    }
+    updates.pop("theme", None)
+    return updates
 
 
 def _theme_db_updates(theme_obj) -> dict:
@@ -78,9 +114,8 @@ async def patch_branding(
     db: AsyncSession = Depends(get_db),
     admin: Account = Depends(get_current_admin),
 ):
-    updates = body.model_dump(exclude_none=True)
+    updates = build_branding_updates(body)
     theme_obj = body.theme
-    updates.pop("theme", None)
     if theme_obj is not None:
         updates.update(_theme_db_updates(theme_obj))
     settings = await update_site_settings(db, **updates)

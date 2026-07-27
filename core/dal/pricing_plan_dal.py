@@ -76,8 +76,47 @@ async def get_plan_by_id(db: AsyncSession, plan_id: int) -> Optional[PricingPlan
     return result.scalar_one_or_none()
 
 
+def normalise_squad_fields(values: dict) -> dict:
+    """Keep remnawave_squad_uuid and remnawave_squad_uuids consistent.
+
+    A plan can carry several Remnawave Internal Squads, but the bot admin UI and
+    tariff_bootstrap still read the single-squad column — so whichever side is
+    written, both columns are updated here (single = first of the list).
+    """
+    has_list = "remnawave_squad_uuids" in values
+    has_single = "remnawave_squad_uuid" in values
+    if not (has_list or has_single):
+        return values
+
+    source = values.get("remnawave_squad_uuids") if has_list else values.get("remnawave_squad_uuid")
+    if isinstance(source, str):
+        source = source.split(",")
+    elif source is None:
+        source = []
+
+    uuids: list[str] = []
+    for item in source:
+        uuid_val = str(item).strip()
+        if uuid_val and uuid_val not in uuids:
+            uuids.append(uuid_val)
+
+    normalised = dict(values)
+    normalised["remnawave_squad_uuids"] = uuids or None
+    normalised["remnawave_squad_uuid"] = uuids[0] if uuids else None
+    return normalised
+
+
+def plan_squad_uuids(plan: PricingPlan) -> List[str]:
+    """All squads of a plan, falling back to the legacy single-squad column."""
+    values = getattr(plan, "remnawave_squad_uuids", None)
+    if not values:
+        single = getattr(plan, "remnawave_squad_uuid", None)
+        values = [single] if single else []
+    return [str(v).strip() for v in values if v and str(v).strip()]
+
+
 async def create_plan(db: AsyncSession, **kwargs) -> PricingPlan:
-    plan = PricingPlan(**kwargs)
+    plan = PricingPlan(**normalise_squad_fields(kwargs))
     db.add(plan)
     await db.flush()
     await db.refresh(plan)
@@ -88,7 +127,7 @@ async def update_plan(db: AsyncSession, plan_id: int, **kwargs) -> Optional[Pric
     plan = await get_plan_by_id(db, plan_id)
     if plan is None:
         return None
-    for key, value in kwargs.items():
+    for key, value in normalise_squad_fields(kwargs).items():
         if hasattr(plan, key):
             setattr(plan, key, value)
     await db.flush()
@@ -202,6 +241,7 @@ async def ensure_legacy_default_plan(
         description_ru="Тариф, созданный автоматически для совместимости.",
         description_en="Compatibility plan created automatically.",
         remnawave_squad_uuid=squad_uuid,
+        remnawave_squad_uuids=[squad_uuid] if squad_uuid else None,
         plan_kind="standalone",
         billing_model="time",
         traffic_reset_strategy="NO_RESET",
@@ -267,7 +307,7 @@ async def get_plan_by_months(db: AsyncSession, duration_months: int) -> Optional
 
 
 def _validate_legacy_enable(plan: PricingPlan, price_rub: object, price_stars: object) -> None:
-    if not plan.remnawave_squad_uuid:
+    if not plan_squad_uuids(plan):
         raise ValueError(
             "Невозможно включить тариф: USER_SQUAD_UUIDS не настроен (нет squad UUID)."
         )

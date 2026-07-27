@@ -177,6 +177,7 @@ async def _get_or_create_panel_user_link_details(
             external_squad_uuid=settings.parsed_user_external_squad_uuid,
             default_traffic_limit_bytes=settings.user_traffic_limit_bytes,
             default_traffic_limit_strategy=settings.USER_TRAFFIC_STRATEGY,
+            hwid_device_limit=_trial_hwid_device_limit(settings),
         )
         if created and not created.get("error") and created.get("response"):
             panel_user = created["response"]
@@ -210,6 +211,21 @@ async def _get_or_create_panel_user_link_details(
     return panel_uuid, panel_sub_uuid, panel_short_uuid
 
 
+def _trial_hwid_device_limit(settings: Settings) -> Optional[int]:
+    """Device limit for trial users: TRIAL_* first, then the common default."""
+    limit = settings.TRIAL_HWID_DEVICE_LIMIT
+    if limit is None:
+        limit = settings.USER_HWID_DEVICE_LIMIT
+    if limit is None:
+        return None
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        logging.warning("Invalid TRIAL/USER_HWID_DEVICE_LIMIT %r; ignoring", limit)
+        return None
+    return limit if limit >= 0 else None
+
+
 def _build_panel_update_payload(
     settings: Settings,
     *,
@@ -227,6 +243,9 @@ def _build_panel_update_payload(
         "trafficLimitStrategy": settings.USER_TRAFFIC_STRATEGY,
         "description": description,
     }
+    hwid_limit = _trial_hwid_device_limit(settings)
+    if hwid_limit is not None:
+        payload["hwidDeviceLimit"] = hwid_limit
     if telegram_user_id is not None:
         payload["telegramId"] = telegram_user_id
     if settings.parsed_user_squad_uuids:

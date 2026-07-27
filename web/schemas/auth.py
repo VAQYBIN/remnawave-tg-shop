@@ -59,6 +59,26 @@ class LoginRequest(BaseModel):
         return v.strip().lower()
 
 
+class EmailSendCodeRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class EmailVerifyRequest(BaseModel):
+    email: EmailStr
+    code: str
+    ref_code: Optional[str] = None  # web referral from a /register?ref=... link
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
 class SendResetCodeRequest(BaseModel):
     email: EmailStr
 

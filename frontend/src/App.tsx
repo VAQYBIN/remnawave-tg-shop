@@ -18,6 +18,7 @@ const PaymentHistoryPage = lazy(() => import('@/pages/PaymentHistoryPage').then(
 const PaymentCallbackPage = lazy(() => import('@/pages/PaymentCallbackPage').then(({ PaymentCallbackPage }) => ({ default: PaymentCallbackPage })))
 const PaymentPendingPage = lazy(() => import('@/pages/PaymentPendingPage').then(({ PaymentPendingPage }) => ({ default: PaymentPendingPage })))
 const TelegramCallbackPage = lazy(() => import('@/pages/TelegramCallbackPage').then(({ TelegramCallbackPage }) => ({ default: TelegramCallbackPage })))
+const TelegramAppCallbackPage = lazy(() => import('@/pages/TelegramAppCallbackPage').then(({ TelegramAppCallbackPage }) => ({ default: TelegramAppCallbackPage })))
 const ReferralPage = lazy(() => import('@/pages/ReferralPage').then(({ ReferralPage }) => ({ default: ReferralPage })))
 const DevicesPage = lazy(() => import('@/pages/DevicesPage').then(({ DevicesPage }) => ({ default: DevicesPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then(({ ProfilePage }) => ({ default: ProfilePage })))
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/auth/telegram/callback" element={<TelegramCallbackPage />} />
+            <Route path="/auth/telegram/app-callback" element={<TelegramAppCallbackPage />} />
             <Route path="/legal/:type" element={<LegalPage />} />
 
             {/* Protected */}

@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Alert } from '@/components/ui/alert'
+import { Switch } from '@/components/ui/switch'
 import {
   getProfile,
   patchLanguage,
+  patchNotifications,
   sendEmailChangeCode,
   verifyEmailChange,
   unlinkTelegram,
@@ -75,6 +77,13 @@ export function ProfilePage() {
     },
   })
   const currentLang = i18n.language.startsWith('ru') ? 'ru' : 'en'
+
+  // ── Email notifications toggle ────────────────────────────────────────────
+  const notifMutation = useMutation({
+    mutationFn: (enabled: boolean) => patchNotifications(enabled),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
+    onError: (err: Error) => toast.error(err.message || t('profile_notifications_error')),
+  })
 
   // ── Email change ──────────────────────────────────────────────────────────
   const [emailOpen, setEmailOpen] = useState(false)
@@ -257,6 +266,22 @@ export function ProfilePage() {
                     <option value="en">🇬🇧 English</option>
                   </Select>
                 </Field>
+
+                {profile?.email && (
+                  <Field label={t('profile_email_notifications')}>
+                    <ReadonlyBox>
+                      <span className="min-w-0 flex-1 truncate text-sm text-[hsl(var(--muted-foreground))]">
+                        {t('profile_email_notifications_hint')}
+                      </span>
+                      <Switch
+                        checked={profile?.email_notifications_enabled ?? true}
+                        onCheckedChange={(v) => notifMutation.mutate(v)}
+                        disabled={notifMutation.isPending}
+                        aria-label={t('profile_email_notifications')}
+                      />
+                    </ReadonlyBox>
+                  </Field>
+                )}
 
                 <Field label={t('profile_account_id')}>
                   <ReadonlyBox>

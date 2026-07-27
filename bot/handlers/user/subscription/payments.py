@@ -2,6 +2,7 @@ from aiogram import Router
 
 from .payments_crypto import router as crypto_router
 from .payments_freekassa import router as freekassa_router
+from .payments_lavapay import router as lavapay_router
 from .payments_platega import router as platega_router
 from .payments_severpay import router as severpay_router
 from .payments_stars import router as stars_router
@@ -15,6 +16,7 @@ router.include_router(yookassa_router)
 router.include_router(freekassa_router)
 router.include_router(platega_router)
 router.include_router(severpay_router)
+router.include_router(lavapay_router)
 router.include_router(crypto_router)
 router.include_router(stars_router)
 

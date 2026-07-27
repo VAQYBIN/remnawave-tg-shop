@@ -12,6 +12,14 @@ from .panel_api_service import PanelApiService
 from bot.middlewares.i18n import JsonI18n
 from bot.keyboards.inline.user_keyboards import get_subscribe_only_markup, get_autorenew_cancel_keyboard
 from db.dal import user_dal
+from core.dal import account_dal
+from core.services.notification_email_service import (
+    KIND_EXPIRED,
+    KIND_EXPIRED_YESTERDAY,
+    KIND_PRE_EXPIRY,
+    send_expiry_email,
+)
+from core.services.unsubscribe_token import create_unsubscribe_token
 
 # Legacy discrete expiry events (Remnawave < 2.8.0).
 EVENT_MAP = {
@@ -65,12 +73,56 @@ class PanelWebhookService:
         except Exception as e:
             logging.error(f"Failed to send notification to {user_id}: {e}")
 
+    async def _get_brand_name(self) -> str:
+        try:
+            async with self.async_session_factory() as session:
+                from core.dal.site_settings_dal import get_site_settings
+
+                site = await get_site_settings(session)
+                return site.brand_name or "VPN"
+        except Exception:
+            logging.exception("Brand name lookup failed; falling back to default")
+            return "VPN"
+
+    async def _maybe_send_expiry_email(
+        self, account, *, kind: str, days_left: int, end_date: str
+    ) -> None:
+        """Отправляет письмо, если аккаунт подходит; любые ошибки — только лог."""
+        try:
+            if account is None or not account.email or not account.is_email_verified:
+                return
+            if not getattr(account, "email_notifications_enabled", True):
+                return
+            if not getattr(self.settings, "EMAIL_EXPIRY_NOTIFICATIONS_ENABLED", True):
+                return
+            if not getattr(self.settings, "RESEND_API_KEY", None):
+                return
+            unsubscribe_url = None
+            secret = getattr(self.settings, "WEB_JWT_SECRET", None)
+            if secret:
+                token = create_unsubscribe_token(account.id, secret)
+                unsubscribe_url = (
+                    f"{self.settings.WEB_API_URL}/api/profile/unsubscribe?token={token}"
+                )
+            brand = await self._get_brand_name()
+            await send_expiry_email(
+                email=account.email,
+                kind=kind,
+                days_left=days_left,
+                lang=account.language_code or self.settings.DEFAULT_LANGUAGE,
+                brand=brand,
+                end_date=end_date,
+                renew_url=f"{self.settings.WEB_FRONTEND_URL}/subscription",
+                api_key=self.settings.RESEND_API_KEY,
+                from_email=self.settings.RESEND_FROM_EMAIL,
+                unsubscribe_url=unsubscribe_url,
+            )
+        except Exception:
+            logging.exception("Expiry email dispatch failed")
+
     async def handle_event(self, event_name: str, user_payload: dict, meta: Optional[dict] = None):
         telegram_id = user_payload.get("telegramId")
-        if not telegram_id:
-            logging.warning("Panel webhook without telegramId received")
-            return
-        user_id = int(telegram_id)
+        tg_user_id = int(telegram_id) if telegram_id else None
 
         if not self.settings.SUBSCRIPTION_NOTIFICATIONS_ENABLED:
             return
@@ -107,12 +159,41 @@ class PanelWebhookService:
                 )
                 return
 
+        # Identity resolution: telegram users keep the legacy path; web-only
+        # users (no telegramId) are matched by panel username "web_<hex>" →
+        # users.username → account.site_user_id. Email channel needs Account.
+        account = None
         async with self.async_session_factory() as session:
-            db_user = await user_dal.get_user_by_id(session, user_id)
-            lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
-            first_name = db_user.first_name or f"User {user_id}" if db_user else f"User {user_id}"
+            if tg_user_id:
+                db_user = await user_dal.get_user_by_id(session, tg_user_id)
+                lang = db_user.language_code if db_user and db_user.language_code else self.settings.DEFAULT_LANGUAGE
+                first_name = db_user.first_name or f"User {tg_user_id}" if db_user else f"User {tg_user_id}"
+                try:
+                    account = await account_dal.get_account_by_telegram_id(session, tg_user_id)
+                except Exception:
+                    logging.exception("Account lookup by telegram id failed")
+            else:
+                username = user_payload.get("username")
+                if username:
+                    try:
+                        site_user = await user_dal.get_user_by_username(session, username)
+                        if site_user:
+                            account = await account_dal.get_account_by_site_user_id(
+                                session, site_user.user_id
+                            )
+                    except Exception:
+                        logging.exception("Account lookup by panel username failed")
+                if account is None:
+                    logging.warning(
+                        "Panel webhook without telegramId has no matching web account; ignoring"
+                    )
+                    return
+                lang = account.language_code or self.settings.DEFAULT_LANGUAGE
+                first_name = (account.email or "").split("@")[0]
 
-        markup = get_subscribe_only_markup(lang, self.i18n)
+        user_id = tg_user_id if tg_user_id is not None else account.site_user_id
+        end_date = user_payload.get("expireAt", "")[:10]
+        markup = get_subscribe_only_markup(lang, self.i18n) if tg_user_id else None
 
         if pre_expiry is not None:
             days_left, msg_key = pre_expiry
@@ -152,41 +233,56 @@ class PanelWebhookService:
                             getattr(sub, 'provider', None) if sub else None,
                         )
                         if sub and await self._subscription_auto_renew_enabled(session, sub):
-                            cancel_kb = get_autorenew_cancel_keyboard(lang, self.i18n)
-                            await self._send_message(
-                                user_id,
-                                lang,
-                                "autorenew_48h_charge_tomorrow_notice",
-                                reply_markup=cancel_kb,
-                                user_name=first_name,
-                            )
+                            if tg_user_id:
+                                cancel_kb = get_autorenew_cancel_keyboard(lang, self.i18n)
+                                await self._send_message(
+                                    tg_user_id,
+                                    lang,
+                                    "autorenew_48h_charge_tomorrow_notice",
+                                    reply_markup=cancel_kb,
+                                    user_name=first_name,
+                                )
+                            # Auto-renew charges tomorrow — an "expires soon"
+                            # email would be misleading, so skip it too.
                             return
-                await self._send_message(
-                    user_id,
-                    lang,
-                    msg_key,
-                    reply_markup=markup,
-                    user_name=first_name,
-                    end_date=user_payload.get("expireAt", "")[:10],
+                if tg_user_id:
+                    await self._send_message(
+                        tg_user_id,
+                        lang,
+                        msg_key,
+                        reply_markup=markup,
+                        user_name=first_name,
+                        end_date=end_date,
+                    )
+                await self._maybe_send_expiry_email(
+                    account, kind=KIND_PRE_EXPIRY, days_left=days_left, end_date=end_date
                 )
         elif event_name == "user.expired":
             if self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
-                await self._send_message(
-                    user_id,
-                    lang,
-                    "subscription_expired_notification",
-                    reply_markup=markup,
-                    user_name=first_name,
-                    end_date=user_payload.get("expireAt", "")[:10],
+                if tg_user_id:
+                    await self._send_message(
+                        tg_user_id,
+                        lang,
+                        "subscription_expired_notification",
+                        reply_markup=markup,
+                        user_name=first_name,
+                        end_date=end_date,
+                    )
+                await self._maybe_send_expiry_email(
+                    account, kind=KIND_EXPIRED, days_left=0, end_date=end_date
                 )
         elif expired_after and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE:
-            await self._send_message(
-                user_id,
-                lang,
-                "subscription_expired_yesterday_notification",
-                reply_markup=markup,
-                user_name=first_name,
-                end_date=user_payload.get("expireAt", "")[:10],
+            if tg_user_id:
+                await self._send_message(
+                    tg_user_id,
+                    lang,
+                    "subscription_expired_yesterday_notification",
+                    reply_markup=markup,
+                    user_name=first_name,
+                    end_date=end_date,
+                )
+            await self._maybe_send_expiry_email(
+                account, kind=KIND_EXPIRED_YESTERDAY, days_left=0, end_date=end_date
             )
 
     async def handle_webhook(self, raw_body: bytes, signature_header: Optional[str]) -> web.Response:

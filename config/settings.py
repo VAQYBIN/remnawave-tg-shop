@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     PERSONAL_DATA_URL: Optional[str] = Field(default=None)
     REFUND_POLICY_URL: Optional[str] = Field(default=None)
+    # Support contacts for the web cabinet footer. Values set in the admin panel
+    # win; these are only a fallback for deployments without a configured panel.
+    CONTACT_SUPPORT_TG_USERNAME: Optional[str] = Field(default=None)
+    CONTACT_SUPPORT_EMAIL: Optional[str] = Field(default=None)
+    CONTACT_SUPPORT_PHONE: Optional[str] = Field(default=None)
     # Subscription Page app config (Devices/Guide tabs). Pulled live from the panel
     # via PANEL_API_URL/PANEL_API_KEY. Optionally pin a specific config by UUID
     # (empty = the panel "Default" config). SUBSCRIPTION_PAGE_CONFIG_PATH is an
@@ -138,6 +143,18 @@ class Settings(BaseSettings):
         description="Lifetime of the payment link in minutes (30-4320, defaults to provider value)",
     )
 
+    # LavaPay (Lava Business API). LAVAPAY_WEBHOOK_SECRET — «дополнительный
+    # ключ» магазина: без него уведомления об оплате не проверить, поэтому
+    # провайдер без него считается ненастроенным (см. core/services/lava_client.py).
+    LAVAPAY_ENABLED: bool = Field(default=False)
+    LAVAPAY_SHOP_ID: Optional[str] = Field(default=None, description="ID магазина (shopId) в Lava Business")
+    LAVAPAY_SECRET_KEY: Optional[str] = Field(default=None, description="Секретный ключ магазина для подписи запросов")
+    LAVAPAY_WEBHOOK_SECRET: Optional[str] = Field(default=None, description="Дополнительный ключ магазина для подписи вебхуков")
+    LAVAPAY_BASE_URL: str = Field(default="https://api.lava.ru")
+    LAVAPAY_RETURN_URL: Optional[str] = Field(default=None, description="Куда вернуть после успешной оплаты (без query-параметров)")
+    LAVAPAY_FAIL_URL: Optional[str] = Field(default=None, description="Куда вернуть после неуспешной оплаты (без query-параметров)")
+    LAVAPAY_EXPIRE_MINUTES: Optional[int] = Field(default=None, description="Срок жизни счёта в минутах (1..7200)")
+
     YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     STARS_PROVIDER_TOKEN: Optional[str] = Field(
@@ -227,6 +244,10 @@ class Settings(BaseSettings):
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
+    TRIAL_HWID_DEVICE_LIMIT: Optional[int] = Field(
+        default=None,
+        description="Default hardware device limit for trial panel users (0 = unlimited)"
+    )
 
     CRYPT4_ENABLED: bool = Field(default=False, description="Enable happ crypt4 encryption for subscription URLs")
     CRYPT4_REDIRECT_URL: Optional[str] = Field(default=None, description="Base redirect URL used for the connect button when crypt4 is enabled")
@@ -554,6 +575,7 @@ class Settings(BaseSettings):
         Ordered list of payment providers to show in the subscription payment keyboard.
         """
         default_order = [
+            "lavapay",
             "freekassa",
             "platega",
             "severpay",
@@ -647,6 +669,14 @@ class Settings(BaseSettings):
         'TELEGRAM_WEBHOOK_SECRET',
         'PANEL_WEBHOOK_SECRET',
         'TELEGRAM_PROXY_URL',
+        'LAVAPAY_SHOP_ID',
+        'LAVAPAY_SECRET_KEY',
+        'LAVAPAY_WEBHOOK_SECRET',
+        'LAVAPAY_RETURN_URL',
+        'LAVAPAY_FAIL_URL',
+        'CONTACT_SUPPORT_TG_USERNAME',
+        'CONTACT_SUPPORT_EMAIL',
+        'CONTACT_SUPPORT_PHONE',
         mode='before',
     )
     @classmethod
@@ -675,6 +705,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
     RESEND_API_KEY: Optional[str] = Field(default=None)
     RESEND_FROM_EMAIL: str = Field(default="noreply@domain.com")
+    EMAIL_EXPIRY_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     WEB_FRONTEND_URL: str = Field(default="https://app.domain.com")
     WEB_API_URL: str = Field(default="https://api.domain.com")
     NEWS_CHANNEL_ID: Optional[int] = Field(default=None)
@@ -712,6 +743,8 @@ class Settings(BaseSettings):
         'REQUIRED_CHANNEL_ID',
         'FREEKASSA_PAYMENT_METHOD_ID',
         'USER_HWID_DEVICE_LIMIT',
+        'TRIAL_HWID_DEVICE_LIMIT',
+        'LAVAPAY_EXPIRE_MINUTES',
         'SEVERPAY_MID',
         'SEVERPAY_LIFETIME_MINUTES',
         'LOG_CHAT_ID',

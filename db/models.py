@@ -422,6 +422,9 @@ class Account(Base):
         BigInteger, ForeignKey("users.user_id"), unique=True, nullable=True, index=True
     )
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     language_code: Mapped[str] = mapped_column(String(10), default="ru")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
@@ -489,13 +492,19 @@ class PricingPlan(Base):
     name_en: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     description_ru: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Legacy single-squad column: kept in sync with the first item of
+    # remnawave_squad_uuids (bot admin UI and tariff_bootstrap still read it).
     remnawave_squad_uuid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    remnawave_squad_uuids: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     remnawave_squad_name_snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     plan_kind: Mapped[str] = mapped_column(String(20), nullable=False, default="standalone", index=True)
     billing_model: Mapped[str] = mapped_column(String(20), nullable=False, default="time")
     traffic_reset_strategy: Mapped[str] = mapped_column(String(30), nullable=False, default="NO_RESET")
     min_price_rub: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     min_price_stars: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Per-plan Remnawave device limit (0 = unlimited). NULL = use the .env
+    # default (USER_HWID_DEVICE_LIMIT / TRIAL_HWID_DEVICE_LIMIT).
+    hwid_device_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_trial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
@@ -646,6 +655,11 @@ class SiteSettings(Base):
     terms_of_service_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     personal_data_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
     refund_policy_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    # Support contacts shown in the web cabinet footer. Empty = contact hidden;
+    # .env (CONTACT_SUPPORT_*) is used as a fallback when a column is NULL.
+    contact_support_tg_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    contact_support_email: Mapped[Optional[str]] = mapped_column(String(320), nullable=True)
+    contact_support_phone: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     __table_args__ = (UniqueConstraint('id'),)

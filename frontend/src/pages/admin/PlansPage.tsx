@@ -78,6 +78,16 @@ const labelCls = 'block text-xs font-medium text-[hsl(var(--muted-foreground))] 
 
 // ── Squad picker ─────────────────────────────────────────────────────────────
 
+/** Поле хранит UUID через запятую; тариф может использовать несколько squad. */
+function parseSquadList(value: string): string[] {
+  return value.split(',').map(v => v.trim()).filter(Boolean)
+}
+
+function squadListToInput(plan?: { remnawave_squad_uuids?: string[] | null; remnawave_squad_uuid?: string | null } | null): string {
+  if (plan?.remnawave_squad_uuids?.length) return plan.remnawave_squad_uuids.join(', ')
+  return plan?.remnawave_squad_uuid ?? ''
+}
+
 function SquadPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -119,17 +129,27 @@ function SquadPicker({ value, onChange }: { value: string; onChange: (v: string)
           {isFetching && (
             <p className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">{t('admin_plans_squad_loading')}</p>
           )}
-          {data?.items.map(sq => (
-            <button
-              key={sq.uuid}
-              type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--muted))] flex justify-between items-center gap-2"
-              onClick={() => { onChange(sq.uuid); setOpen(false) }}
-            >
-              <span className="font-medium">{sq.name}</span>
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{sq.uuid}</span>
-            </button>
-          ))}
+          {data?.items.map(sq => {
+            const selected = parseSquadList(value)
+            const isSelected = selected.includes(sq.uuid)
+            return (
+              <button
+                key={sq.uuid}
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--muted))] flex justify-between items-center gap-2"
+                // Мультивыбор: клик добавляет/убирает squad, список остаётся открытым
+                onClick={() => onChange(
+                  (isSelected ? selected.filter(u => u !== sq.uuid) : [...selected, sq.uuid]).join(', ')
+                )}
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  {isSelected && <Check size={12} className="text-[hsl(var(--primary))]" />}
+                  {sq.name}
+                </span>
+                <span className="text-[10px] text-[hsl(var(--muted-foreground))] truncate max-w-[180px]">{sq.uuid}</span>
+              </button>
+            )
+          })}
           {data && data.items.length === 0 && (
             <p className="px-3 py-2 text-xs text-[hsl(var(--muted-foreground))]">Нет squads</p>
           )}
@@ -363,10 +383,11 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   const [resetStrategy, setResetStrategy] = useState<ResetStrategy>(
     (plan?.traffic_reset_strategy as ResetStrategy) ?? 'NO_RESET'
   )
-  const [squadUuid, setSquadUuid] = useState(plan?.remnawave_squad_uuid ?? '')
+  const [squadUuid, setSquadUuid] = useState(squadListToInput(plan))
   const [isEnabled, setIsEnabled] = useState(plan?.is_enabled ?? true)
   const [minPriceRub, setMinPriceRub] = useState(plan?.min_price_rub?.toString() ?? '')
   const [minPriceStars, setMinPriceStars] = useState(plan?.min_price_stars?.toString() ?? '')
+  const [hwidDeviceLimit, setHwidDeviceLimit] = useState(plan?.hwid_device_limit?.toString() ?? '')
 
   // Options state
   const [existingOptions, setExistingOptions] = useState<PricingPlanOptionResponse[]>(plan?.options ?? [])
@@ -437,7 +458,8 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nameRu.trim()) return
-    if (planKind === 'standalone' && !squadUuid.trim()) {
+    const squadUuids = parseSquadList(squadUuid)
+    if (planKind === 'standalone' && squadUuids.length === 0) {
       toast(t('admin_plans_squad_required'), 'error')
       return
     }
@@ -445,6 +467,9 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     try {
       const minRub = parseFloat(minPriceRub)
       const minStars = parseInt(minPriceStars)
+      // Пусто = наследовать лимит устройств из .env; 0 = без лимита
+      const hwidLimit = parseInt(hwidDeviceLimit)
+      const hwidLimitValue = !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : null
 
       if (isEdit) {
         await updatePlan(plan.id, {
@@ -452,13 +477,14 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           name_en: nameEn.trim() || null,
           description_ru: descRu.trim() || null,
           description_en: descEn.trim() || null,
-          remnawave_squad_uuid: squadUuid.trim() || null,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : null,
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : null,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : null,
+          hwid_device_limit: hwidLimitValue,
         })
         for (const opt of newOptions) {
           if (!isNewOptionNonEmpty(opt)) continue
@@ -471,7 +497,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           name_en: nameEn.trim() || undefined,
           description_ru: descRu.trim() || undefined,
           description_en: descEn.trim() || undefined,
-          remnawave_squad_uuid: squadUuid.trim() || undefined,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : undefined,
           plan_kind: planKind,
           billing_model: billingModel,
           traffic_reset_strategy: resetStrategy,
@@ -479,6 +505,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : undefined,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : undefined,
+          hwid_device_limit: hwidLimitValue ?? undefined,
         }
         const created = await createPlan(body)
         for (const opt of newOptions) {
@@ -653,6 +680,23 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                 {planKind === 'standalone' && <span className="text-[var(--danger)] ml-0.5">*</span>}
               </label>
               <SquadPicker value={squadUuid} onChange={setSquadUuid} />
+              <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                {t('admin_plans_squad_hint')}
+              </p>
+            </div>
+
+            <div>
+              <label className={labelCls}>{t('admin_plans_hwid_limit')}</label>
+              <input
+                type="number" min="0"
+                className={inputCls}
+                placeholder={t('admin_plans_hwid_limit_placeholder')}
+                value={hwidDeviceLimit}
+                onChange={e => setHwidDeviceLimit(e.target.value)}
+              />
+              <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                {t('admin_plans_hwid_limit_hint')}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1048,7 +1092,8 @@ function TrialModal({
   const [days, setDays] = useState(String(trialOption?.duration_days ?? ''))
   const [trafficGb, setTrafficGb] = useState(String(trialOption?.traffic_gb ?? ''))
   const [trafficUnlimited, setTrafficUnlimited] = useState(trialOption?.traffic_unlimited ?? false)
-  const [squadUuid, setSquadUuid] = useState(trialPlan?.remnawave_squad_uuid ?? '')
+  const [squadUuid, setSquadUuid] = useState(squadListToInput(trialPlan))
+  const [hwidDeviceLimit, setHwidDeviceLimit] = useState(trialPlan?.hwid_device_limit?.toString() ?? '')
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -1056,9 +1101,16 @@ function TrialModal({
     try {
       const daysVal = parseInt(days)
       const trafficVal = parseFloat(trafficGb)
+      const squadUuids = parseSquadList(squadUuid)
+      // Пусто = наследовать TRIAL_HWID_DEVICE_LIMIT из .env; 0 = без лимита
+      const hwidLimit = parseInt(hwidDeviceLimit)
+      const hwidLimitValue = !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : null
 
       if (trialPlan) {
-        await updatePlan(trialPlan.id, { remnawave_squad_uuid: squadUuid || null })
+        await updatePlan(trialPlan.id, {
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : null,
+          hwid_device_limit: hwidLimitValue,
+        })
         if (trialOption) {
           await updatePlanOption(trialPlan.id, trialOption.id, {
             duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : null,
@@ -1087,7 +1139,8 @@ function TrialModal({
           traffic_reset_strategy: 'NO_RESET',
           is_trial: true,
           is_enabled: false,
-          remnawave_squad_uuid: squadUuid || undefined,
+          remnawave_squad_uuids: squadUuids.length ? squadUuids : undefined,
+          hwid_device_limit: hwidLimitValue ?? undefined,
         })
         await createPlanOption(created.id, {
           duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : undefined,
@@ -1158,6 +1211,22 @@ function TrialModal({
               onChange={e => setTrafficGb(e.target.value)}
               disabled={trafficUnlimited}
             />
+          </div>
+
+          {/* Device limit */}
+          <div>
+            <label className={labelCls}>{t('admin_plans_hwid_limit')}</label>
+            <input
+              type="number"
+              min="0"
+              className={inputCls}
+              placeholder={t('admin_plans_hwid_limit_placeholder')}
+              value={hwidDeviceLimit}
+              onChange={e => setHwidDeviceLimit(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+              {t('admin_plans_hwid_limit_hint')}
+            </p>
           </div>
 
           {/* Squad */}
