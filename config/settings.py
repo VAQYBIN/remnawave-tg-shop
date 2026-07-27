@@ -143,6 +143,18 @@ class Settings(BaseSettings):
         description="Lifetime of the payment link in minutes (30-4320, defaults to provider value)",
     )
 
+    # LavaPay (Lava Business API). LAVAPAY_WEBHOOK_SECRET — «дополнительный
+    # ключ» магазина: без него уведомления об оплате не проверить, поэтому
+    # провайдер без него считается ненастроенным (см. core/services/lava_client.py).
+    LAVAPAY_ENABLED: bool = Field(default=False)
+    LAVAPAY_SHOP_ID: Optional[str] = Field(default=None, description="ID магазина (shopId) в Lava Business")
+    LAVAPAY_SECRET_KEY: Optional[str] = Field(default=None, description="Секретный ключ магазина для подписи запросов")
+    LAVAPAY_WEBHOOK_SECRET: Optional[str] = Field(default=None, description="Дополнительный ключ магазина для подписи вебхуков")
+    LAVAPAY_BASE_URL: str = Field(default="https://api.lava.ru")
+    LAVAPAY_RETURN_URL: Optional[str] = Field(default=None, description="Куда вернуть после успешной оплаты (без query-параметров)")
+    LAVAPAY_FAIL_URL: Optional[str] = Field(default=None, description="Куда вернуть после неуспешной оплаты (без query-параметров)")
+    LAVAPAY_EXPIRE_MINUTES: Optional[int] = Field(default=None, description="Срок жизни счёта в минутах (1..7200)")
+
     YOOKASSA_ENABLED: bool = Field(default=True)
     STARS_ENABLED: bool = Field(default=True)
     STARS_PROVIDER_TOKEN: Optional[str] = Field(
@@ -563,6 +575,7 @@ class Settings(BaseSettings):
         Ordered list of payment providers to show in the subscription payment keyboard.
         """
         default_order = [
+            "lavapay",
             "freekassa",
             "platega",
             "severpay",
@@ -656,6 +669,11 @@ class Settings(BaseSettings):
         'TELEGRAM_WEBHOOK_SECRET',
         'PANEL_WEBHOOK_SECRET',
         'TELEGRAM_PROXY_URL',
+        'LAVAPAY_SHOP_ID',
+        'LAVAPAY_SECRET_KEY',
+        'LAVAPAY_WEBHOOK_SECRET',
+        'LAVAPAY_RETURN_URL',
+        'LAVAPAY_FAIL_URL',
         'CONTACT_SUPPORT_TG_USERNAME',
         'CONTACT_SUPPORT_EMAIL',
         'CONTACT_SUPPORT_PHONE',
@@ -726,6 +744,7 @@ class Settings(BaseSettings):
         'FREEKASSA_PAYMENT_METHOD_ID',
         'USER_HWID_DEVICE_LIMIT',
         'TRIAL_HWID_DEVICE_LIMIT',
+        'LAVAPAY_EXPIRE_MINUTES',
         'SEVERPAY_MID',
         'SEVERPAY_LIFETIME_MINUTES',
         'LOG_CHAT_ID',

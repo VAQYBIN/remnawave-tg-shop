@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
+from core.services.lava_client import LavaClient, is_configured as lava_is_configured
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,9 @@ def get_available_providers(settings: Settings) -> List[str]:
         providers.append("freekassa")
     if settings.SEVERPAY_ENABLED and settings.SEVERPAY_MID and settings.SEVERPAY_TOKEN:
         providers.append("severpay")
+    # LavaPay требует и webhook-секрет: без него оплату нечем подтвердить
+    if lava_is_configured(settings):
+        providers.append("lavapay")
     if settings.CRYPTOPAY_ENABLED and settings.CRYPTOPAY_TOKEN:
         providers.append("cryptopay")
     return providers
@@ -168,6 +172,30 @@ async def _create_platega_payment(
     if not redirect_url:
         raise RuntimeError("Platega: no redirect URL in response")
     return provider_id, redirect_url
+
+
+async def _create_lavapay_payment(
+    settings: Settings,
+    *,
+    payment_db_id: int,
+    amount: float,
+    description: str,
+    return_url: str,
+) -> Tuple[str, str]:
+    """Счёт в Lava Business. Возвращает (invoice_id, redirect_url)."""
+    hook_url = None
+    if settings.WEBHOOK_BASE_URL:
+        hook_url = f"{settings.WEBHOOK_BASE_URL.rstrip('/')}/webhook/lavapay"
+
+    invoice = await LavaClient(settings).create_invoice(
+        amount=amount,
+        order_id=str(payment_db_id),
+        hook_url=hook_url,
+        success_url=return_url,
+        comment=description,
+        custom_fields=str(payment_db_id),
+    )
+    return invoice["invoice_id"], invoice["url"]
 
 
 def _create_freekassa_url(
@@ -553,6 +581,14 @@ async def create_web_payment(
             )
         elif provider == "platega":
             provider_id, redirect_url = await _create_platega_payment(
+                settings,
+                payment_db_id=payment_db_id,
+                amount=final_amount,
+                description=description,
+                return_url=return_url,
+            )
+        elif provider == "lavapay":
+            provider_id, redirect_url = await _create_lavapay_payment(
                 settings,
                 payment_db_id=payment_db_id,
                 amount=final_amount,

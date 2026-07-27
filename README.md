@@ -490,7 +490,7 @@ Resend отправляет коды подтверждения при реги�
 
 | Переменная | Описание |
 |-----------|---------|
-| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты (через запятую): `severpay,yookassa,cryptopay,freekassa,platega,stars` |
+| `PAYMENT_METHODS_ORDER` | Порядок кнопок оплаты (через запятую): `lavapay,severpay,yookassa,cryptopay,freekassa,platega,stars` |
 | `YOOKASSA_ENABLED` | Включить YooKassa |
 | `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` | Данные магазина YooKassa |
 | `YOOKASSA_AUTOPAYMENTS_ENABLED` | Автопродление через YooKassa |
@@ -503,6 +503,11 @@ Resend отправляет коды подтверждения при реги�
 | `PLATEGA_MERCHANT_ID` / `PLATEGA_SECRET` | Данные магазина Platega |
 | `SEVERPAY_ENABLED` | Включить SeverPay |
 | `SEVERPAY_MID` / `SEVERPAY_TOKEN` | Данные магазина SeverPay |
+| `LAVAPAY_ENABLED` | Включить LavaPay (Lava Business) |
+| `LAVAPAY_SHOP_ID` / `LAVAPAY_SECRET_KEY` | shopId и секретный ключ магазина Lava (подпись запросов) |
+| `LAVAPAY_WEBHOOK_SECRET` | «Дополнительный ключ» магазина — подпись вебхуков. **Обязателен**: без него провайдер не активируется и уведомления об оплате отклоняются |
+| `LAVAPAY_RETURN_URL` / `LAVAPAY_FAIL_URL` | Куда вернуть после оплаты. Ссылки **без query-параметров** — Lava отвечает 422 |
+| `LAVAPAY_EXPIRE_MINUTES` | Срок жизни счёта в минутах (1–7200) |
 | `STARS_ENABLED` | Включить Telegram Stars |
 | `NALOGO_INN` / `NALOGO_PASSWORD` | Самозанятый: интеграция с nalog.ru |
 
@@ -778,6 +783,7 @@ python main.py
 | `/webhook/cryptopay` | CryptoPay |
 | `/webhook/platega` | Platega |
 | `/webhook/severpay` | SeverPay |
+| `/webhook/lavapay` | LavaPay (регистрируется только при заданном `LAVAPAY_WEBHOOK_SECRET`) |
 | `/webhook/panel` | Remnawave Panel |
 
 ---
