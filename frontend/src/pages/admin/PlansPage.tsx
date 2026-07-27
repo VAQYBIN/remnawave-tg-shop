@@ -367,6 +367,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
   const [isEnabled, setIsEnabled] = useState(plan?.is_enabled ?? true)
   const [minPriceRub, setMinPriceRub] = useState(plan?.min_price_rub?.toString() ?? '')
   const [minPriceStars, setMinPriceStars] = useState(plan?.min_price_stars?.toString() ?? '')
+  const [hwidDeviceLimit, setHwidDeviceLimit] = useState(plan?.hwid_device_limit?.toString() ?? '')
 
   // Options state
   const [existingOptions, setExistingOptions] = useState<PricingPlanOptionResponse[]>(plan?.options ?? [])
@@ -445,6 +446,9 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
     try {
       const minRub = parseFloat(minPriceRub)
       const minStars = parseInt(minPriceStars)
+      // Пусто = наследовать лимит устройств из .env; 0 = без лимита
+      const hwidLimit = parseInt(hwidDeviceLimit)
+      const hwidLimitValue = !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : null
 
       if (isEdit) {
         await updatePlan(plan.id, {
@@ -459,6 +463,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : null,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : null,
+          hwid_device_limit: hwidLimitValue,
         })
         for (const opt of newOptions) {
           if (!isNewOptionNonEmpty(opt)) continue
@@ -479,6 +484,7 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
           is_enabled: isEnabled,
           min_price_rub: !isNaN(minRub) && minRub > 0 ? minRub : undefined,
           min_price_stars: !isNaN(minStars) && minStars > 0 ? minStars : undefined,
+          hwid_device_limit: hwidLimitValue ?? undefined,
         }
         const created = await createPlan(body)
         for (const opt of newOptions) {
@@ -653,6 +659,20 @@ function PlanDialog({ plan, onClose }: PlanDialogProps) {
                 {planKind === 'standalone' && <span className="text-[var(--danger)] ml-0.5">*</span>}
               </label>
               <SquadPicker value={squadUuid} onChange={setSquadUuid} />
+            </div>
+
+            <div>
+              <label className={labelCls}>{t('admin_plans_hwid_limit')}</label>
+              <input
+                type="number" min="0"
+                className={inputCls}
+                placeholder={t('admin_plans_hwid_limit_placeholder')}
+                value={hwidDeviceLimit}
+                onChange={e => setHwidDeviceLimit(e.target.value)}
+              />
+              <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                {t('admin_plans_hwid_limit_hint')}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1049,6 +1069,7 @@ function TrialModal({
   const [trafficGb, setTrafficGb] = useState(String(trialOption?.traffic_gb ?? ''))
   const [trafficUnlimited, setTrafficUnlimited] = useState(trialOption?.traffic_unlimited ?? false)
   const [squadUuid, setSquadUuid] = useState(trialPlan?.remnawave_squad_uuid ?? '')
+  const [hwidDeviceLimit, setHwidDeviceLimit] = useState(trialPlan?.hwid_device_limit?.toString() ?? '')
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -1056,9 +1077,15 @@ function TrialModal({
     try {
       const daysVal = parseInt(days)
       const trafficVal = parseFloat(trafficGb)
+      // Пусто = наследовать TRIAL_HWID_DEVICE_LIMIT из .env; 0 = без лимита
+      const hwidLimit = parseInt(hwidDeviceLimit)
+      const hwidLimitValue = !isNaN(hwidLimit) && hwidLimit >= 0 ? hwidLimit : null
 
       if (trialPlan) {
-        await updatePlan(trialPlan.id, { remnawave_squad_uuid: squadUuid || null })
+        await updatePlan(trialPlan.id, {
+          remnawave_squad_uuid: squadUuid || null,
+          hwid_device_limit: hwidLimitValue,
+        })
         if (trialOption) {
           await updatePlanOption(trialPlan.id, trialOption.id, {
             duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : null,
@@ -1088,6 +1115,7 @@ function TrialModal({
           is_trial: true,
           is_enabled: false,
           remnawave_squad_uuid: squadUuid || undefined,
+          hwid_device_limit: hwidLimitValue ?? undefined,
         })
         await createPlanOption(created.id, {
           duration_days: !isNaN(daysVal) && daysVal > 0 ? daysVal : undefined,
@@ -1158,6 +1186,22 @@ function TrialModal({
               onChange={e => setTrafficGb(e.target.value)}
               disabled={trafficUnlimited}
             />
+          </div>
+
+          {/* Device limit */}
+          <div>
+            <label className={labelCls}>{t('admin_plans_hwid_limit')}</label>
+            <input
+              type="number"
+              min="0"
+              className={inputCls}
+              placeholder={t('admin_plans_hwid_limit_placeholder')}
+              value={hwidDeviceLimit}
+              onChange={e => setHwidDeviceLimit(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+              {t('admin_plans_hwid_limit_hint')}
+            </p>
           </div>
 
           {/* Squad */}

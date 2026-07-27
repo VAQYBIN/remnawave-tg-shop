@@ -232,6 +232,10 @@ class Settings(BaseSettings):
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_DURATION_DAYS: int = Field(default=3)
     TRIAL_TRAFFIC_LIMIT_GB: Optional[float] = Field(default=5.0)
+    TRIAL_HWID_DEVICE_LIMIT: Optional[int] = Field(
+        default=None,
+        description="Default hardware device limit for trial panel users (0 = unlimited)"
+    )
 
     CRYPT4_ENABLED: bool = Field(default=False, description="Enable happ crypt4 encryption for subscription URLs")
     CRYPT4_REDIRECT_URL: Optional[str] = Field(default=None, description="Base redirect URL used for the connect button when crypt4 is enabled")
@@ -721,6 +725,7 @@ class Settings(BaseSettings):
         'REQUIRED_CHANNEL_ID',
         'FREEKASSA_PAYMENT_METHOD_ID',
         'USER_HWID_DEVICE_LIMIT',
+        'TRIAL_HWID_DEVICE_LIMIT',
         'SEVERPAY_MID',
         'SEVERPAY_LIFETIME_MINUTES',
         'LOG_CHAT_ID',

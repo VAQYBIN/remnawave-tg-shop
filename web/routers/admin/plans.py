@@ -58,6 +58,20 @@ async def _validate_squad_uuid(squad_uuid: str, settings: Settings) -> Optional[
     return name
 
 
+# Nullable plan columns where an explicit null is a meaningful value rather than
+# "field omitted" — hwid_device_limit=null means "inherit the .env default".
+NULLABLE_PLAN_FIELDS = ("hwid_device_limit",)
+
+
+def build_plan_updates(body: PricingPlanUpdateRequest) -> dict:
+    """Column updates for a plan PATCH: non-null fields plus explicit nulls."""
+    updates = body.model_dump(exclude_none=True)
+    for field in NULLABLE_PLAN_FIELDS:
+        if field in body.model_fields_set:
+            updates[field] = getattr(body, field)
+    return updates
+
+
 async def _unique_slug(db: AsyncSession, base: str, exclude_id: Optional[int] = None) -> str:
     slug, counter = base, 2
     while True:
@@ -191,6 +205,7 @@ async def create_new_plan(
         traffic_reset_strategy=body.traffic_reset_strategy,
         min_price_rub=body.min_price_rub,
         min_price_stars=body.min_price_stars,
+        hwid_device_limit=body.hwid_device_limit,
         is_trial=body.is_trial,
         is_enabled=body.is_enabled,
         sort_order=body.sort_order,
@@ -220,7 +235,7 @@ async def update_existing_plan(
 ) -> PricingPlanResponse:
     plan = await _get_plan_or_404(db, plan_id)
 
-    updates = body.model_dump(exclude_none=True)
+    updates = build_plan_updates(body)
 
     if updates.get("is_enabled") and plan.is_archived:
         raise HTTPException(

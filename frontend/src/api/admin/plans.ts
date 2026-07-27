@@ -31,6 +31,7 @@ export interface PricingPlanResponse {
   traffic_reset_strategy: string
   min_price_rub: number | null
   min_price_stars: number | null
+  hwid_device_limit: number | null
   is_trial: boolean
   is_enabled: boolean
   is_archived: boolean
@@ -57,6 +58,7 @@ export interface PricingPlanCreateRequest {
   traffic_reset_strategy?: string
   min_price_rub?: number
   min_price_stars?: number
+  hwid_device_limit?: number
   is_trial?: boolean
   is_enabled?: boolean
   sort_order?: number
@@ -73,6 +75,8 @@ export interface PricingPlanUpdateRequest {
   traffic_reset_strategy?: string
   min_price_rub?: number | null
   min_price_stars?: number | null
+  // null = наследовать лимит устройств из .env
+  hwid_device_limit?: number | null
   is_trial?: boolean
   is_enabled?: boolean
   sort_order?: number
