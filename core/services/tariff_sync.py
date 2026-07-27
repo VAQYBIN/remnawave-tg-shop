@@ -7,21 +7,48 @@ from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config.settings import Settings
 from core.dal import plan_entitlement_dal
+from core.dal.pricing_plan_dal import plan_squad_uuids
 from core.services.panel_client import PanelApiService
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_hwid_limit(plan, settings: Optional[Settings]) -> Optional[int]:
+    """Per-plan device limit, falling back to the .env default for its kind.
+
+    Returns None when nothing is configured — the key is then omitted from the
+    payload so a limit set directly in the panel is not overwritten.
+    """
+    limit = getattr(plan, "hwid_device_limit", None)
+    if limit is None and settings is not None:
+        limit = (
+            settings.TRIAL_HWID_DEVICE_LIMIT
+            if getattr(plan, "is_trial", False)
+            else settings.USER_HWID_DEVICE_LIMIT
+        )
+    if limit is None:
+        return None
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        logger.warning("build_panel_state: invalid hwid_device_limit %r; ignoring", limit)
+        return None
+    return limit if limit >= 0 else None
 
 
 async def build_panel_state(
     session: AsyncSession,
     user_id: int,
     now: Optional[datetime] = None,
+    settings: Optional[Settings] = None,
 ) -> Optional[dict]:
     """
     Build target Remnawave state from active entitlements.
     Returns None if no active standalone exists.
-    Result keys: activeInternalSquads, expireAt, trafficLimitBytes, trafficLimitStrategy, status.
+    Result keys: activeInternalSquads, expireAt, trafficLimitBytes, trafficLimitStrategy,
+    status, and hwidDeviceLimit when a device limit is configured.
     """
     if now is None:
         now = datetime.now(timezone.utc)
@@ -42,15 +69,18 @@ async def build_panel_state(
         logger.debug("build_panel_state: no active standalone for user %s", user_id)
         return None
 
-    # activeInternalSquads: standalone first, then addons (no duplicates)
+    # activeInternalSquads: all standalone squads first, then addons (no duplicates)
     squad_uuids: List[str] = []
-    if standalone.plan.remnawave_squad_uuid:
-        squad_uuids.append(standalone.plan.remnawave_squad_uuid)
-    for addon in addons:
-        if addon.plan and addon.plan.remnawave_squad_uuid:
-            uuid_val = addon.plan.remnawave_squad_uuid
+
+    def add_plan_squads(plan) -> None:
+        for uuid_val in plan_squad_uuids(plan):
             if uuid_val not in squad_uuids:
                 squad_uuids.append(uuid_val)
+
+    add_plan_squads(standalone.plan)
+    for addon in addons:
+        if addon.plan:
+            add_plan_squads(addon.plan)
 
     expire_at = standalone.ends_at
     if expire_at is None:
@@ -76,13 +106,19 @@ async def build_panel_state(
     elif not expire_iso.endswith("Z"):
         expire_iso += "Z"
 
-    return {
+    state = {
         "activeInternalSquads": squad_uuids,
         "expireAt": expire_iso,
         "trafficLimitBytes": traffic_limit_bytes,
         "trafficLimitStrategy": strategy,
         "status": "ACTIVE",
     }
+
+    hwid_limit = _resolve_hwid_limit(standalone.plan, settings)
+    if hwid_limit is not None:
+        state["hwidDeviceLimit"] = hwid_limit
+
+    return state
 
 
 async def sync_entitlements_to_panel(
@@ -96,7 +132,9 @@ async def sync_entitlements_to_panel(
     Build state from active entitlements and push to Remnawave via single PATCH /users.
     Returns True if Remnawave accepted the update, False otherwise.
     """
-    state = await build_panel_state(session, user_id, now=now)
+    state = await build_panel_state(
+        session, user_id, now=now, settings=getattr(panel_service, "settings", None)
+    )
     if state is None:
         logger.warning(
             "sync_entitlements_to_panel: no standalone for user %s; skipping Remnawave sync",

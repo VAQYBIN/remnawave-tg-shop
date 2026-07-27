@@ -12,6 +12,7 @@ const PROVIDER_META: Provider[] = [
   { id: 'platega', label: '💳 Platega (СБП/карты)', icon: '' },
   { id: 'freekassa', label: '📱 СБП', icon: '' },
   { id: 'severpay', label: '💳 SeverPay', icon: '' },
+  { id: 'lavapay', label: '💳 LavaPay (карта/СБП)', icon: '' },
   { id: 'cryptopay', label: '💎 CryptoBot', icon: '' },
 ]
 

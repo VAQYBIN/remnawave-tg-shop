@@ -33,6 +33,7 @@ async def build_and_start_web_app(
         "panel_webhook_service",
         "platega_service",
         "severpay_service",
+        "lavapay_service",
     ):
         # Access dispatcher workflow_data directly to avoid sequence protocol issues
         if hasattr(dp, "workflow_data") and key in dp.workflow_data:  # type: ignore
@@ -65,6 +66,7 @@ async def build_and_start_web_app(
     from bot.services.freekassa_service import freekassa_webhook_route
     from bot.services.platega_service import platega_webhook_route
     from bot.services.severpay_service import severpay_webhook_route
+    from bot.services.lavapay_service import lavapay_webhook_route
 
     cp_path = settings.cryptopay_webhook_path
     if cp_path.startswith("/"):
@@ -85,6 +87,13 @@ async def build_and_start_web_app(
     if sp_path.startswith("/"):
         app.router.add_post(sp_path, severpay_webhook_route)
         logging.info(f"SeverPay webhook route configured at: [POST] {sp_path}")
+
+    # LavaPay webhook — регистрируем только при полностью настроенном провайдере
+    # (включая LAVAPAY_WEBHOOK_SECRET, иначе подпись проверить нечем)
+    lavapay_service = app.get("lavapay_service")
+    if lavapay_service is not None and lavapay_service.configured:
+        app.router.add_post("/webhook/lavapay", lavapay_webhook_route)
+        logging.info("LavaPay webhook route configured at: [POST] /webhook/lavapay")
 
     # YooKassa webhook (register only when base URL present and path configured)
     yk_path = settings.yookassa_webhook_path

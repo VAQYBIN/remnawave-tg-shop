@@ -25,12 +25,14 @@ export interface PricingPlanResponse {
   description_ru: string | null
   description_en: string | null
   remnawave_squad_uuid: string | null
+  remnawave_squad_uuids: string[]
   remnawave_squad_name_snapshot: string | null
   plan_kind: string
   billing_model: string
   traffic_reset_strategy: string
   min_price_rub: number | null
   min_price_stars: number | null
+  hwid_device_limit: number | null
   is_trial: boolean
   is_enabled: boolean
   is_archived: boolean
@@ -52,11 +54,13 @@ export interface PricingPlanCreateRequest {
   description_ru?: string
   description_en?: string
   remnawave_squad_uuid?: string
+  remnawave_squad_uuids?: string[]
   plan_kind?: string
   billing_model?: string
   traffic_reset_strategy?: string
   min_price_rub?: number
   min_price_stars?: number
+  hwid_device_limit?: number
   is_trial?: boolean
   is_enabled?: boolean
   sort_order?: number
@@ -68,11 +72,15 @@ export interface PricingPlanUpdateRequest {
   description_ru?: string | null
   description_en?: string | null
   remnawave_squad_uuid?: string | null
+  // null = отвязать все squad от тарифа
+  remnawave_squad_uuids?: string[] | null
   plan_kind?: string
   billing_model?: string
   traffic_reset_strategy?: string
   min_price_rub?: number | null
   min_price_stars?: number | null
+  // null = наследовать лимит устройств из .env
+  hwid_device_limit?: number | null
   is_trial?: boolean
   is_enabled?: boolean
   sort_order?: number
