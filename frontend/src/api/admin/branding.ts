@@ -20,6 +20,9 @@ export interface BrandingResponse {
   terms_of_service_url: string | null
   personal_data_url: string | null
   refund_policy_url: string | null
+  contact_support_tg_username: string | null
+  contact_support_email: string | null
+  contact_support_phone: string | null
 }
 
 export interface PublicBrandingResponse extends BrandingResponse {
@@ -38,10 +41,14 @@ export interface BrandingUpdateRequest {
   theme?: Theme
   default_color_scheme?: string
   custom_css?: string
-  privacy_policy_url?: string
-  terms_of_service_url?: string
-  personal_data_url?: string
-  refund_policy_url?: string
+  // null = очистить поле (бэкенд различает «не прислано» и «прислано пустым»)
+  privacy_policy_url?: string | null
+  terms_of_service_url?: string | null
+  personal_data_url?: string | null
+  refund_policy_url?: string | null
+  contact_support_tg_username?: string | null
+  contact_support_email?: string | null
+  contact_support_phone?: string | null
 }
 
 export interface BrandThemeResponse {

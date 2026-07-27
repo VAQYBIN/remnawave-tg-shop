@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     PRIVACY_POLICY_URL: Optional[str] = Field(default=None)
     PERSONAL_DATA_URL: Optional[str] = Field(default=None)
     REFUND_POLICY_URL: Optional[str] = Field(default=None)
+    # Support contacts for the web cabinet footer. Values set in the admin panel
+    # win; these are only a fallback for deployments without a configured panel.
+    CONTACT_SUPPORT_TG_USERNAME: Optional[str] = Field(default=None)
+    CONTACT_SUPPORT_EMAIL: Optional[str] = Field(default=None)
+    CONTACT_SUPPORT_PHONE: Optional[str] = Field(default=None)
     # Subscription Page app config (Devices/Guide tabs). Pulled live from the panel
     # via PANEL_API_URL/PANEL_API_KEY. Optionally pin a specific config by UUID
     # (empty = the panel "Default" config). SUBSCRIPTION_PAGE_CONFIG_PATH is an
@@ -647,6 +652,9 @@ class Settings(BaseSettings):
         'TELEGRAM_WEBHOOK_SECRET',
         'PANEL_WEBHOOK_SECRET',
         'TELEGRAM_PROXY_URL',
+        'CONTACT_SUPPORT_TG_USERNAME',
+        'CONTACT_SUPPORT_EMAIL',
+        'CONTACT_SUPPORT_PHONE',
         mode='before',
     )
     @classmethod

@@ -44,6 +44,9 @@ export function BrandingPage() {
     terms_of_service_url: '',
     personal_data_url: '',
     refund_policy_url: '',
+    contact_support_tg_username: '',
+    contact_support_email: '',
+    contact_support_phone: '',
   })
   const [initialized, setInitialized] = useState(false)
   const [editingPalette, setEditingPalette] = useState<PaletteName>('light')
@@ -60,6 +63,9 @@ export function BrandingPage() {
       terms_of_service_url: data.terms_of_service_url ?? '',
       personal_data_url: data.personal_data_url ?? '',
       refund_policy_url: data.refund_policy_url ?? '',
+      contact_support_tg_username: data.contact_support_tg_username ?? '',
+      contact_support_email: data.contact_support_email ?? '',
+      contact_support_phone: data.contact_support_phone ?? '',
     })
     setInitialized(true)
   }
@@ -71,7 +77,19 @@ export function BrandingPage() {
 
   const saveMutation = useMutation({
     mutationFn: patchBranding,
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      // Бэкенд нормализует значения (например @user / t.me/user → user) —
+      // показываем в форме то, что реально сохранено.
+      setForm(f => ({
+        ...f,
+        privacy_policy_url: updated.privacy_policy_url ?? '',
+        terms_of_service_url: updated.terms_of_service_url ?? '',
+        personal_data_url: updated.personal_data_url ?? '',
+        refund_policy_url: updated.refund_policy_url ?? '',
+        contact_support_tg_username: updated.contact_support_tg_username ?? '',
+        contact_support_email: updated.contact_support_email ?? '',
+        contact_support_phone: updated.contact_support_phone ?? '',
+      }))
       qc.invalidateQueries({ queryKey: ['admin', 'branding'] })
       qc.invalidateQueries({ queryKey: ['public', 'branding'] })
       showToast(t('admin_branding_saved'), 'success')
@@ -140,10 +158,14 @@ export function BrandingPage() {
       heading_font_family: form.heading_font_family || undefined,
       default_color_scheme: form.default_color_scheme,
       custom_css: form.custom_css || undefined,
-      privacy_policy_url: form.privacy_policy_url || undefined,
-      terms_of_service_url: form.terms_of_service_url || undefined,
-      personal_data_url: form.personal_data_url || undefined,
-      refund_policy_url: form.refund_policy_url || undefined,
+      // null (не undefined) — иначе очистить сохранённую ссылку/контакт нельзя
+      privacy_policy_url: form.privacy_policy_url || null,
+      terms_of_service_url: form.terms_of_service_url || null,
+      personal_data_url: form.personal_data_url || null,
+      refund_policy_url: form.refund_policy_url || null,
+      contact_support_tg_username: form.contact_support_tg_username || null,
+      contact_support_email: form.contact_support_email || null,
+      contact_support_phone: form.contact_support_phone || null,
     })
   }
 
@@ -375,6 +397,39 @@ export function BrandingPage() {
                 placeholder="https://telegra.ph/..."
               />
             ))}
+          </Card>
+
+          {/* Support contacts (cabinet footer) */}
+          <Card className="p-5 space-y-4">
+            <div>
+              <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">
+                {t('admin_branding_support_contacts_title')}
+              </h2>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
+                {t('admin_branding_support_contacts_hint')}
+              </p>
+            </div>
+            <Input
+              type="text"
+              label={t('admin_branding_support_tg')}
+              value={form.contact_support_tg_username}
+              onChange={e => setForm(f => ({ ...f, contact_support_tg_username: e.target.value }))}
+              placeholder="support_username"
+            />
+            <Input
+              type="email"
+              label={t('admin_branding_support_email')}
+              value={form.contact_support_email}
+              onChange={e => setForm(f => ({ ...f, contact_support_email: e.target.value }))}
+              placeholder="support@example.com"
+            />
+            <Input
+              type="tel"
+              label={t('admin_branding_support_phone')}
+              value={form.contact_support_phone}
+              onChange={e => setForm(f => ({ ...f, contact_support_phone: e.target.value }))}
+              placeholder="+7 900 000-00-00"
+            />
           </Card>
 
           <Button

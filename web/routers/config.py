@@ -34,4 +34,11 @@ async def get_public_branding(
         response.personal_data_url = settings.PERSONAL_DATA_URL
     if not response.refund_policy_url and settings.REFUND_POLICY_URL:
         response.refund_policy_url = settings.REFUND_POLICY_URL
+    # Same fallback rule for support contacts shown in the cabinet footer
+    if not response.contact_support_tg_username and settings.CONTACT_SUPPORT_TG_USERNAME:
+        response.contact_support_tg_username = settings.CONTACT_SUPPORT_TG_USERNAME.lstrip("@")
+    if not response.contact_support_email and settings.CONTACT_SUPPORT_EMAIL:
+        response.contact_support_email = settings.CONTACT_SUPPORT_EMAIL
+    if not response.contact_support_phone and settings.CONTACT_SUPPORT_PHONE:
+        response.contact_support_phone = settings.CONTACT_SUPPORT_PHONE
     return response

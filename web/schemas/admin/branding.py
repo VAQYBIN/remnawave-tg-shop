@@ -48,6 +48,9 @@ class BrandingResponse(BaseModel):
     terms_of_service_url: Optional[str] = None
     personal_data_url: Optional[str] = None
     refund_policy_url: Optional[str] = None
+    contact_support_tg_username: Optional[str] = None
+    contact_support_email: Optional[str] = None
+    contact_support_phone: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -65,6 +68,9 @@ class BrandingUpdateRequest(BaseModel):
     terms_of_service_url: Optional[str] = None
     personal_data_url: Optional[str] = None
     refund_policy_url: Optional[str] = None
+    contact_support_tg_username: Optional[str] = None
+    contact_support_email: Optional[str] = None
+    contact_support_phone: Optional[str] = None
 
     @field_validator("default_color_scheme")
     @classmethod
@@ -72,6 +78,36 @@ class BrandingUpdateRequest(BaseModel):
         if v is not None and v not in COLOR_SCHEMES:
             raise ValueError(f"default_color_scheme must be one of {COLOR_SCHEMES}")
         return v
+
+    @field_validator(
+        "privacy_policy_url",
+        "terms_of_service_url",
+        "personal_data_url",
+        "refund_policy_url",
+        "contact_support_tg_username",
+        "contact_support_email",
+        "contact_support_phone",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, v: Optional[str]) -> Optional[str]:
+        """Empty input means "clear this field", not "leave it as is"."""
+        if isinstance(v, str):
+            return v.strip() or None
+        return v
+
+    @field_validator("contact_support_tg_username")
+    @classmethod
+    def _normalise_tg_username(cls, v: Optional[str]) -> Optional[str]:
+        """Store a bare username: admins paste @name or a t.me link just as often."""
+        if not isinstance(v, str):
+            return v
+        cleaned = v.strip()
+        for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+            if cleaned.lower().startswith(prefix):
+                cleaned = cleaned[len(prefix):]
+                break
+        return cleaned.lstrip("@").strip() or None
 
 
 class PublicBrandingResponse(BrandingResponse):
