@@ -58,9 +58,36 @@ async def _validate_squad_uuid(squad_uuid: str, settings: Settings) -> Optional[
     return name
 
 
+def normalise_squad_input(
+    squad_uuids: Optional[list[str]], squad_uuid: Optional[str]
+) -> list[str]:
+    """Merge both request shapes into one de-duplicated list of squad UUIDs.
+
+    The list field is the modern input; the single field stays supported for
+    older clients (and the bot admin UI) and is appended after it.
+    """
+    result: list[str] = []
+    for source in (squad_uuids, squad_uuid):
+        if not source:
+            continue
+        items = source.split(",") if isinstance(source, str) else source
+        for item in items:
+            value = str(item).strip()
+            if value and value not in result:
+                result.append(value)
+    return result
+
+
+async def _validate_squad_uuids(squad_uuids: list[str], settings: Settings) -> Optional[str]:
+    """Validate every squad against the panel; returns a combined name snapshot."""
+    names = [await _validate_squad_uuid(uuid_val, settings) or uuid_val for uuid_val in squad_uuids]
+    return ", ".join(names) if names else None
+
+
 # Nullable plan columns where an explicit null is a meaningful value rather than
-# "field omitted" — hwid_device_limit=null means "inherit the .env default".
-NULLABLE_PLAN_FIELDS = ("hwid_device_limit",)
+# "field omitted": hwid_device_limit=null means "inherit the .env default",
+# squad null/[] means "detach all squads from this plan".
+NULLABLE_PLAN_FIELDS = ("hwid_device_limit", "remnawave_squad_uuid", "remnawave_squad_uuids")
 
 
 def build_plan_updates(body: PricingPlanUpdateRequest) -> dict:
@@ -184,9 +211,8 @@ async def create_new_plan(
     admin: Account = Depends(get_current_admin),
     settings: Settings = Depends(get_settings_dep),
 ) -> PricingPlanResponse:
-    squad_name: Optional[str] = None
-    if body.remnawave_squad_uuid:
-        squad_name = await _validate_squad_uuid(body.remnawave_squad_uuid, settings)
+    squad_uuids = normalise_squad_input(body.remnawave_squad_uuids, body.remnawave_squad_uuid)
+    squad_name = await _validate_squad_uuids(squad_uuids, settings) if squad_uuids else None
 
     base = slugify(body.slug) if body.slug else slugify(body.name_ru)
     slug = await _unique_slug(db, base)
@@ -198,7 +224,7 @@ async def create_new_plan(
         name_en=body.name_en,
         description_ru=body.description_ru,
         description_en=body.description_en,
-        remnawave_squad_uuid=body.remnawave_squad_uuid,
+        remnawave_squad_uuids=squad_uuids or None,
         remnawave_squad_name_snapshot=squad_name,
         plan_kind=body.plan_kind,
         billing_model=body.billing_model,
@@ -251,13 +277,16 @@ async def update_existing_plan(
                 detail="Нельзя менять plan_kind тарифа с активными правами пользователей",
             )
 
-    if "remnawave_squad_uuid" in updates:
-        uuid_val = updates["remnawave_squad_uuid"]
-        if uuid_val:
-            snapshot = await _validate_squad_uuid(uuid_val, settings)
-            updates["remnawave_squad_name_snapshot"] = snapshot
-        else:
-            updates["remnawave_squad_name_snapshot"] = None
+    if "remnawave_squad_uuid" in updates or "remnawave_squad_uuids" in updates:
+        squad_uuids = normalise_squad_input(
+            updates.get("remnawave_squad_uuids"), updates.get("remnawave_squad_uuid")
+        )
+        # DAL keeps the legacy single-squad column in sync with this list
+        updates.pop("remnawave_squad_uuid", None)
+        updates["remnawave_squad_uuids"] = squad_uuids or None
+        updates["remnawave_squad_name_snapshot"] = (
+            await _validate_squad_uuids(squad_uuids, settings) if squad_uuids else None
+        )
 
     eff_billing_model = updates.get("billing_model", plan.billing_model)
     eff_reset_strategy = updates.get("traffic_reset_strategy", plan.traffic_reset_strategy)

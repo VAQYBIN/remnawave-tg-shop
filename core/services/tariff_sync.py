@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
 from core.dal import plan_entitlement_dal
+from core.dal.pricing_plan_dal import plan_squad_uuids
 from core.services.panel_client import PanelApiService
 
 logger = logging.getLogger(__name__)
@@ -68,15 +69,18 @@ async def build_panel_state(
         logger.debug("build_panel_state: no active standalone for user %s", user_id)
         return None
 
-    # activeInternalSquads: standalone first, then addons (no duplicates)
+    # activeInternalSquads: all standalone squads first, then addons (no duplicates)
     squad_uuids: List[str] = []
-    if standalone.plan.remnawave_squad_uuid:
-        squad_uuids.append(standalone.plan.remnawave_squad_uuid)
-    for addon in addons:
-        if addon.plan and addon.plan.remnawave_squad_uuid:
-            uuid_val = addon.plan.remnawave_squad_uuid
+
+    def add_plan_squads(plan) -> None:
+        for uuid_val in plan_squad_uuids(plan):
             if uuid_val not in squad_uuids:
                 squad_uuids.append(uuid_val)
+
+    add_plan_squads(standalone.plan)
+    for addon in addons:
+        if addon.plan:
+            add_plan_squads(addon.plan)
 
     expire_at = standalone.ends_at
     if expire_at is None:

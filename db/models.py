@@ -492,7 +492,10 @@ class PricingPlan(Base):
     name_en: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     description_ru: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Legacy single-squad column: kept in sync with the first item of
+    # remnawave_squad_uuids (bot admin UI and tariff_bootstrap still read it).
     remnawave_squad_uuid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    remnawave_squad_uuids: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     remnawave_squad_name_snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     plan_kind: Mapped[str] = mapped_column(String(20), nullable=False, default="standalone", index=True)
     billing_model: Mapped[str] = mapped_column(String(20), nullable=False, default="time")

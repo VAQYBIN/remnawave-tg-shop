@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from web.schemas.types import UTCDatetime
 
@@ -100,6 +100,7 @@ class PricingPlanResponse(BaseModel):
     description_ru: Optional[str] = None
     description_en: Optional[str] = None
     remnawave_squad_uuid: Optional[str] = None
+    remnawave_squad_uuids: list[str] = Field(default_factory=list)
     remnawave_squad_name_snapshot: Optional[str] = None
     plan_kind: str
     billing_model: str
@@ -113,7 +114,18 @@ class PricingPlanResponse(BaseModel):
     sort_order: int
     created_at: UTCDatetime
     updated_at: Optional[UTCDatetime] = None
-    options: list[PricingPlanOptionResponse] = []
+    options: list[PricingPlanOptionResponse] = Field(default_factory=list)
+
+    @field_validator("remnawave_squad_uuids", mode="before")
+    @classmethod
+    def _normalise_squad_uuids(cls, value: object) -> list[str]:
+        """NULL в БД и строка «a, b» приходят к одному виду — списку."""
+        if not value:
+            return []
+        items = value.split(",") if isinstance(value, str) else value
+        if not isinstance(items, (list, tuple)):
+            return []
+        return [str(item).strip() for item in items if str(item).strip()]
 
     model_config = {"from_attributes": True}
 
@@ -136,6 +148,7 @@ class PricingPlanCreateRequest(BaseModel):
     description_ru: Optional[str] = None
     description_en: Optional[str] = None
     remnawave_squad_uuid: Optional[str] = None
+    remnawave_squad_uuids: list[str] = Field(default_factory=list)
     plan_kind: str = "standalone"
     billing_model: str = "time"
     traffic_reset_strategy: str = "NO_RESET"
@@ -159,6 +172,7 @@ class PricingPlanUpdateRequest(BaseModel):
     description_ru: Optional[str] = None
     description_en: Optional[str] = None
     remnawave_squad_uuid: Optional[str] = None
+    remnawave_squad_uuids: Optional[list[str]] = None
     plan_kind: Optional[str] = None
     billing_model: Optional[str] = None
     traffic_reset_strategy: Optional[str] = None
