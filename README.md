@@ -2,7 +2,12 @@
 
 **Форк** [kavore/remnawave-tg-shop](https://github.com/kavore/remnawave-tg-shop) с расширенными возможностями: веб-дашборд (личный кабинет) и полнофункциональная веб-панель администратора.
 
-> Проверено на **Remnawave 2.7.4**.
+> Проверено на **Remnawave 3.2.1**.
+>
+> ⚠️ **Обновляетесь с Remnawave 2.x?** В версии 3.0.0 панель убрала `uuid` из объекта
+> пользователя и заменила его числовым `id`, а также удалила часть эндпоинтов.
+> Эта версия проекта работает **только с Remnawave 3.x**. Порядок перехода, таблица
+> замен и процедура отката: [docs/remnawave-v3-upgrade.md](docs/remnawave-v3-upgrade.md).
 
 ---
 
@@ -17,7 +22,8 @@
 - Пробный период
 - Промокоды (скидка / бонусные дни / бесплатный период)
 - Реферальная программа с бонусными днями
-- Оплата через YooKassa, FreeKassa, CryptoPay, Platega, SeverPay, Telegram Stars
+- Оплата через YooKassa, LavaPay, FreeKassa, CryptoPay, Platega, SeverPay, Telegram Stars
+- Чеки 54-ФЗ: YooKassa (`YOOKASSA_TAX_SYSTEM_CODE`) и самозанятость через nalog.ru (`NALOGO_*`)
 - Автопродление подписки (bundle: standalone + addon с включённым автопродлением)
 - Уведомления об истечении подписки
 
@@ -116,7 +122,7 @@ Browser → /api/* → web/routers/ → core/services/ → core/dal/ → Postgre
 ### Предварительные требования
 
 - Docker и Docker Compose
-- Работающая панель Remnawave **2.7.4** (требуется для Custom Tariffs — используется Internal Squads API: `GET /internal-squads`, `GET /internal-squads/{uuid}`)
+- Работающая панель Remnawave **3.x** (проверено на 3.2.1). Более старые версии не поддерживаются: в 3.0.0 сменился идентификатор пользователя и часть эндпоинтов
 - Токен Telegram-бота
 - Данные для подключения к платёжным системам
 
@@ -161,12 +167,14 @@ nano .env
 | `WEB_CORS_ORIGINS` | Разрешённые origins для CORS |
 | `BOT_USERNAME` | Username бота без `@` |
 
-> **⚠️ Remnawave ≥ 2.8.0:** уведомления об истечении подписки (за 72/48/24 ч и через 24 ч после) теперь приходят одним событием `user.expiration` и **выключены в панели по умолчанию**. Чтобы напоминания и авто-продление работали, в `.env` **панели Remnawave** включите:
+> **⚠️ Настройка панели.** Уведомления об истечении подписки (за 72/48/24 ч и через 24 ч после) приходят одним событием `user.expiration` и **выключены в панели по умолчанию**. Чтобы напоминания и авто-продление работали, в `.env` **панели Remnawave** включите:
 > ```
 > EXPIRATION_NOTIFICATIONS_ENABLED=true
 > EXPIRATION_NOTIFICATIONS=[-72,-48,-24,24]
 > ```
-> Если используете кастомный `notifications-config.yml` — удалите из него старые ключи событий (`user.expires_in_*`, `user.expired_24_hours_ago`), иначе панель не запустится. Бот понимает оба формата (старый и новый), отдельной настройки в `.env` бота не требуется.
+> Если используете кастомный `notifications-config.yml` — удалите из него старые ключи событий (`user.expires_in_*`, `user.expired_24_hours_ago`), иначе панель не запустится. Отдельной настройки в `.env` бота не требуется.
+>
+> В Remnawave 3.0.0 на стороне панели также переименован секрет: `JWT_AUTH_SECRET` → `APP_SECRET`; удалены `JWT_API_TOKENS_SECRET`, `SWAGGER_PATH`, `SCALAR_PATH`, `IS_DOCS_ENABLED`. Скоупы существующих API-токенов мигрируют автоматически.
 
 **3. Запустите сервисы:**
 
@@ -373,6 +381,20 @@ docker compose logs -f --tail=100
 docker compose exec remnawave-tg-shop alembic upgrade head
 ```
 
+### Обслуживающие скрипты
+
+| Скрипт | Назначение |
+|--------|-----------|
+| `python -m scripts.backfill_panel_user_id` | Разовый backfill `users.panel_user_id` после апгрейда панели до Remnawave 3.x. Идемпотентен, обрабатывает только записи с пустым идентификатором |
+
+```bash
+docker exec remnawave-tg-shop python -m scripts.backfill_panel_user_id
+```
+
+Скрипт не обязателен: пользователи с пустым `panel_user_id` восстанавливают
+связь с панелью лениво, при первом обращении. Как читать его отчёт —
+в [docs/remnawave-v3-upgrade.md](docs/remnawave-v3-upgrade.md#как-читать-отчёт-backfill).
+
 ---
 
 ## 🔑 Настройка внешних сервисов
@@ -426,8 +448,8 @@ Resend отправляет коды подтверждения при реги�
 синхронизации с панелью; для обратной совместимости первый UUID дублируется в
 старое одиночное поле, которое читает админка бота.
 
-> Требуется **Remnawave 2.7.4** — тарифы валидируют Internal Squads через API
-> панели.
+> Требуется **Remnawave 3.x** — тарифы валидируют Internal Squads через API
+> панели (`GET /internal-squads`, `GET /internal-squads/{uuid}`).
 
 📄 Понятия (standalone / addon / trial / billing model), миграция старых
 установок и настройка тарифов в web/bot admin: [docs/custom-tariffs.md](docs/custom-tariffs.md)
@@ -469,6 +491,66 @@ Resend отправляет коды подтверждения при реги�
 | `TRIAL_ENABLED` | Пробный период | `true` |
 | `TRIAL_DURATION_DAYS` | Длительность пробного периода (дней) | `5` |
 | `TRIAL_HWID_DEVICE_LIMIT` | Лимит устройств для пробного периода (`0` = безлимит; пусто = берётся `USER_HWID_DEVICE_LIMIT`) | `1` |
+
+</details>
+
+<details>
+<summary><b>База данных и Redis</b></summary>
+
+| Переменная | Описание | Пример |
+|-----------|---------|--------|
+| `POSTGRES_USER` | Пользователь PostgreSQL | `postgres` |
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL | `change-me` |
+| `POSTGRES_HOST` | Хост БД (имя контейнера в compose) | `remnawave-tg-shop-db` |
+| `POSTGRES_PORT` | Порт БД | `5432` |
+| `POSTGRES_DB` | Имя базы | `remnawave_tg_shop` |
+| `REDIS_URL` | URL Redis | `redis://remnawave-tg-shop-redis:6379/0` |
+
+</details>
+
+<details>
+<summary><b>Уведомления о подписке</b></summary>
+
+| Переменная | Описание | По умолчанию |
+|-----------|---------|--------------|
+| `SUBSCRIPTION_NOTIFICATIONS_ENABLED` | Обрабатывать вебхуки панели об истечении | `true` |
+| `SUBSCRIPTION_NOTIFY_DAYS_BEFORE` | За сколько дней начинать напоминать (1–3) | `3` |
+| `SUBSCRIPTION_NOTIFY_ON_EXPIRE` | Уведомлять в момент истечения | `true` |
+| `SUBSCRIPTION_NOTIFY_AFTER_EXPIRE` | Напоминание через сутки после истечения | `true` |
+| `EMAIL_EXPIRY_NOTIFICATIONS_ENABLED` | Дублировать напоминания на email (нужен `RESEND_API_KEY`) | `true` |
+
+> Источник этих событий — вебхуки панели. Их нужно включить на стороне Remnawave, см. предупреждение в разделе установки.
+
+</details>
+
+<details>
+<summary><b>Реферальная программа</b></summary>
+
+| Переменная | Описание |
+|-----------|---------|
+| `REFERRAL_ENABLED` | Включить реферальную систему |
+| `REFERRAL_BONUS_DAYS_1_MONTH` … `_12_MONTHS` | Бонусные дни пригласившему за покупку на соответствующий срок |
+| `REFEREE_BONUS_DAYS_1_MONTH` … `_12_MONTHS` | Бонусные дни приглашённому |
+| `REFERRAL_ONE_BONUS_PER_REFEREE` | Начислять бонус только за первую покупку приглашённого (по умолчанию `true`) |
+| `LEGACY_REFS` | Поддерживать старые ссылки вида `ref_<telegram_id>` (по умолчанию `true`) |
+
+</details>
+
+<details>
+<summary><b>Поддержка и юридические документы</b></summary>
+
+| Переменная | Описание |
+|-----------|---------|
+| `SUPPORT_MAX_OPEN_TICKETS_PER_USER` | Лимит одновременно открытых тикетов на пользователя |
+| `SUPPORT_MAX_ATTACHMENTS_PER_MESSAGE` | Лимит вложений в одном сообщении |
+| `SUPPORT_MAX_ATTACHMENT_SIZE_MB` | Максимальный размер вложения |
+| `TERMS_OF_SERVICE_URL` | Ссылка на оферту (страница профиля) |
+| `PRIVACY_POLICY_URL` | Политика конфиденциальности |
+| `PERSONAL_DATA_URL` | Согласие на обработку персональных данных |
+| `REFUND_POLICY_URL` | Политика возвратов |
+| `SERVER_STATUS_URL` | Ссылка на статус-страницу серверов |
+
+> Юридические ссылки также редактируются в веб-админке; значение из БД имеет приоритет над `.env`.
 
 </details>
 
@@ -588,6 +670,7 @@ MIN_PRORATED_PRICE_STARS=
 
 | Переменная | Описание |
 |-----------|---------|
+| `LOG_LEVEL` | Уровень логирования (`INFO`, `DEBUG`, …). `DEBUG` включает полные тела ответов Remnawave в логах |
 | `LOG_CHAT_ID` | ID чата для уведомлений администратора |
 | `LOG_THREAD_ID` | ID топика в супергруппе |
 | `LOG_NEW_USERS` | Логировать новых пользователей |
@@ -616,13 +699,13 @@ remnawave-tg-shop/
 │   └── main_bot.py
 │
 ├── core/                       # Общая бизнес-логика (бот + веб)
-│   ├── dal/                    # Data Access Layer
-│   └── services/               # Core Services (panel_client, payment_core, ...)
+│   ├── dal/                    # Data Access Layer (единый источник)
+│   └── services/               # panel_client, panel_identity, payment_core, ...
 │
 ├── web/                        # FastAPI Web API
 │   ├── auth/                   # JWT, Telegram HMAC, bcrypt, email
 │   ├── routers/                # Эндпоинты
-│   │   ├── admin/              # /api/admin/* (13 роутеров)
+│   │   ├── admin/              # /api/admin/* (16 роутеров)
 │   │   └── ...                 # subscription, payment, profile, news, ...
 │   └── schemas/                # Pydantic v2 схемы
 │
@@ -635,8 +718,10 @@ remnawave-tg-shop/
 │
 ├── db/
 │   ├── models.py               # SQLAlchemy ORM-модели
-│   └── dal/                    # Re-export из core/dal/ (обратная совместимость)
+│   └── dal/                    # Обратная совместимость: __init__.py ре-экспортирует core/dal/
 │
+├── scripts/                    # Обслуживающие скрипты (backfill_panel_user_id)
+├── tests/                      # pytest (unit + контрактный тест API панели)
 ├── config/settings.py          # Pydantic Settings (единый источник конфига)
 ├── nginx/nginx.conf            # Готовый конфиг Nginx для single-domain деплоя
 ├── docker-compose.yml          # Локальная разработка (с локальной сборкой)
@@ -736,8 +821,11 @@ Production-образы публикуются в GitHub Container Registry ав
 | GET | `/admin/panel/nodes` | Список нод |
 | POST | `/admin/panel/nodes/{uuid}/enable\|disable\|restart` | Управление нодой |
 | POST | `/admin/panel/nodes/restart-all` | Рестарт всех нод |
+| GET | `/admin/panel/metadata` | Версия и сборка панели |
+| GET | `/admin/panel/bandwidth` | Bandwidth (в т.ч. `/bandwidth/realtime`) |
+| GET | `/admin/panel/hwid/stats` | Статистика HWID-устройств |
 | GET | `/admin/panel/users` | Пользователи панели |
-| GET | `/admin/panel/users/{uuid}` | Детали пользователя панели |
+| GET | `/admin/panel/users/{user_id}` | Детали пользователя панели (числовой id, Remnawave 3.x) |
 | GET | `/admin/support/tickets` | Тикеты поддержки |
 | GET | `/admin/support/tickets/{id}` | Детали тикета |
 | POST | `/admin/support/tickets/{id}/messages` | Ответить пользователю |
@@ -767,9 +855,22 @@ npm run build    # production build
 alembic upgrade head
 alembic revision --autogenerate -m "описание"
 
+# Тесты
+python -m pytest
+
 # Запуск бота без Docker
 python main.py
 ```
+
+### Контрактный тест API панели
+
+`tests/test_panel_api_contract.py` сверяет все пути, которые дёргает
+`core/services/panel_client.py`, со спекой `docs/remnawave-openapi-3.2.1.json`.
+Это защищает от опечатки в URL и от обращения к эндпоинту, удалённому
+в очередной мажорной версии панели — без поднятия живого стенда.
+
+Обновляете панель до следующей мажорной версии — положите её OpenAPI-спеку
+в `docs/`, поправьте путь в тесте и прогоните `python -m pytest`.
 
 ---
 
