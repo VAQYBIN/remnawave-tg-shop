@@ -756,25 +756,35 @@ class PanelApiService:
             self,
             node_uuid: str,
             action: str,
-            json_body: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+            json_body: Optional[Dict[str, Any]] = None) -> bool:
+        """v3 отвечает 202 Accepted без тела на restart и 200 с телом на enable/disable.
+
+        Поэтому наличие ключа "response" больше не годится как признак успеха —
+        иначе успешный рестарт читался бы как ошибка.
+        """
         response_data = await self._request(
             "POST",
             f"/nodes/{node_uuid}/actions/{action}",
             json=json_body,
             log_full_response=False,
         )
-        if response_data and not response_data.get("error") and "response" in response_data:
-            return response_data.get("response")
-        return None
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error(
+            "Node action '%s' failed for node %s. Response: %s",
+            action,
+            node_uuid,
+            response_data,
+        )
+        return False
 
-    async def enable_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+    async def enable_node(self, node_uuid: str) -> bool:
         return await self._node_action(node_uuid, "enable")
 
-    async def disable_node(self, node_uuid: str) -> Optional[Dict[str, Any]]:
+    async def disable_node(self, node_uuid: str) -> bool:
         return await self._node_action(node_uuid, "disable")
 
-    async def restart_node(
-            self, node_uuid: str, force_restart: bool = False) -> Optional[Dict[str, Any]]:
+    async def restart_node(self, node_uuid: str, force_restart: bool = False) -> bool:
         # Remnawave >= 2.8.0 requires forceRestart in the restart action body.
         return await self._node_action(
             node_uuid, "restart", json_body={"forceRestart": force_restart}
@@ -834,32 +844,26 @@ class PanelApiService:
             return response_data.get("response")
         return None
 
-    async def extend_user_subscription(self, user_uuid: str, days: int) -> bool:
-        """Extend user subscription by adding N days to current expireAt."""
-        user_data = await self.get_user_by_uuid(user_uuid)
-        if not user_data:
-            logging.error(f"extend_user_subscription: user {user_uuid} not found on panel.")
-            return False
+    async def extend_user_subscription(self, user_id: int, days: int) -> bool:
+        """Продлить подписку на N дней.
 
-        current_expire_str = user_data.get("expireAt")
-        now = datetime.now(timezone.utc)
-        if current_expire_str:
-            try:
-                expire_dt = datetime.fromisoformat(current_expire_str.replace("Z", "+00:00"))
-                base = max(expire_dt, now)
-            except (ValueError, AttributeError):
-                base = now
-        else:
-            base = now
-
-        new_expire = base + timedelta(days=days)
-        new_expire_iso = new_expire.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-        result = await self.update_user_details_on_panel(
-            user_uuid,
-            {"uuid": user_uuid, "expireAt": new_expire_iso},
+        v3 даёт серверный POST /users/{userId}/actions/extend, который убирает
+        read-modify-write и связанную с ним гонку при параллельном продлении.
+        """
+        response_data = await self._request(
+            "POST",
+            f"/users/{user_id}/actions/extend",
+            json={"days": days},
+            log_full_response=False,
         )
-        return result is not None
+        if response_data and not response_data.get("error"):
+            return True
+        logging.error(
+            "Failed to extend subscription for panel user %s. Response: %s",
+            user_id,
+            response_data,
+        )
+        return False
 
     async def add_user_traffic(self, user_id: int, bytes_to_add: int) -> bool:
         """Add bytes to user's traffic limit (sets trafficLimitBytes += bytes_to_add)."""

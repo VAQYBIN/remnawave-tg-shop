@@ -68,9 +68,12 @@ async def enable_panel_node(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ):
-    node = await _panel(settings).enable_node(uuid)
-    if node is None:
+    panel = _panel(settings)
+    # v3 отвечает на действия над нодой 202/200 без полезного тела,
+    # поэтому актуальное состояние ноды дочитываем отдельным запросом.
+    if not await panel.enable_node(uuid):
         _raise_panel_error()
+    node = await panel.get_node_by_uuid(uuid)
     await add_admin_audit_log(db, admin, "admin_node_enable", details={"node_uuid": uuid})
     await db.commit()
     return PanelNodeActionResponse(ok=True, node=node)
@@ -83,9 +86,12 @@ async def disable_panel_node(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ):
-    node = await _panel(settings).disable_node(uuid)
-    if node is None:
+    panel = _panel(settings)
+    # v3 отвечает на действия над нодой 202/200 без полезного тела,
+    # поэтому актуальное состояние ноды дочитываем отдельным запросом.
+    if not await panel.disable_node(uuid):
         _raise_panel_error()
+    node = await panel.get_node_by_uuid(uuid)
     await add_admin_audit_log(db, admin, "admin_node_disable", details={"node_uuid": uuid})
     await db.commit()
     return PanelNodeActionResponse(ok=True, node=node)
@@ -98,9 +104,12 @@ async def restart_panel_node(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ):
-    node = await _panel(settings).restart_node(uuid)
-    if node is None:
+    panel = _panel(settings)
+    # v3 отвечает на действия над нодой 202/200 без полезного тела,
+    # поэтому актуальное состояние ноды дочитываем отдельным запросом.
+    if not await panel.restart_node(uuid):
         _raise_panel_error()
+    node = await panel.get_node_by_uuid(uuid)
     await add_admin_audit_log(db, admin, "admin_node_restart", details={"node_uuid": uuid})
     await db.commit()
     return PanelNodeActionResponse(ok=True, node=node)
