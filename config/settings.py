@@ -249,9 +249,6 @@ class Settings(BaseSettings):
         description="Default hardware device limit for trial panel users (0 = unlimited)"
     )
 
-    CRYPT4_ENABLED: bool = Field(default=False, description="Enable happ crypt4 encryption for subscription URLs")
-    CRYPT4_REDIRECT_URL: Optional[str] = Field(default=None, description="Base redirect URL used for the connect button when crypt4 is enabled")
-
     WEB_SERVER_HOST: str = Field(default="0.0.0.0")
     WEB_SERVER_PORT: int = Field(default=8080)
     LOGS_PAGE_SIZE: int = Field(default=10)
@@ -665,7 +662,6 @@ class Settings(BaseSettings):
         'PLATEGA_RETURN_URL',
         'PLATEGA_FAILED_URL',
         'SEVERPAY_RETURN_URL',
-        'CRYPT4_REDIRECT_URL',
         'TELEGRAM_WEBHOOK_SECRET',
         'PANEL_WEBHOOK_SECRET',
         'TELEGRAM_PROXY_URL',
