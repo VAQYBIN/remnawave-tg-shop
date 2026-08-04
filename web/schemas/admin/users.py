@@ -11,7 +11,7 @@ class AdminUserListItem(BaseModel):
     last_name: Optional[str]
     is_banned: bool
     registration_date: Optional[UTCDatetime]
-    panel_user_uuid: Optional[str]
+    panel_user_id: Optional[int]
     email: Optional[str]
     has_active_subscription: bool
     subscription_end_date: Optional[UTCDatetime]
@@ -48,7 +48,7 @@ class AdminSubscriptionDetail(BaseModel):
     auto_renew_enabled: bool
     traffic_limit_bytes: Optional[int]
     traffic_used_bytes: Optional[int]
-    panel_user_uuid: Optional[str]
+    panel_user_id: Optional[int]
 
     model_config = {"from_attributes": True}
 
@@ -60,7 +60,7 @@ class AdminUserDetailResponse(BaseModel):
     last_name: Optional[str]
     is_banned: bool
     registration_date: Optional[UTCDatetime]
-    panel_user_uuid: Optional[str]
+    panel_user_id: Optional[int]
     language_code: Optional[str]
     referral_code: Optional[str]
     email: Optional[str]

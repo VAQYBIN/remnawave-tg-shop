@@ -39,36 +39,26 @@ async def _restore_panel_subscription_for_user(
     settings: Settings,
     account: Account,
     user_id: int,
-    panel_user_uuid: str,
+    panel_user_id: int,
 ):
     if not settings.PANEL_API_URL or not settings.PANEL_API_KEY:
         return None
 
-    import httpx
     from core.dal import subscription_dal, trial_activation_dal
+    from core.services.panel_client import PanelApiService
 
-    url = f"{settings.PANEL_API_URL.rstrip('/')}/users/{panel_user_uuid}"
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANEL_API_KEY}",
-        "X-Forwarded-Proto": "https",
-        "X-Forwarded-For": "127.0.0.1",
-        "X-Real-IP": "127.0.0.1",
-    }
+    panel = PanelApiService(settings)
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(url, headers=headers)
-    except Exception as exc:
-        logger.warning("Panel subscription restore request failed for %s: %s", panel_user_uuid, exc)
+        panel_data = await panel.get_user_by_id(panel_user_id, log_response=False)
+    finally:
+        await panel.close()
+
+    if not panel_data:
         return None
 
-    if resp.status_code != 200:
-        return None
-
-    panel_data = resp.json().get("response", {})
     panel_status = str(panel_data.get("status") or "UNKNOWN").upper()
     panel_expire_at = panel_data.get("expireAt")
-    panel_sub_uuid = panel_data.get("subscriptionUuid") or panel_data.get("shortUuid")
+    panel_sub_uuid = panel_data.get("shortUuid")
     if panel_status != "ACTIVE" or not panel_expire_at or not panel_sub_uuid:
         return None
 
@@ -89,7 +79,7 @@ async def _restore_panel_subscription_for_user(
     )
     sub_payload = {
         "user_id": user_id,
-        "panel_user_uuid": panel_user_uuid,
+        "panel_user_id": panel_user_id,
         "panel_subscription_uuid": panel_sub_uuid,
         "start_date": None,
         "end_date": end_date,
@@ -102,15 +92,15 @@ async def _restore_panel_subscription_for_user(
         "provider": None if has_active_trial else "panel_sync",
     }
     logger.warning(
-        "Restoring missing local subscription for account %s user %s from panel uuid %s",
+        "Restoring missing local subscription for account %s user %s from panel id %s",
         account.id,
         user_id,
-        panel_user_uuid,
+        panel_user_id,
     )
     return await subscription_dal.upsert_subscription(db, sub_payload)
 
 
-async def _panel_user_state(settings: Settings, panel_user_uuid: str):
+async def _panel_user_state(settings: Settings, panel_user_id):
     """Check a panel user's live state.
 
     Returns ``(found, active)``:
@@ -120,33 +110,32 @@ async def _panel_user_state(settings: Settings, panel_user_uuid: str):
       - ``(None, None)``   — panel not configured or a transient error (network,
         5xx); callers keep the current local state rather than deactivating.
     """
-    if not settings.PANEL_API_URL or not settings.PANEL_API_KEY or not panel_user_uuid:
+    if (
+        not settings.PANEL_API_URL
+        or not settings.PANEL_API_KEY
+        or panel_user_id is None
+    ):
         return None, None
 
-    import httpx
+    from core.services.panel_client import PanelApiService
 
-    url = f"{settings.PANEL_API_URL.rstrip('/')}/users/{panel_user_uuid}"
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANEL_API_KEY}",
-        "X-Forwarded-Proto": "https",
-        "X-Forwarded-For": "127.0.0.1",
-        "X-Real-IP": "127.0.0.1",
-    }
+    panel = PanelApiService(settings)
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(url, headers=headers)
-    except Exception as exc:
-        logger.warning("Panel user state request failed for %s: %s", panel_user_uuid, exc)
-        return None, None
+        response = await panel._request(
+            "GET", f"/users/{panel_user_id}", log_full_response=False
+        )
+    finally:
+        await panel.close()
 
-    if resp.status_code == 404:
-        return False, False
-    if resp.status_code != 200:
+    if not response:
+        return None, None
+    if response.get("error"):
+        if response.get("status_code") == 404:
+            return False, False
         # Transient/unexpected — do not punish the user for a flaky panel.
         return None, None
 
-    panel_data = resp.json().get("response", {})
+    panel_data = response.get("response") or {}
     panel_status = str(panel_data.get("status") or "").upper()
     panel_expire_at = panel_data.get("expireAt")
     active = False
@@ -172,13 +161,13 @@ async def _get_account_active_subscription(db: AsyncSession, account: Account, s
         sub = await get_active_subscription_by_user_id(
             db,
             user_id,
-            user.panel_user_uuid if user else None,
+            user.panel_user_id if user else None,
         )
         if sub:
             # Mirror the bot: the panel is the source of truth. If the panel user
             # was deleted or is no longer active, the locally cached "active until"
             # date is stale — deactivate it so the web reports no subscription too.
-            found, active = await _panel_user_state(settings, sub.panel_user_uuid)
+            found, active = await _panel_user_state(settings, sub.panel_user_id)
             if found is None:
                 # Transient panel error — keep showing the cached subscription.
                 return sub
@@ -187,13 +176,13 @@ async def _get_account_active_subscription(db: AsyncSession, account: Account, s
             await deactivate_all_user_subscriptions(db, user_id)
             await db.commit()
             continue
-        if user and user.panel_user_uuid:
+        if user and user.panel_user_id is not None:
             restored = await _restore_panel_subscription_for_user(
                 db,
                 settings,
                 account,
                 user_id,
-                user.panel_user_uuid,
+                user.panel_user_id,
             )
             if restored:
                 return restored
@@ -234,26 +223,22 @@ async def get_subscription(
     # Fetch real-time traffic from panel
     traffic_limit = sub.traffic_limit_bytes
     traffic_used = sub.traffic_used_bytes
-    if settings.PANEL_API_URL and settings.PANEL_API_KEY:
-        import httpx
+    if settings.PANEL_API_URL and settings.PANEL_API_KEY and sub.panel_user_id is not None:
+        from core.services.panel_client import PanelApiService
+
+        panel = PanelApiService(settings)
         try:
-            url = f"{settings.PANEL_API_URL.rstrip('/')}/users/{sub.panel_user_uuid}"
-            headers = {
-                "Accept": "application/json",
-                "Authorization": f"Bearer {settings.PANEL_API_KEY}",
-                "X-Forwarded-Proto": "https",
-                "X-Forwarded-For": "127.0.0.1",
-                "X-Real-IP": "127.0.0.1",
-            }
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                panel_data = resp.json().get("response", {})
+            panel_data = await panel.get_user_by_id(sub.panel_user_id, log_response=False)
+            if panel_data:
                 traffic_limit = panel_data.get("trafficLimitBytes", traffic_limit)
-                traffic_used = panel_data.get("usedTrafficBytes") or \
-                    (panel_data.get("userTraffic") or {}).get("usedTrafficBytes", traffic_used)
+                # v3 держит счётчики трафика во вложенном userTraffic.
+                traffic_used = (panel_data.get("userTraffic") or {}).get(
+                    "usedTrafficBytes", traffic_used
+                )
         except Exception:
             pass  # Fall back to DB values
+        finally:
+            await panel.close()
 
     return SubscriptionResponse(
         subscription_id=sub.subscription_id,
@@ -267,7 +252,7 @@ async def get_subscription(
         auto_renew_enabled=bool(sub.auto_renew_enabled),
         auto_renew_available=settings.yookassa_autopayments_active,
         provider=sub.provider,
-        panel_user_uuid=sub.panel_user_uuid,
+        panel_user_id=sub.panel_user_id,
         panel_subscription_uuid=sub.panel_subscription_uuid,
     )
 
@@ -329,7 +314,7 @@ async def activate_trial(
         auto_renew_enabled=False,
         auto_renew_available=settings.yookassa_autopayments_active,
         provider=result.get("provider"),
-        panel_user_uuid=result["panel_user_uuid"],
+        panel_user_id=result["panel_user_id"],
         panel_subscription_uuid=result.get("panel_subscription_uuid"),
     )
 
@@ -717,27 +702,24 @@ async def get_connection(
     if not settings.PANEL_API_URL:
         raise HTTPException(status_code=503, detail="Panel URL not configured")
 
-    import httpx
-    url = f"{settings.PANEL_API_URL.rstrip('/')}/users/{sub.panel_user_uuid}"
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANEL_API_KEY}",
-        "X-Forwarded-Proto": "https",
-        "X-Forwarded-For": "127.0.0.1",
-        "X-Real-IP": "127.0.0.1",
-    }
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers=headers)
-    except Exception as exc:
-        logger.error("Panel request failed url=%s error=%s: %s", url, type(exc).__name__, exc)
-        raise HTTPException(status_code=503, detail="Panel unreachable") from exc
+    if sub.panel_user_id is None:
+        raise HTTPException(status_code=503, detail="Subscription is not linked to the panel")
 
-    if resp.status_code != 200:
+    from core.services.panel_client import PanelApiService
+
+    panel = PanelApiService(settings)
+    try:
+        panel_data = await panel.get_user_by_id(sub.panel_user_id, log_response=False)
+    except Exception as exc:
+        logger.error("Panel request failed error=%s: %s", type(exc).__name__, exc)
+        raise HTTPException(status_code=503, detail="Panel unreachable") from exc
+    finally:
+        await panel.close()
+
+    if not panel_data:
         raise HTTPException(status_code=503, detail="Failed to fetch user from panel")
 
-    data = resp.json()
-    subscription_url = data.get("response", {}).get("subscriptionUrl")
+    subscription_url = panel_data.get("subscriptionUrl")
     if not subscription_url:
         raise HTTPException(status_code=503, detail="subscriptionUrl not found in panel response")
 

@@ -93,12 +93,12 @@ async def get_devices(
         raise HTTPException(status_code=404, detail="No Telegram account linked")
 
     sub = await get_active_subscription_by_user_id(db, account.telegram_user_id)
-    if not sub or not sub.panel_user_uuid:
+    if not sub or sub.panel_user_id is None:
         return DevicesResponse(devices=[], total=0)
 
     panel = PanelApiService(settings)
     try:
-        raw_devices = await panel.get_user_devices(sub.panel_user_uuid)
+        raw_devices = await panel.get_user_devices(sub.panel_user_id)
     finally:
         await panel.close()
 
@@ -120,12 +120,12 @@ async def disconnect_device(
         raise HTTPException(status_code=404, detail="No Telegram account linked")
 
     sub = await get_active_subscription_by_user_id(db, account.telegram_user_id)
-    if not sub or not sub.panel_user_uuid:
+    if not sub or sub.panel_user_id is None:
         raise HTTPException(status_code=404, detail="No active subscription")
 
     panel = PanelApiService(settings)
     try:
-        success = await panel.disconnect_device(sub.panel_user_uuid, hwid)
+        success = await panel.disconnect_device(sub.panel_user_id, hwid)
     finally:
         await panel.close()
 
