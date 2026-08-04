@@ -258,11 +258,11 @@ class PanelApiService:
         logging.info(f"Fetched {len(all_users)} users from panel API.")
         return all_users
 
-    async def get_user_by_uuid(
+    async def get_user_by_id(
             self,
-            user_uuid: str,
+            user_id: int,
             log_response: bool = True) -> Optional[Dict[str, Any]]:
-        endpoint = f"/users/{user_uuid}"
+        endpoint = f"/users/{user_id}"
         full_response = await self._request("GET",
                                             endpoint,
                                             log_full_response=log_response)
@@ -275,14 +275,14 @@ class PanelApiService:
     async def get_user(
         self,
         *,
-        uuid: Optional[str] = None,
+        user_id: Optional[int] = None,
         telegram_id: Optional[int] = None,
         username: Optional[str] = None,
         email: Optional[str] = None,
         log_response: bool = True,
     ) -> Optional[Dict[str, Any]]:
-        if uuid:
-            return await self.get_user_by_uuid(uuid, log_response=log_response)
+        if user_id is not None:
+            return await self.get_user_by_id(user_id, log_response=log_response)
 
         users = await self.get_users_by_filter(
             telegram_id=telegram_id,
@@ -294,6 +294,42 @@ class PanelApiService:
             return users[0]
         return None
 
+    @staticmethod
+    def _error_code(response_data: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not response_data:
+            return None
+        details = response_data.get("details") or {}
+        return details.get("errorCode") or response_data.get("errorCode")
+
+    async def _stream_users_by(
+            self,
+            param: str,
+            value: Any,
+            log_response: bool = True) -> Optional[List[Dict[str, Any]]]:
+        """Remnawave 3.x убрал /users/by-telegram-id и /users/by-email.
+
+        Их роль перешла к /users/stream, который принимает те же значения как
+        query-параметры и всегда отдаёт список.
+        """
+        response_data = await self._request(
+            "GET",
+            "/users/stream",
+            params={param: str(value)},
+            log_full_response=log_response,
+        )
+        if response_data and not response_data.get("error"):
+            inner = response_data.get("response")
+            if isinstance(inner, dict) and isinstance(inner.get("users"), list):
+                return inner["users"]
+            if isinstance(inner, list):
+                return inner
+        logging.error(
+            "Failed to stream panel users by %s. Response: %s",
+            param,
+            response_data if not log_response else "(logged above)",
+        )
+        return None
+
     async def get_users_by_filter(
             self,
             telegram_id: Optional[int] = None,
@@ -301,67 +337,37 @@ class PanelApiService:
             email: Optional[str] = None,
             log_response: bool = True) -> Optional[List[Dict[str, Any]]]:
 
-        response_data = None
-        filter_used_log = "No filter specified"
-
         if telegram_id is not None:
-            filter_used_log = f"telegramId={telegram_id}"
-            endpoint = f"/users/by-telegram-id/{telegram_id}"
-            response_data = await self._request("GET",
-                                                endpoint,
-                                                log_full_response=log_response)
+            return await self._stream_users_by(
+                "telegramId", telegram_id, log_response=log_response)
 
-            if response_data and not response_data.get(
-                    "error") and "response" in response_data and isinstance(
-                        response_data["response"], list):
-                return response_data["response"]
-            elif response_data and response_data.get("errorCode") == "A062":
-                logging.info(
-                    f"Panel API: Users not found for {filter_used_log}")
-                return []
+        if email is not None:
+            return await self._stream_users_by(
+                "email", email, log_response=log_response)
 
-        elif username is not None:
-            filter_used_log = f"username={username}"
+        if username is not None:
             endpoint = f"/users/by-username/{username}"
             response_data = await self._request("GET",
                                                 endpoint,
                                                 log_full_response=log_response)
 
             if response_data and not response_data.get(
-                    "error") and "response" in response_data and isinstance(
-                        response_data["response"], dict):
+                    "error") and isinstance(response_data.get("response"), dict):
                 return [response_data["response"]]
-            elif response_data and response_data.get("errorCode") == "A062":
-                logging.info(
-                    f"Panel API: User not found for {filter_used_log}")
+            if self._error_code(response_data) == "A062":
+                logging.info("Panel API: user not found for username=%s", username)
                 return []
-
-        elif email is not None:
-            filter_used_log = f"email={email}"
-            endpoint = f"/users/by-email/{email}"
-            response_data = await self._request("GET",
-                                                endpoint,
-                                                log_full_response=log_response)
-
-            if response_data and not response_data.get(
-                    "error") and "response" in response_data and isinstance(
-                        response_data["response"], list):
-                return response_data["response"]
-            elif response_data and response_data.get("errorCode") == "A062":
-                logging.info(
-                    f"Panel API: Users not found for {filter_used_log}")
-                return []
-
-        if not telegram_id and not username and not email:
-            logging.warning(
-                "get_users_by_filter called without any specific filter criteria."
+            logging.error(
+                "Failed to fetch panel user by username=%s. Response: %s",
+                username,
+                response_data if not log_response else "(logged above)",
             )
-            return []
+            return None
 
-        logging.error(
-            f"Failed to fetch panel users with filter ({filter_used_log}). Last API response: {response_data if not log_response else '(logged above)'}"
+        logging.warning(
+            "get_users_by_filter called without any specific filter criteria."
         )
-        return None
+        return []
 
     async def create_panel_user(
             self,
@@ -432,7 +438,7 @@ class PanelApiService:
                                        log_full_response=log_response)
         if response and not response.get("error") and "response" in response:
             logging.info(
-                f"Panel user '{username_on_panel}' created successfully (UUID: {response.get('response',{}).get('uuid')})."
+                f"Panel user '{username_on_panel}' created successfully (id: {response.get('response',{}).get('id')})."
             )
             return response
 
@@ -446,11 +452,12 @@ class PanelApiService:
 
     async def update_user_details_on_panel(
             self,
-            user_uuid: str,
+            user_id: int,
             update_payload: Dict[str, Any],
             log_response: bool = True) -> Optional[Dict[str, Any]]:
-        if 'uuid' not in update_payload:
-            update_payload['uuid'] = user_uuid
+        # v3 идентифицирует пользователя в PATCH /users по числовому id.
+        update_payload = {**update_payload, "id": user_id}
+        update_payload.pop("uuid", None)
 
         full_response = await self._request("PATCH",
                                             "/users",
@@ -458,23 +465,23 @@ class PanelApiService:
                                             log_full_response=log_response)
         if full_response and not full_response.get(
                 "error") and "response" in full_response:
-            logging.info(f"User {user_uuid} details updated on panel.")
+            logging.info(f"User {user_id} details updated on panel.")
             return full_response.get("response")
 
         logging.error(
             "Failed to update user %s details on panel. Payload: %s, Response: %s",
-            user_uuid,
+            user_id,
             self._sanitize_payload_for_log(update_payload),
             full_response if not log_response else "(logged above)",
         )
         return None
 
     async def update_user_status_on_panel(self,
-                                          user_uuid: str,
+                                          user_id: int,
                                           enable: bool,
                                           log_response: bool = True) -> bool:
         action = "enable" if enable else "disable"
-        endpoint = f"/users/{user_uuid}/actions/{action}"
+        endpoint = f"/users/{user_id}/actions/{action}"
         response_data = await self._request("POST",
                                             endpoint,
                                             log_full_response=log_response)
@@ -485,32 +492,35 @@ class PanelApiService:
             expected_status = "ACTIVE" if enable else "DISABLED"
             if actual_status == expected_status:
                 logging.info(
-                    f"User {user_uuid} status on panel successfully set to {action} (Actual: {actual_status})."
+                    f"User {user_id} status on panel successfully set to {action} (Actual: {actual_status})."
                 )
                 return True
             else:
                 logging.warning(
-                    f"User {user_uuid} status on panel action '{action}' called, but final status is '{actual_status}'."
+                    f"User {user_id} status on panel action '{action}' called, but final status is '{actual_status}'."
                 )
                 return False
 
         logging.error(
-            f"Failed to {action} user {user_uuid} on panel. Response: {response_data if not log_response else '(logged above)'}"
+            f"Failed to {action} user {user_id} on panel. Response: {response_data if not log_response else '(logged above)'}"
         )
         return False
 
     async def delete_user_from_panel(self,
-                                     user_uuid: str,
+                                     user_id: int,
                                      log_response: bool = True) -> bool:
-        """Delete a user from the panel. Treat not-found as already deleted."""
-        endpoint = f"/users/{user_uuid}"
+        """Delete a user from the panel. Treat not-found as already deleted.
+
+        v3 отвечает 204 No Content без тела — успехом считается отсутствие ошибки.
+        """
+        endpoint = f"/users/{user_id}"
         response_data = await self._request(
             "DELETE", endpoint, log_full_response=log_response
         )
 
         if not response_data:
             logging.error(
-                f"Panel API delete_user_from_panel returned no data for user {user_uuid}."
+                f"Panel API delete_user_from_panel returned no data for user {user_id}."
             )
             return False
 
@@ -519,15 +529,15 @@ class PanelApiService:
             error_code = details.get("errorCode") or response_data.get("errorCode")
             if error_code in {"A062", "A040"}:
                 logging.info(
-                    f"Panel user {user_uuid} already absent (errorCode {error_code}). Treating as deleted."
+                    f"Panel user {user_id} already absent (errorCode {error_code}). Treating as deleted."
                 )
                 return True
             logging.error(
-                f"Failed to delete user {user_uuid} on panel. Response: {response_data}"
+                f"Failed to delete user {user_id} on panel. Response: {response_data}"
             )
             return False
 
-        logging.info(f"Panel user {user_uuid} deleted successfully.")
+        logging.info(f"Panel user {user_id} deleted successfully.")
         return True
 
     async def get_subscription_link(
@@ -543,8 +553,8 @@ class PanelApiService:
             return f"{base_sub_url}/{client_type.lower()}"
         return base_sub_url
 
-    async def get_user_devices(self, user_uuid: str) -> Optional[List[Dict[str, Any]]]:
-        endpoint = f"/hwid/devices/{user_uuid}"
+    async def get_user_devices(self, user_id: int) -> Optional[List[Dict[str, Any]]]:
+        endpoint = f"/hwid/devices/{user_id}"
         response_data = await self._request("GET", endpoint, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             inner = response_data.get("response")
@@ -553,21 +563,21 @@ class PanelApiService:
             if isinstance(inner, list):
                 return inner
         logging.error(
-            f"Failed to get user devices for user {user_uuid}. Response: {response_data}"
+            f"Failed to get user devices for user {user_id}. Response: {response_data}"
         )
         return None
 
-    async def disconnect_device(self, user_uuid: str, hwid: str) -> bool:
-        endpoint = f"/hwid/devices/delete"
+    async def disconnect_device(self, user_id: int, hwid: str) -> bool:
+        endpoint = "/hwid/devices/delete"
         payload = {
-            "userUuid": user_uuid,
+            "userId": user_id,
             "hwid": hwid
         }
         response_data = await self._request("POST", endpoint, json=payload, log_full_response=False)
         if response_data and not response_data.get("error") and "response" in response_data:
             return True
         logging.error(
-            f"Failed to disconnect device {hwid} for user {user_uuid}. Payload: {payload}, Response: {response_data}"
+            f"Failed to disconnect device {hwid} for user {user_id}. Payload: {payload}, Response: {response_data}"
         )
         return False
 
@@ -851,30 +861,30 @@ class PanelApiService:
         )
         return result is not None
 
-    async def add_user_traffic(self, user_uuid: str, bytes_to_add: int) -> bool:
+    async def add_user_traffic(self, user_id: int, bytes_to_add: int) -> bool:
         """Add bytes to user's traffic limit (sets trafficLimitBytes += bytes_to_add)."""
-        user_data = await self.get_user_by_uuid(user_uuid)
+        user_data = await self.get_user_by_id(user_id)
         if not user_data:
-            logging.error(f"add_user_traffic: user {user_uuid} not found on panel.")
+            logging.error(f"add_user_traffic: user {user_id} not found on panel.")
             return False
 
         current_limit = int(user_data.get("trafficLimitBytes") or 0)
         new_limit = current_limit + bytes_to_add
 
         result = await self.update_user_details_on_panel(
-            user_uuid,
-            {"uuid": user_uuid, "trafficLimitBytes": new_limit},
+            user_id,
+            {"trafficLimitBytes": new_limit},
         )
         return result is not None
 
-    async def reset_user_traffic_on_panel(self, user_uuid: str) -> bool:
+    async def reset_user_traffic_on_panel(self, user_id: int) -> bool:
         """Reset user's used traffic counter via panel action endpoint."""
-        endpoint = f"/users/{user_uuid}/actions/reset-traffic"
+        endpoint = f"/users/{user_id}/actions/reset-traffic"
         response_data = await self._request("POST", endpoint, log_full_response=False)
         if response_data and not response_data.get("error"):
-            logging.info(f"Traffic reset for panel user {user_uuid}.")
+            logging.info(f"Traffic reset for panel user {user_id}.")
             return True
-        logging.error(f"Failed to reset traffic for panel user {user_uuid}. Response: {response_data}")
+        logging.error(f"Failed to reset traffic for panel user {user_id}. Response: {response_data}")
         return False
 
     async def get_internal_squads(self) -> Optional[List[Dict[str, Any]]]:
