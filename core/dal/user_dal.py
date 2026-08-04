@@ -204,12 +204,6 @@ async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[i
     return result.scalars().all()
 
 
-async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
-    stmt = select(User).where(User.panel_user_uuid.is_not(None))
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
 async def get_enhanced_user_statistics(session: AsyncSession) -> Dict[str, Any]:
     """Get comprehensive user statistics including active users, trial users, etc."""
     from datetime import datetime, timezone
