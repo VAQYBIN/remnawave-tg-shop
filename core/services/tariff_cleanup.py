@@ -143,10 +143,10 @@ async def reconcile_user_after_cleanup(
         return True
 
     db_user = await user_dal.get_user_by_id(session, user_id)
-    panel_uuid = db_user.panel_user_uuid if db_user else None
-    if not panel_uuid:
+    panel_user_id = db_user.panel_user_id if db_user else None
+    if panel_user_id is None:
         logger.warning(
-            "reconcile_user_after_cleanup: no panel_user_uuid for user=%s; skipping",
+            "reconcile_user_after_cleanup: no panel_user_id for user=%s; skipping",
             user_id,
         )
         return True
@@ -155,7 +155,7 @@ async def reconcile_user_after_cleanup(
     # addon squad. tariff_sync sends a single PATCH /users.
     try:
         return await sync_entitlements_to_panel(
-            session, user_id, panel_uuid, panel_service, now=now
+            session, user_id, panel_user_id, panel_service, now=now
         )
     except Exception as e:  # noqa: BLE001 — Remnawave must never crash cleanup
         logger.error(

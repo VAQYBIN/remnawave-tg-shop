@@ -128,8 +128,8 @@ async def _get_or_create_panel_user_link_details(
     panel: PanelApiService,
     user_id: int,
     db_user: User,
-) -> tuple[Optional[str], Optional[str], Optional[str]]:
-    current_panel_uuid = db_user.panel_user_uuid
+) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    current_panel_id = db_user.panel_user_id
     is_site_user = user_id < 0
 
     site_email = None
@@ -164,8 +164,8 @@ async def _get_or_create_panel_user_link_details(
             logging.error("Multiple panel users found for telegramId %s", user_id)
             return None, None, None
 
-    if not panel_user and current_panel_uuid:
-        panel_user = await panel.get_user_by_uuid(current_panel_uuid)
+    if not panel_user and current_panel_id is not None:
+        panel_user = await panel.get_user_by_id(current_panel_id)
 
     if not panel_user:
         created = await panel.create_panel_user(
@@ -186,13 +186,14 @@ async def _get_or_create_panel_user_link_details(
             if by_username and len(by_username) == 1:
                 panel_user = by_username[0]
 
-    panel_uuid = panel_user.get("uuid") if panel_user else None
-    if not panel_uuid:
+    raw_panel_id = panel_user.get("id") if panel_user else None
+    if raw_panel_id is None:
         return None, None, None
+    panel_id = int(raw_panel_id)
 
-    if current_panel_uuid != panel_uuid:
-        await user_dal.update_user(session, user_id, {"panel_user_uuid": panel_uuid})
-        db_user.panel_user_uuid = panel_uuid
+    if current_panel_id != panel_id:
+        await user_dal.update_user(session, user_id, {"panel_user_id": panel_id})
+        db_user.panel_user_id = panel_id
 
     if not is_site_user:
         panel_tg = panel_user.get("telegramId")
@@ -202,13 +203,13 @@ async def _get_or_create_panel_user_link_details(
             panel_tg_int = None
         if panel_tg_int != user_id:
             await panel.update_user_details_on_panel(
-                panel_uuid,
-                {"uuid": panel_uuid, "telegramId": user_id, "description": _description_from_user(db_user)},
+                panel_id,
+                {"telegramId": user_id, "description": _description_from_user(db_user)},
             )
 
-    panel_sub_uuid = panel_user.get("subscriptionUuid") or panel_user.get("shortUuid")
+    # v3 убрал subscriptionUuid из объекта пользователя — остался shortUuid.
     panel_short_uuid = panel_user.get("shortUuid")
-    return panel_uuid, panel_sub_uuid, panel_short_uuid
+    return panel_id, panel_short_uuid, panel_short_uuid
 
 
 def _trial_hwid_device_limit(settings: Settings) -> Optional[int]:
@@ -229,14 +230,12 @@ def _trial_hwid_device_limit(settings: Settings) -> Optional[int]:
 def _build_panel_update_payload(
     settings: Settings,
     *,
-    panel_user_uuid: str,
     expire_at: datetime,
     traffic_limit_bytes: int,
     description: str,
     telegram_user_id: Optional[int] = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "uuid": panel_user_uuid,
         "expireAt": _panel_datetime(expire_at),
         "status": "ACTIVE",
         "trafficLimitBytes": traffic_limit_bytes,
@@ -272,14 +271,14 @@ async def _activate_trial_for_user_id(
 
     panel = PanelApiService(settings)
     try:
-        panel_user_uuid, panel_sub_uuid, panel_short_uuid = await _get_or_create_panel_user_link_details(
+        panel_user_id, panel_sub_uuid, panel_short_uuid = await _get_or_create_panel_user_link_details(
             session,
             settings,
             panel,
             user_id,
             db_user,
         )
-        if not panel_user_uuid or not panel_sub_uuid:
+        if panel_user_id is None or not panel_sub_uuid:
             return {
                 "eligible": True,
                 "activated": False,
@@ -290,7 +289,7 @@ async def _activate_trial_for_user_id(
         current_active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session,
             user_id,
-            panel_user_uuid,
+            panel_user_id,
         )
         start_date = now
         end_date = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
@@ -307,13 +306,13 @@ async def _activate_trial_for_user_id(
             traffic_limit_bytes = current_active_sub.traffic_limit_bytes or settings.user_traffic_limit_bytes
 
         await subscription_dal.deactivate_other_active_subscriptions(
-            session, panel_user_uuid, panel_sub_uuid
+            session, panel_user_id, panel_sub_uuid
         )
         sub = await subscription_dal.upsert_subscription(
             session,
             {
                 "user_id": user_id,
-                "panel_user_uuid": panel_user_uuid,
+                "panel_user_id": panel_user_id,
                 "panel_subscription_uuid": panel_sub_uuid,
                 "start_date": start_date,
                 "end_date": end_date,
@@ -327,10 +326,9 @@ async def _activate_trial_for_user_id(
         )
 
         updated_panel_user = await panel.update_user_details_on_panel(
-            panel_user_uuid,
+            panel_user_id,
             _build_panel_update_payload(
                 settings,
-                panel_user_uuid=panel_user_uuid,
                 expire_at=end_date,
                 traffic_limit_bytes=traffic_limit_bytes,
                 description=_description_from_user(db_user),
@@ -377,9 +375,9 @@ async def _activate_trial_for_user_id(
             "traffic_gb": settings.TRIAL_TRAFFIC_LIMIT_GB,
             "traffic_limit_bytes": traffic_limit_bytes,
             "traffic_used_bytes": sub.traffic_used_bytes,
-            "panel_user_uuid": panel_user_uuid,
+            "panel_user_id": panel_user_id,
             "panel_short_uuid": updated_panel_user.get("shortUuid", panel_short_uuid),
-            "panel_subscription_uuid": updated_panel_user.get("subscriptionUuid") or panel_sub_uuid,
+            "panel_subscription_uuid": updated_panel_user.get("shortUuid") or panel_sub_uuid,
             "subscription_url": updated_panel_user.get("subscriptionUrl"),
         }
     except Exception:
