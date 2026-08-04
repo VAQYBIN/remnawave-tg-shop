@@ -35,7 +35,7 @@ export interface AdminUserListItem {
   last_name: string | null
   is_banned: boolean
   registration_date: string | null
-  panel_user_uuid: string | null
+  panel_user_id: number | null
   email: string | null
   has_active_subscription: boolean
   subscription_end_date: string | null
@@ -58,7 +58,7 @@ export interface AdminSubscriptionDetail {
   auto_renew_enabled: boolean
   traffic_limit_bytes: number | null
   traffic_used_bytes: number | null
-  panel_user_uuid: string | null
+  panel_user_id: number | null
 }
 
 export interface AdminPaymentItem {
@@ -78,7 +78,7 @@ export interface AdminUserDetailResponse {
   last_name: string | null
   is_banned: boolean
   registration_date: string | null
-  panel_user_uuid: string | null
+  panel_user_id: number | null
   language_code: string | null
   referral_code: string | null
   email: string | null

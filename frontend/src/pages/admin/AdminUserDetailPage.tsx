@@ -305,7 +305,7 @@ export function AdminUserDetailPage() {
   const devicesQuery = useQuery({
     queryKey: ['admin', 'user', uid, 'devices'],
     queryFn: () => getAdminUserDevices(uid),
-    enabled: !isNaN(uid) && Boolean(user?.panel_user_uuid),
+    enabled: !isNaN(uid) && user?.panel_user_id != null,
   })
 
   const activityQuery = useQuery({
@@ -478,7 +478,7 @@ export function AdminUserDetailPage() {
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            {user.panel_user_uuid && (
+            {user.panel_user_id != null && (
               <>
                 <Button size="sm" onClick={() => setModal('add-days')}>
                   <CalendarPlus size={15} />
@@ -590,7 +590,7 @@ export function AdminUserDetailPage() {
               <h3 className="mb-2 text-sm font-bold text-[hsl(var(--foreground))]">
                 {t('admin_user_detail_devices')}
               </h3>
-              {!user.panel_user_uuid ? (
+              {user.panel_user_id == null ? (
                 <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">
                   {t('admin_user_detail_devices_empty')}
                 </p>
@@ -650,13 +650,13 @@ export function AdminUserDetailPage() {
               />
               <KVRow label={t('admin_users_registered')} value={formatDate(user.registration_date)} />
               <KVRow
-                label={t('admin_user_detail_panel_uuid')}
+                label={t('admin_user_detail_panel_id')}
                 value={
-                  user.panel_user_uuid ? (
+                  user.panel_user_id != null ? (
                     <span className="flex items-center justify-end gap-1 font-mono text-xs">
-                      {user.panel_user_uuid.slice(0, 8)}…
+                      {user.panel_user_id}
                       <button
-                        onClick={() => navigator.clipboard.writeText(user.panel_user_uuid!)}
+                        onClick={() => navigator.clipboard.writeText(String(user.panel_user_id))}
                         className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
                       >
                         <Copy size={12} />

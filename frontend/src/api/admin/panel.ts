@@ -114,7 +114,7 @@ export function getPanelUsers(params: { query?: string; page?: number; page_size
   )
 }
 
-export function getPanelUser(uuid: string): Promise<PanelRawResponse> {
-  return apiRequest<PanelRawResponse>(`/admin/panel/users/${uuid}`)
+export function getPanelUser(userId: string): Promise<PanelRawResponse> {
+  return apiRequest<PanelRawResponse>(`/admin/panel/users/${userId}`)
 }
 
