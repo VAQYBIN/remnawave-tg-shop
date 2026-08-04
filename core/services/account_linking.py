@@ -8,6 +8,7 @@ from config.settings import Settings
 from db.models import Account, User, Subscription
 from core.dal import user_dal, subscription_dal
 from core.services.panel_client import PanelApiService
+from core.services.panel_identity import resolve_panel_user_id
 
 
 def _utc_now() -> datetime:
@@ -43,35 +44,31 @@ async def _ensure_telegram_panel_user(
     panel: PanelApiService,
     user: User,
 ) -> Optional[dict[str, Any]]:
-    panel_user = None
-    if user.panel_user_uuid:
-        panel_user = await panel.get_user_by_uuid(user.panel_user_uuid)
+    panel_user_id = await resolve_panel_user_id(session, panel, user)
+    if panel_user_id is not None:
+        return await panel.get_user_by_id(panel_user_id)
 
-    if not panel_user:
-        by_tg = await panel.get_users_by_filter(telegram_id=user.user_id)
-        if by_tg and len(by_tg) == 1:
-            panel_user = by_tg[0]
-
-    if not panel_user:
-        created = await panel.create_panel_user(
-            username_on_panel=f"tg_{user.user_id}",
-            telegram_id=user.user_id,
-            description=_description_from_user(user),
-            specific_squad_uuids=settings.parsed_user_squad_uuids,
-            external_squad_uuid=settings.parsed_user_external_squad_uuid,
-            default_traffic_limit_bytes=settings.user_traffic_limit_bytes,
-            default_traffic_limit_strategy=settings.USER_TRAFFIC_STRATEGY,
-        )
-        if created and not created.get("error"):
-            panel_user = created.get("response")
-
-    if not panel_user or not panel_user.get("uuid"):
+    created = await panel.create_panel_user(
+        username_on_panel=f"tg_{user.user_id}",
+        telegram_id=user.user_id,
+        description=_description_from_user(user),
+        specific_squad_uuids=settings.parsed_user_squad_uuids,
+        external_squad_uuid=settings.parsed_user_external_squad_uuid,
+        default_traffic_limit_bytes=settings.user_traffic_limit_bytes,
+        default_traffic_limit_strategy=settings.USER_TRAFFIC_STRATEGY,
+    )
+    if not created or created.get("error"):
         return None
 
-    if user.panel_user_uuid != panel_user["uuid"]:
-        await user_dal.update_user(session, user.user_id, {"panel_user_uuid": panel_user["uuid"]})
-        user.panel_user_uuid = panel_user["uuid"]
+    panel_user = created.get("response") or {}
+    created_id = panel_user.get("id")
+    if created_id is None:
+        return None
 
+    await user_dal.update_user(
+        session, user.user_id, {"panel_user_id": int(created_id)}
+    )
+    user.panel_user_id = int(created_id)
     return panel_user
 
 
@@ -97,7 +94,7 @@ async def merge_site_subscription_into_telegram(
     site_sub = await subscription_dal.get_active_subscription_by_user_id(
         session,
         site_user.user_id,
-        site_user.panel_user_uuid,
+        site_user.panel_user_id,
     )
     if not site_sub or not site_sub.end_date:
         return {"merged": False, "reason": "no_active_site_subscription"}
@@ -117,18 +114,15 @@ async def merge_site_subscription_into_telegram(
         if not telegram_panel_user:
             raise RuntimeError("Failed to ensure Telegram panel user")
 
-        telegram_panel_uuid = telegram_panel_user["uuid"]
-        telegram_panel_sub_uuid = (
-            telegram_panel_user.get("subscriptionUuid")
-            or telegram_panel_user.get("shortUuid")
-        )
+        telegram_panel_id = int(telegram_panel_user["id"])
+        telegram_panel_sub_uuid = telegram_panel_user.get("shortUuid")
         if not telegram_panel_sub_uuid:
             raise RuntimeError("Telegram panel user has no subscription UUID")
 
         telegram_sub = await subscription_dal.get_active_subscription_by_user_id(
             session,
             telegram_user.user_id,
-            telegram_panel_uuid,
+            telegram_panel_id,
         )
 
         remaining = site_sub.end_date - now
@@ -139,9 +133,8 @@ async def merge_site_subscription_into_telegram(
         final_end = base_end + remaining
 
         updated_panel_user = await panel.update_user_details_on_panel(
-            telegram_panel_uuid,
+            telegram_panel_id,
             {
-                "uuid": telegram_panel_uuid,
                 "telegramId": telegram_user.user_id,
                 "expireAt": _panel_datetime(final_end),
                 "status": "ACTIVE",
@@ -165,7 +158,7 @@ async def merge_site_subscription_into_telegram(
 
         sub_payload = {
             "user_id": telegram_user.user_id,
-            "panel_user_uuid": telegram_panel_uuid,
+            "panel_user_id": telegram_panel_id,
             "panel_subscription_uuid": telegram_panel_sub_uuid,
             "start_date": telegram_sub.start_date if telegram_sub else now,
             "end_date": final_end,
@@ -189,14 +182,17 @@ async def merge_site_subscription_into_telegram(
             },
         )
 
-        if site_user.panel_user_uuid and site_user.panel_user_uuid != telegram_panel_uuid:
-            deleted = await panel.delete_user_from_panel(site_user.panel_user_uuid)
+        if (
+            site_user.panel_user_id is not None
+            and site_user.panel_user_id != telegram_panel_id
+        ):
+            deleted = await panel.delete_user_from_panel(site_user.panel_user_id)
             if not deleted:
                 logging.warning(
                     "Failed to delete merged web-only panel user %s",
-                    site_user.panel_user_uuid,
+                    site_user.panel_user_id,
                 )
-        await user_dal.update_user(session, site_user.user_id, {"panel_user_uuid": None})
+        await user_dal.update_user(session, site_user.user_id, {"panel_user_id": None})
 
         return {
             "merged": True,
@@ -223,53 +219,44 @@ async def sync_telegram_panel_identity(
     """
     panel = PanelApiService(settings)
     try:
-        panel_user = None
+        panel_user_id = await resolve_panel_user_id(
+            session, panel, telegram_user, account
+        )
 
-        if telegram_user.panel_user_uuid:
-            panel_user = await panel.get_user_by_uuid(telegram_user.panel_user_uuid)
-
-        if not panel_user:
-            by_tg = await panel.get_users_by_filter(telegram_id=telegram_user.user_id)
-            if by_tg and len(by_tg) == 1:
-                panel_user = by_tg[0]
-            elif by_tg and len(by_tg) > 1:
-                logging.error(
-                    "Multiple Remnawave users found for telegramId %s during identity sync.",
-                    telegram_user.user_id,
-                )
-                return {"synced": False, "reason": "multiple_by_telegram_id"}
-
-        if not panel_user and account.email:
+        if panel_user_id is None and account.email:
             by_email = await panel.get_users_by_filter(email=account.email)
-            if by_email and len(by_email) == 1:
-                panel_user = by_email[0]
-            elif by_email and len(by_email) > 1:
+            if by_email and len(by_email) > 1:
                 logging.error(
                     "Multiple Remnawave users found for account email during identity sync."
                 )
                 return {"synced": False, "reason": "multiple_by_email"}
+            if by_email:
+                panel_user_id = by_email[0].get("id")
 
-        if not panel_user or not panel_user.get("uuid"):
+        if panel_user_id is None:
             return {"synced": False, "reason": "panel_user_not_found"}
+        panel_user_id = int(panel_user_id)
 
-        panel_uuid = panel_user["uuid"]
         payload: dict[str, Any] = {
-            "uuid": panel_uuid,
             "telegramId": telegram_user.user_id,
             "description": _description_from_user(telegram_user),
         }
         if account.email:
             payload["email"] = account.email
 
-        updated_panel_user = await panel.update_user_details_on_panel(panel_uuid, payload)
+        updated_panel_user = await panel.update_user_details_on_panel(
+            panel_user_id, payload
+        )
         if not updated_panel_user:
             return {"synced": False, "reason": "panel_update_failed"}
 
-        if telegram_user.panel_user_uuid != panel_uuid:
-            await user_dal.update_user(session, telegram_user.user_id, {"panel_user_uuid": panel_uuid})
-            telegram_user.panel_user_uuid = panel_uuid
+        if telegram_user.panel_user_id != panel_user_id:
+            await user_dal.update_user(
+                session, telegram_user.user_id, {"panel_user_id": panel_user_id}
+            )
+            telegram_user.panel_user_id = panel_user_id
 
-        return {"synced": True, "panel_user_uuid": panel_uuid}
+        return {"synced": True, "panel_user_id": panel_user_id}
     finally:
         await panel.close_session()
 
@@ -284,12 +271,12 @@ async def unlink_telegram_from_account(
         return False
 
     telegram_user = await user_dal.get_user_by_id(session, account.telegram_user_id)
-    if telegram_user and telegram_user.panel_user_uuid:
+    if telegram_user and telegram_user.panel_user_id is not None:
         panel = PanelApiService(settings)
         try:
             await panel.update_user_details_on_panel(
-                telegram_user.panel_user_uuid,
-                {"uuid": telegram_user.panel_user_uuid, "telegramId": None},
+                telegram_user.panel_user_id,
+                {"telegramId": None},
             )
         finally:
             await panel.close_session()

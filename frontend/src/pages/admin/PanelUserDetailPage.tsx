@@ -34,7 +34,7 @@ export function PanelUserDetailPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">{getString(user, 'username', 'Panel user')}</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{getString(user, 'uuid')}</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{getNumber(user, 'id')}</p>
         </div>
       </div>
 

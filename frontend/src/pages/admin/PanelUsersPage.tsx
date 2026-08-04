@@ -44,7 +44,7 @@ export function PanelUsersPage() {
       render: (user) => (
         <div className="flex flex-col">
           <span className="font-semibold">{getString(user, 'username')}</span>
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">{getString(user, 'uuid')}</span>
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">{formatScalar(user.id)}</span>
         </div>
       ),
     },
@@ -85,7 +85,7 @@ export function PanelUsersPage() {
       size: 70,
       enableResizing: false,
       render: (user) => (
-        <Link to={`/admin/panel/users/${getString(user, 'uuid', '')}`}>
+        <Link to={`/admin/panel/users/${getNumber(user, 'id')}`}>
           <Button variant="ghost" size="icon" title={t('admin_open')}><ExternalLink size={16} /></Button>
         </Link>
       ),
@@ -145,7 +145,7 @@ export function PanelUsersPage() {
         }}
         isLoading={usersQuery.isLoading}
         emptyMessage={t('admin_panel_users_empty')}
-        keyExtractor={(user) => getString(user, 'uuid')}
+        keyExtractor={(user) => String(getNumber(user, 'id'))}
       />
     </div>
   )

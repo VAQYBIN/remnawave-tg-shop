@@ -374,7 +374,7 @@
   "admin_user_registration_label": "📅 <b>Регистрация:</b>",
   "admin_user_status_label": "🛡 <b>Статус:</b>",
   "admin_user_referral_label": "🎁 <b>Привлечен по реферальной программе от:</b>",
-  "admin_user_panel_uuid_label": "🔗 <b>Panel UUID:</b>",
+  "admin_user_panel_id_label": "🔗 <b>Panel ID:</b>",
   "admin_user_panel_status_label": "📊 <b>Статус на панели:</b>",
   "admin_user_traffic_label": "📊 <b>Трафик:</b>",
   "admin_user_subscription_label": "💼 <b>Подписка:</b>",

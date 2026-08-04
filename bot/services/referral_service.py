@@ -113,10 +113,10 @@ class ReferralService:
                     )
                 else:
 
-                    inviter_panel_uuid, inviter_panel_sub_link_id, _, _ = await self.subscription_service._get_or_create_panel_user_link_details(
+                    inviter_panel_id, inviter_panel_sub_link_id, _, _ = await self.subscription_service._get_or_create_panel_user_link_details(
                         session, inviter_user_id, inviter_user_model)
 
-                    if not inviter_panel_uuid:
+                    if inviter_panel_id is None:
                         logging.warning(
                             f"Failed to get/create panel link for inviter {inviter_user_id}. Cannot apply inviter bonus directly to panel."
                         )
@@ -168,8 +168,8 @@ class ReferralService:
                                 bonus_sub_payload = {
                                     "user_id":
                                     inviter_user_id,
-                                    "panel_user_uuid":
-                                    inviter_panel_uuid,
+                                    "panel_user_id":
+                                    inviter_panel_id,
                                     "panel_subscription_uuid":
                                     inviter_panel_sub_link_id,
                                     "start_date":
@@ -189,13 +189,13 @@ class ReferralService:
                                 }
                                 try:
                                     await subscription_dal.deactivate_other_active_subscriptions(
-                                        session, inviter_panel_uuid,
+                                        session, inviter_panel_id,
                                         inviter_panel_sub_link_id)
                                     bonus_sub = await subscription_dal.upsert_subscription(
                                         session, bonus_sub_payload)
 
                                     panel_update_success = await self.subscription_service.panel_service.update_user_details_on_panel(
-                                        inviter_panel_uuid, {
+                                        inviter_panel_id, {
                                             "expireAt":
                                             bonus_end_date.isoformat(
                                                 timespec='milliseconds').

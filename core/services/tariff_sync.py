@@ -124,7 +124,7 @@ async def build_panel_state(
 async def sync_entitlements_to_panel(
     session: AsyncSession,
     user_id: int,
-    panel_user_uuid: str,
+    panel_user_id: int,
     panel_service: PanelApiService,
     now: Optional[datetime] = None,
 ) -> bool:
@@ -142,12 +142,11 @@ async def sync_entitlements_to_panel(
         )
         return False
 
-    payload = {"uuid": panel_user_uuid, **state}
-    result = await panel_service.update_user_details_on_panel(panel_user_uuid, payload)
+    result = await panel_service.update_user_details_on_panel(panel_user_id, state)
     if result is None:
         logger.error(
-            "sync_entitlements_to_panel: Remnawave PATCH failed for user=%s uuid=%s",
-            user_id, panel_user_uuid,
+            "sync_entitlements_to_panel: Remnawave PATCH failed for user=%s panel_id=%s",
+            user_id, panel_user_id,
         )
         return False
 

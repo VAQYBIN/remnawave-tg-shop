@@ -16,7 +16,7 @@ class SubscriptionResponse(BaseModel):
     auto_renew_enabled: bool
     auto_renew_available: bool = False
     provider: Optional[str]
-    panel_user_uuid: str
+    panel_user_id: int
     panel_subscription_uuid: Optional[str]
 
 

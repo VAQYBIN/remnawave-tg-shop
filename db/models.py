@@ -24,6 +24,7 @@ class User(Base):
                                server_default=func.now())
     is_banned = Column(Boolean, default=False)
     panel_user_uuid = Column(String, nullable=True, unique=True, index=True)
+    panel_user_id = Column(BigInteger, nullable=True, unique=True, index=True)
     referral_code = Column(String(16), nullable=True, unique=True, index=True)
     referred_by_id = Column(BigInteger,
                             ForeignKey("users.user_id"),
@@ -65,7 +66,8 @@ class Subscription(Base):
                      ForeignKey("users.user_id"),
                      nullable=False,
                      index=True)
-    panel_user_uuid = Column(String, nullable=False, index=True)
+    panel_user_uuid = Column(String, nullable=True, index=True)
+    panel_user_id = Column(BigInteger, nullable=True, index=True)
     panel_subscription_uuid = Column(String,
                                      unique=True,
                                      index=True,

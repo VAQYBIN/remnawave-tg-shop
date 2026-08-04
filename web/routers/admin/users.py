@@ -113,7 +113,7 @@ async def list_admin_users(
             last_name=user.last_name,
             is_banned=user.is_banned,
             registration_date=user.registration_date,
-            panel_user_uuid=user.panel_user_uuid,
+            panel_user_id=user.panel_user_id,
             email=email,
             has_active_subscription=active_sub is not None,
             subscription_end_date=active_sub.end_date if active_sub else None,
@@ -159,7 +159,7 @@ async def get_admin_user_detail(
             auto_renew_enabled=bool(active_sub.auto_renew_enabled),
             traffic_limit_bytes=active_sub.traffic_limit_bytes,
             traffic_used_bytes=active_sub.traffic_used_bytes,
-            panel_user_uuid=active_sub.panel_user_uuid,
+            panel_user_id=active_sub.panel_user_id,
         )
 
     # Recent payments (last 5)
@@ -181,10 +181,10 @@ async def get_admin_user_detail(
 
     # Panel data (don't fail if panel is unavailable)
     panel_data = None
-    if user.panel_user_uuid:
+    if user.panel_user_id is not None:
         try:
             panel = PanelApiService(settings)
-            panel_data = await panel.get_user_by_uuid(user.panel_user_uuid)
+            panel_data = await panel.get_user_by_id(user.panel_user_id)
         except Exception:
             panel_data = None
 
@@ -195,7 +195,7 @@ async def get_admin_user_detail(
         last_name=user.last_name,
         is_banned=user.is_banned,
         registration_date=user.registration_date,
-        panel_user_uuid=user.panel_user_uuid,
+        panel_user_id=user.panel_user_id,
         language_code=user.language_code,
         referral_code=user.referral_code,
         email=email,
@@ -216,12 +216,12 @@ async def get_admin_user_devices(
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.panel_user_uuid:
+    if user.panel_user_id is None:
         return DevicesResponse(devices=[], total=0)
 
     panel = PanelApiService(settings)
     try:
-        raw_devices = await panel.get_user_devices(user.panel_user_uuid)
+        raw_devices = await panel.get_user_devices(user.panel_user_id)
     finally:
         await panel.close()
 
@@ -392,11 +392,11 @@ async def add_days_to_subscription(
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.panel_user_uuid:
+    if user.panel_user_id is None:
         raise HTTPException(status_code=400, detail="User has no panel subscription")
 
     panel = PanelApiService(settings)
-    success = await panel.extend_user_subscription(user.panel_user_uuid, body.days)
+    success = await panel.extend_user_subscription(user.panel_user_id, body.days)
     if not success:
         raise HTTPException(status_code=502, detail="Panel API error")
     await add_admin_audit_log(db, admin, "admin_add_days", target_user_id=user_id, details={"days": body.days})
@@ -417,12 +417,12 @@ async def add_traffic_to_user(
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.panel_user_uuid:
+    if user.panel_user_id is None:
         raise HTTPException(status_code=400, detail="User has no panel subscription")
 
     bytes_to_add = int(body.gigabytes * 1024 ** 3)
     panel = PanelApiService(settings)
-    success = await panel.add_user_traffic(user.panel_user_uuid, bytes_to_add)
+    success = await panel.add_user_traffic(user.panel_user_id, bytes_to_add)
     if not success:
         raise HTTPException(status_code=502, detail="Panel API error")
     await add_admin_audit_log(

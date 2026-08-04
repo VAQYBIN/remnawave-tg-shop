@@ -158,7 +158,6 @@ def make_trial_settings(**overrides):
 def trial_payload(settings):
     return trial_core._build_panel_update_payload(
         settings,
-        panel_user_uuid="uuid-1",
         expire_at=NOW + timedelta(days=3),
         traffic_limit_bytes=0,
         description="trial",

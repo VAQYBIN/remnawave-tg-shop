@@ -12,7 +12,7 @@ export interface Subscription {
   auto_renew_enabled: boolean
   auto_renew_available: boolean
   provider: string | null
-  panel_user_uuid: string
+  panel_user_id: number
   panel_subscription_uuid: string | null
 }
 

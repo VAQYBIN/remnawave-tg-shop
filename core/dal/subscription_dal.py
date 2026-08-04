@@ -12,14 +12,14 @@ from db.models import Subscription, User
 async def get_active_subscription_by_user_id(
         session: AsyncSession,
         user_id: int,
-        panel_user_uuid: Optional[str] = None) -> Optional[Subscription]:
+        panel_user_id: Optional[int] = None) -> Optional[Subscription]:
     stmt = select(Subscription).where(
         Subscription.user_id == user_id,
         Subscription.is_active == True,
         Subscription.end_date > datetime.now(timezone.utc),
     )
-    if panel_user_uuid:
-        stmt = stmt.where(Subscription.panel_user_uuid == panel_user_uuid)
+    if panel_user_id is not None:
+        stmt = stmt.where(Subscription.panel_user_id == panel_user_id)
     stmt = stmt.order_by(Subscription.end_date.desc()).limit(1)
     result = await session.execute(stmt)
     return result.scalars().first()
@@ -107,9 +107,9 @@ async def upsert_subscription(session: AsyncSession,
             f"Creating new subscription with panel_sub_uuid {panel_sub_uuid}")
 
         if sub_payload.get(
-                "user_id") is None and "panel_user_uuid" not in sub_payload:
+                "user_id") is None and "panel_user_id" not in sub_payload:
             raise ValueError(
-                "For a new subscription without user_id, panel_user_uuid is required."
+                "For a new subscription without user_id, panel_user_id is required."
             )
         if "end_date" not in sub_payload:
             raise ValueError("Missing 'end_date' for new subscription.")
@@ -129,10 +129,10 @@ async def upsert_subscription(session: AsyncSession,
 
 
 async def deactivate_other_active_subscriptions(
-        session: AsyncSession, panel_user_uuid: str,
+        session: AsyncSession, panel_user_id: int,
         current_panel_subscription_uuid: Optional[str]):
     stmt = (update(Subscription).where(
-        Subscription.panel_user_uuid == panel_user_uuid,
+        Subscription.panel_user_id == panel_user_id,
         Subscription.is_active == True,
     ).values(is_active=False, status_from_panel="INACTIVE_BY_BOT_SYNC"))
     if current_panel_subscription_uuid:
@@ -142,7 +142,7 @@ async def deactivate_other_active_subscriptions(
     result = await session.execute(stmt)
     if result.rowcount > 0:
         logging.info(
-            f"Deactivated {result.rowcount} other active subscriptions for panel_user_uuid {panel_user_uuid}."
+            f"Deactivated {result.rowcount} other active subscriptions for panel_user_id {panel_user_id}."
         )
 
 

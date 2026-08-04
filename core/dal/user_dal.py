@@ -82,10 +82,10 @@ async def get_user_by_username(session: AsyncSession, username: str) -> Optional
     return result.scalar_one_or_none()
 
 
-async def get_user_by_panel_uuid(
-    session: AsyncSession, panel_uuid: str
+async def get_user_by_panel_id(
+    session: AsyncSession, panel_id: int
 ) -> Optional[User]:
-    stmt = select(User).where(User.panel_user_uuid == panel_uuid)
+    stmt = select(User).where(User.panel_user_id == panel_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -200,12 +200,6 @@ async def count_all_users(session: AsyncSession) -> int:
 
 async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> List[int]:
     stmt = select(User.user_id).where(User.is_banned == False, User.user_id > 0)
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
-async def get_all_users_with_panel_uuid(session: AsyncSession) -> List[User]:
-    stmt = select(User).where(User.panel_user_uuid.is_not(None))
     result = await session.execute(stmt)
     return result.scalars().all()
 

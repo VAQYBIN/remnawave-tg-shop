@@ -55,13 +55,13 @@ async def list_panel_users(
     )
 
 
-@router.get("/{uuid}", response_model=PanelUserDetailResponse)
+@router.get("/{user_id}", response_model=PanelUserDetailResponse)
 async def get_panel_user(
-    uuid: str,
+    user_id: int,
     _admin: Account = Depends(get_current_admin),
     settings: Settings = Depends(get_settings_dep),
 ):
-    data = await _panel(settings).get_user_by_uuid(uuid, log_response=False)
+    data = await _panel(settings).get_user_by_id(user_id, log_response=False)
     if data is None:
         raise HTTPException(status_code=404, detail="Panel user not found")
     return PanelUserDetailResponse(data=data)
