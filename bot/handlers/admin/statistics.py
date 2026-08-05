@@ -12,6 +12,7 @@ from bot.services.panel_api_service import PanelApiService
 
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.handlers.admin.payments import format_payment_user_info
 
 router = Router(name="admin_statistics_router")
 
@@ -178,11 +179,7 @@ async def show_statistics_handler(callback: types.CallbackQuery,
                 else "❌"
             )
 
-            user_info = f"User {payment.user_id}"
-            if payment.user and payment.user.username:
-                user_info += f" (@{payment.user.username})"
-            elif payment.user and payment.user.first_name:
-                user_info += f" ({payment.user.first_name})"
+            user_info = format_payment_user_info(payment)
 
             payment_date_str = payment.created_at.strftime(
                 '%Y-%m-%d') if payment.created_at else "N/A"

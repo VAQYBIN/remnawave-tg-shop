@@ -14,8 +14,22 @@ from db.models import Payment
 from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.html_preview import escape_html, format_user_reference
 
 router = Router(name="admin_payments_router")
+
+
+def format_payment_user_info(payment: Payment) -> str:
+    """Строка «User <id> (@name)» для вывода с parse_mode=HTML."""
+    user_info = f"User {payment.user_id}"
+    user = getattr(payment, "user", None)
+    reference = format_user_reference(
+        username=user.username if user else None,
+        first_name=user.first_name if user else None,
+    )
+    if reference:
+        user_info += f" ({reference})"
+    return user_info
 
 
 async def get_payments_with_pagination(session: AsyncSession, page: int = 0, 
@@ -50,12 +64,8 @@ def format_payment_text(payment: Payment, i18n: JsonI18n, lang: str, settings: S
         "⏳" if payment.status in pending_statuses else "❌"
     )
     
-    user_info = f"User {payment.user_id}"
-    if payment.user and payment.user.username:
-        user_info += f" (@{payment.user.username})"
-    elif payment.user and payment.user.first_name:
-        user_info += f" ({payment.user.first_name})"
-    
+    user_info = format_payment_user_info(payment)
+
     payment_date = payment.created_at.strftime('%Y-%m-%d %H:%M') if payment.created_at else "N/A"
     
     provider_text = {
@@ -81,8 +91,8 @@ def format_payment_text(payment: Payment, i18n: JsonI18n, lang: str, settings: S
         f"💳 {provider_text}\n"
         f"📅 {payment_date}\n"
         f"{period_line}\n"
-        f"📋 {payment.status}\n"
-        f"📝 {payment.description or 'N/A'}"
+        f"📋 {escape_html(payment.status)}\n"
+        f"📝 {escape_html(payment.description) or 'N/A'}"
     )
 
 

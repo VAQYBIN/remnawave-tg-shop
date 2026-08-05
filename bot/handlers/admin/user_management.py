@@ -18,6 +18,7 @@ from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
 from bot.middlewares.i18n import JsonI18n
 from bot.utils import get_message_content, send_direct_message
+from bot.utils.html_preview import escape_html_preview, format_user_reference
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from bot.utils.text_sanitizer import (
     sanitize_display_name,
@@ -562,7 +563,7 @@ async def handle_view_user_logs(callback: types.CallbackQuery, user: User,
         for log in logs:
             timestamp = log.timestamp.strftime('%Y-%m-%d %H:%M') if log.timestamp else 'N/A'
             event_type = log.event_type or 'N/A'
-            content_preview = (log.content or '')[:50] + ('...' if len(log.content or '') > 50 else '')
+            content_preview = escape_html_preview(log.content, limit=50)
             
             logs_text_parts.append(
                 f"🕐 {hcode(timestamp)} - {hcode(event_type)}\n"
@@ -1111,9 +1112,11 @@ async def view_banned_users_handler(callback: types.CallbackQuery,
         else:
             user_list = []
             for user in banned_users:
-                display_name = user.first_name or "Unknown"
-                if user.username:
-                    display_name = f"@{user.username}"
+                display_name = format_user_reference(
+                    username=user.username,
+                    first_name=user.first_name,
+                    fallback="Unknown",
+                )
                 user_list.append(f"• {display_name} (ID: {user.user_id})")
             
             message_text = _(
