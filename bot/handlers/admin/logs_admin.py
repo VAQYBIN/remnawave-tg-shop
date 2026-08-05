@@ -20,6 +20,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_logs_menu_keyboard, get_logs_pagination_keyboard,
     get_back_to_admin_panel_keyboard)
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.html_preview import escape_html, escape_html_preview
 
 router = Router(name="admin_logs_router")
 USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_]{5,32}$")
@@ -61,7 +62,11 @@ async def _display_formatted_logs(target_message: types.Message,
                                                               Any]] = None):
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     page_size = settings.LOGS_PAGE_SIZE
-    actual_title_kwargs = title_kwargs or {}
+    # В заголовок подставляется имя/username из Telegram — тоже недоверенный текст.
+    actual_title_kwargs = {
+        key: escape_html(value) if isinstance(value, str) else value
+        for key, value in (title_kwargs or {}).items()
+    }
 
     if not logs and total_logs == 0:
         text = _(
@@ -99,10 +104,9 @@ async def _display_formatted_logs(target_message: types.Message,
             user_id_display = str(
                 log_entry_model.user_id
             ) if log_entry_model.user_id is not None else "N/A"
-            content_raw = log_entry_model.content or ""
-            content_preview = (content_raw[:100] +
-                               "...") if len(content_raw) > 100 else (
-                                   content_raw or "N/A")
+            content_preview = escape_html_preview(log_entry_model.content,
+                                                  limit=100,
+                                                  placeholder="N/A")
 
             timestamp_str_display = log_entry_model.timestamp.strftime(
                 '%Y-%m-%d %H:%M:%S') if log_entry_model.timestamp else 'N/A'
@@ -110,9 +114,9 @@ async def _display_formatted_logs(target_message: types.Message,
             log_entries_text.append(
                 _("admin_log_entry_format",
                   timestamp_str=timestamp_str_display,
-                  user_display=user_display,
+                  user_display=escape_html(user_display),
                   user_id=user_id_display,
-                  event_type=log_entry_model.event_type or 'N/A',
+                  event_type=escape_html(log_entry_model.event_type or 'N/A'),
                   content_preview=content_preview).replace("\n", "\n  "))
         text += "\n\n".join(log_entries_text)
         reply_markup = get_logs_pagination_keyboard(
