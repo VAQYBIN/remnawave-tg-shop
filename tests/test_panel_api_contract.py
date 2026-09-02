@@ -1,4 +1,4 @@
-"""Сверяет пути, которые дёргает panel_client, с OpenAPI-спекой Remnawave 3.2.1.
+"""Сверяет пути, которые дёргает panel_client, с OpenAPI-спекой Remnawave 3.4.3.
 
 Живого стенда с v3 нет, так что это единственная защита от опечатки в URL
 и от вызова эндпоинта, удалённого в мажорной версии.
@@ -11,7 +11,7 @@ import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLIENT = REPO_ROOT / "core" / "services" / "panel_client.py"
-SPEC = REPO_ROOT / "docs" / "remnawave-openapi-3.2.1.json"
+SPEC = REPO_ROOT / "docs" / "remnawave-openapi-3.4.3.json"
 
 # PANEL_API_URL уже оканчивается на /api, поэтому пути в клиенте пишутся без него.
 API_PREFIX = "/api"
@@ -142,6 +142,6 @@ def test_endpoint_exists_in_spec(method: str, path: str):
             if method in methods and matches(full, spec_path)
         ]
         assert hit, (
-            f"{method} {full} отсутствует в Remnawave 3.2.1 OpenAPI. "
+            f"{method} {full} отсутствует в Remnawave 3.4.3 OpenAPI. "
             "Эндпоинт удалён или переименован в v3."
         )
